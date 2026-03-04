@@ -68,6 +68,9 @@ export default function CreateScreen() {
       });
 
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error("Too many requests");
+        }
         const errorData = await response.json();
         console.log(errorData);
         throw new Error(errorData.error || "Failed to create transaction");
@@ -76,8 +79,12 @@ export default function CreateScreen() {
       Alert.alert("Success", "Transaction created successfully");
       router.back();
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to create transaction");
-      console.error("Error creating transaction:", error);
+      if (error.message === "Too many requests") {
+        Alert.alert("Too many requests", "Please try again later");
+      } else {
+        Alert.alert("Error", error.message || "Failed to create transaction");
+        console.error("Error creating transaction:", error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -203,7 +210,7 @@ export default function CreateScreen() {
                 style={[
                   styles.categoryButton,
                   selectedCategory === category.name &&
-                    styles.categoryButtonActive,
+                  styles.categoryButtonActive,
                 ]}
                 onPress={() => setSelectedCategory(category.name)}
               >
@@ -221,7 +228,7 @@ export default function CreateScreen() {
                   style={[
                     styles.categoryButtonText,
                     selectedCategory === category.name &&
-                      styles.categoryButtonTextActive,
+                    styles.categoryButtonTextActive,
                   ]}
                 >
                   {category.name}

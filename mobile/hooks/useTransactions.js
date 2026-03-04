@@ -15,34 +15,55 @@ export const useTransactions = (userId) => {
   const fetchTransactions = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/transactions/${userId}`);
+      if (response.status === 429) {
+        throw new Error("Too many requests");
+      }
       const data = await response.json();
       setTransactions(data);
     } catch (error) {
-      console.error("Error fetching transactions:", error);
+      if (error.message !== "Too many requests") {
+        console.error("Error fetching transactions:", error);
+      }
+      throw error;
     }
   }, [userId]);
 
   const fetchSummary = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/transactions/summary/${userId}`);
+      if (response.status === 429) {
+        throw new Error("Too many requests");
+      }
       const data = await response.json();
       setSummary(data);
     } catch (error) {
-      console.error("Error fetching summary:", error);
+      if (error.message !== "Too many requests") {
+        console.error("Error fetching summary:", error);
+      }
+      throw error;
     }
   }, [userId]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (isRefresh = false) => {
     if (!userId) return;
 
-    setIsLoading(true);
+    if (!isRefresh) {
+      setIsLoading(true);
+    }
+
     try {
       // can be run in parallel
       await Promise.all([fetchTransactions(), fetchSummary()]);
     } catch (error) {
-      console.error("Error loading data:", error);
+      if (error.message === "Too many requests") {
+        Alert.alert("Too many requests", "Please try again later");
+      } else {
+        console.error("Error loading data:", error);
+      }
     } finally {
-      setIsLoading(false);
+      if (!isRefresh) {
+        setIsLoading(false);
+      }
     }
   }, [fetchTransactions, fetchSummary, userId]);
 
@@ -51,14 +72,23 @@ export const useTransactions = (userId) => {
       const response = await fetch(`${API_URL}/transactions/${id}`, {
         method: "DELETE",
       });
-      if (!response.ok) throw new Error("Failed to delete transaction");
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error("Too many requests");
+        }
+        throw new Error("Failed to delete transaction");
+      }
 
       // Refresh data after deletion
       loadData();
       Alert.alert("Success", "Transaction deleted successfully");
     } catch (error) {
-      console.error("Error deleting transaction:", error);
-      Alert.alert("Error", error.message);
+      if (error.message !== "Too many requests") {
+        console.error("Error deleting transaction:", error);
+        Alert.alert("Error", error.message);
+      } else {
+        Alert.alert("Too many requests", "Please try again later");
+      }
     }
   };
 
