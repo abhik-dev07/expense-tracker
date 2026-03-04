@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/context/ThemeContext";
 
-export default SafeScreen = ({ children }) => {
+const SafeScreen = ({ children }) => {
   const insets = useSafeAreaInsets();
   const { COLORS } = useTheme();
 
@@ -19,3 +19,5 @@ export default SafeScreen = ({ children }) => {
     </View>
   );
 };
+
+export default SafeScreen;
