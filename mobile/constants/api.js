@@ -1,4 +1,4 @@
-export const API_URL = "https://expense-api-iemj.onrender.com/api";
+export const API_URL = "https://expense-api-hazel.vercel.app/api";
 
 // For local development:
 // - Physical device: use your computer's LAN IP
