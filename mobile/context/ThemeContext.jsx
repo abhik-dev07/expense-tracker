@@ -1,8 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { LayoutAnimation, Platform, UIManager } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Enable LayoutAnimation for Android
+if (Platform.OS === "android") {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
+
 const THEMES = {
-  coffee: {
+  light: {
     primary: "#8B593E",
     background: "#FFF8F3",
     text: "#4A3428",
@@ -14,40 +22,16 @@ const THEMES = {
     card: "#FFFFFF",
     shadow: "#000000",
   },
-  forest: {
-    primary: "#2E7D32",
-    background: "#E8F5E9",
-    text: "#1B5E20",
-    border: "#C8E6C9",
-    white: "#FFFFFF",
-    textLight: "#66BB6A",
-    expense: "#C62828",
-    income: "#388E3C",
-    card: "#FFFFFF",
-    shadow: "#000000",
-  },
-  purple: {
-    primary: "#6A1B9A",
-    background: "#F3E5F5",
-    text: "#4A148C",
-    border: "#D1C4E9",
-    white: "#FFFFFF",
-    textLight: "#BA68C8",
-    expense: "#D32F2F",
-    income: "#388E3C",
-    card: "#FFFFFF",
-    shadow: "#000000",
-  },
-  ocean: {
-    primary: "#0277BD",
-    background: "#E1F5FE",
-    text: "#01579B",
-    border: "#B3E5FC",
-    white: "#FFFFFF",
-    textLight: "#4FC3F7",
-    expense: "#EF5350",
-    income: "#26A69A",
-    card: "#FFFFFF",
+  dark: {
+    primary: "#FFFFFF",
+    background: "#000000",
+    text: "#F2F2F7",
+    border: "#38383A",
+    white: "#000000",
+    textLight: "#98989D",
+    expense: "#FF453A",
+    income: "#32D74B",
+    card: "#1C1C1E",
     shadow: "#000000",
   },
 };
@@ -55,24 +39,36 @@ const THEMES = {
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  const [themeKey, setThemeKey] = useState("coffee");
+  const [themeKey, setThemeKey] = useState("light");
 
   const setTheme = async (key) => {
     if (THEMES[key]) {
+      LayoutAnimation.configureNext(
+        LayoutAnimation.create(
+          700,
+          LayoutAnimation.Types.easeInEaseOut,
+          LayoutAnimation.Properties.opacity
+        )
+      );
+
       setThemeKey(key);
-      await AsyncStorage.setItem("app_theme", key); // persist
+      await AsyncStorage.setItem("app_theme", key);
     }
   };
 
   useEffect(() => {
     const loadTheme = async () => {
       const saved = await AsyncStorage.getItem("app_theme");
-      if (saved && THEMES[saved]) setThemeKey(saved);
+      if (saved === "dark") {
+        setThemeKey("dark");
+      } else {
+        setThemeKey("light"); // Defaults legacy 'coffee' or other colors to light
+      }
     };
     loadTheme();
   }, []);
 
-  const COLORS = THEMES[themeKey];
+  const COLORS = THEMES[themeKey] || THEMES.light;
 
   return (
     <ThemeContext.Provider value={{ COLORS, themeKey, setTheme }}>

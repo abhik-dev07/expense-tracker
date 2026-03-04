@@ -87,7 +87,7 @@ export default function Home() {
               style={styles.addButton}
               onPress={() => router.push("/create")}
             >
-              <Ionicons name="add" size={20} color="#FFF" />
+              <Ionicons name="add" size={20} color={COLORS.white} />
               <Text style={styles.addButtonText}>Add</Text>
             </TouchableOpacity>
             <TouchableOpacity
