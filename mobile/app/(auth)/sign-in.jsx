@@ -1,4 +1,4 @@
-import { useSignIn } from "@clerk/clerk-expo";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { Link, useRouter } from "expo-router";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useEffect, useState } from "react";
@@ -9,13 +9,16 @@ import { authStyles } from "@/assets/styles/auth.styles";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 export default function Page() {
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const { signIn, signOut } = useAuthActions();
   const router = useRouter();
   const { COLORS } = useTheme();
   const styles = authStyles(COLORS);
 
+  const [step, setStep] = useState("signIn"); // "signIn" | "forgot" | "reset-verification"
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,37 +30,187 @@ export default function Page() {
   }, [error]);
 
   const onSignInPress = async () => {
-    if (!isLoaded) return;
+    if (!emailAddress || !password) {
+      setError("Please fill in all fields before signing in.");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const signInAttempt = await signIn.create({
-        identifier: emailAddress,
+      await signIn("password", {
+        email: emailAddress,
         password,
+        flow: "signIn",
       });
-
-      if (signInAttempt.status === "complete") {
-        await setActive({ session: signInAttempt.createdSessionId });
-        router.replace("/");
-      } else {
-        console.error(JSON.stringify(signInAttempt, null, 2));
-      }
+      router.replace("/");
     } catch (err) {
-      if (err.errors?.[0]?.code === "form_password_incorrect") {
-        setError("Password is incorrect. Please try again.");
-      } else if (err.errors?.[0]?.code === "form_identifier_not_found") {
+      const errorMessage = err?.message || err?.toString() || "";
+      if (errorMessage.includes("InvalidAccountId") || errorMessage.includes("not found")) {
         setError("Couldn't find your account. Please check your email.");
-      } else if (err.errors?.[0]?.code === "form_param_format_invalid") {
+      } else if (errorMessage.includes("InvalidSecret") || errorMessage.includes("password")) {
+        setError("Password is incorrect. Please try again.");
+      } else if (errorMessage.includes("email")) {
         setError("Please enter a valid email address.");
-      } else if (!emailAddress || !password) {
-        setError("Please fill in all fields before signing in.");
       } else {
         setError("An error occurred. Please try again.");
       }
+      console.error("Sign-in error:", err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const onForgotPasswordPress = async () => {
+    if (!emailAddress) {
+      setError("Please enter your email first.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await signIn("password", {
+        email: emailAddress,
+        flow: "reset",
+      });
+      setStep("reset-verification");
+    } catch (err) {
+      setError("An error occurred sending the reset code.");
+      console.error("Reset error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onResetVerifyPress = async () => {
+    if (!code || !newPassword) {
+      setError("Please enter both fields.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("Passwords must be 8 characters or more.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await signIn("password", {
+        email: emailAddress,
+        code,
+        newPassword,
+        flow: "reset-verification",
+      });
+      // Force sign out so they don't automatically get redirected
+      await signOut();
+      setStep("signIn");
+    } catch (err) {
+      const errorMessage = err?.message || err?.toString() || "";
+      if (errorMessage.includes("InvalidSecret") || errorMessage.includes("code")) {
+        setError("Verification code is incorrect. Please try again.");
+      } else {
+        setError("An error occurred. Please try again.");
+      }
+      console.error("Verification error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (step === "forgot") {
+    return (
+      <View style={styles.container}>
+        <KeyboardAwareScrollView bottomOffset={62} showsVerticalScrollIndicator={false}>
+          <Text style={styles.title}>Forgot Password</Text>
+          <Text style={[styles.footerText, { textAlign: 'center', marginBottom: 20 }]}>
+            Enter your email to receive a password reset code.
+          </Text>
+
+          {error ? (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={20} color={COLORS.expense} />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity onPress={() => setError("")}>
+                <Ionicons name="close" size={20} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          <TextInput
+            style={[styles.input, error && styles.errorInput]}
+            autoCapitalize="none"
+            value={emailAddress}
+            placeholder="Enter email"
+            placeholderTextColor="#9A8478"
+            onChangeText={setEmailAddress}
+          />
+
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={onForgotPasswordPress}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? "Sending..." : "Send Reset Code"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{ marginTop: 20, alignItems: 'center' }} onPress={() => setStep("signIn")}>
+            <Text style={styles.linkText}>Back to Sign In</Text>
+          </TouchableOpacity>
+        </KeyboardAwareScrollView>
+      </View>
+    );
+  }
+
+  if (step === "reset-verification") {
+    return (
+      <View style={styles.verificationContainer}>
+        <Text style={styles.verificationTitle}>Reset Password</Text>
+        <Text style={[styles.footerText, { textAlign: 'center', marginBottom: 20 }]}>
+          Enter the code sent to {emailAddress} and your new password.
+        </Text>
+
+        {error ? (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle" size={20} color={COLORS.expense} />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={() => setError("")}>
+              <Ionicons name="close" size={20} color={COLORS.textLight} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        <TextInput
+          style={[styles.verificationInput, error && styles.errorInput, { letterSpacing: 2 }]}
+          value={code}
+          placeholder="Reset Code"
+          placeholderTextColor="#9A8478"
+          onChangeText={setCode}
+        />
+
+        <TextInput
+          style={[styles.input, error && styles.errorInput, { width: '100%', marginBottom: 20 }]}
+          value={newPassword}
+          placeholder="New Password"
+          placeholderTextColor="#9A8478"
+          secureTextEntry={true}
+          onChangeText={setNewPassword}
+        />
+
+        <TouchableOpacity
+          onPress={onResetVerifyPress}
+          style={[styles.button, isLoading && styles.buttonDisabled, { width: '100%' }]}
+        >
+          <Text style={styles.buttonText}>
+            {isLoading ? "Resetting..." : "Reset Password"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={{ marginTop: 20 }} onPress={() => setStep("signIn")}>
+          <Text style={styles.linkText}>Back to Sign In</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -98,6 +251,13 @@ export default function Page() {
           secureTextEntry={true}
           onChangeText={(password) => setPassword(password)}
         />
+
+        <TouchableOpacity
+          style={{ alignSelf: 'flex-end', marginBottom: 15 }}
+          onPress={() => setStep("forgot")}
+        >
+          <Text style={styles.linkText}>Forgot Password?</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}

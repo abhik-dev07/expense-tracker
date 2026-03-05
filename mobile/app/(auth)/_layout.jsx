@@ -1,12 +1,19 @@
 import { Redirect, Stack } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import PageLoader from "@/components/PageLoader";
 
 export default function AuthRoutesLayout() {
-  const { isSignedIn } = useAuth();
-
-  if (isSignedIn) {
-    return <Redirect href={"/"} />;
-  }
-
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      <AuthLoading>
+        <PageLoader />
+      </AuthLoading>
+      <Authenticated>
+        <Redirect href={"/"} />
+      </Authenticated>
+      <Unauthenticated>
+        <Stack screenOptions={{ headerShown: false }} />
+      </Unauthenticated>
+    </>
+  );
 }

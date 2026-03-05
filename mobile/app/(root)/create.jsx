@@ -7,9 +7,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useUser } from "@clerk/clerk-expo";
 import { useState } from "react";
-import { API_URL } from "../../constants/api";
+import { useMutation } from "convex/react";
+import { api } from "../../../backend/convex/_generated/api";
 import { createStyles } from "../../assets/styles/create.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@/context/ThemeContext";
@@ -29,7 +29,8 @@ export default function CreateScreen() {
   const { COLORS } = useTheme();
   const styles = createStyles(COLORS);
   const router = useRouter();
-  const { user } = useUser();
+
+  const createTransaction = useMutation(api.transactions.create);
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -54,35 +55,25 @@ export default function CreateScreen() {
         ? -Math.abs(parseFloat(amount))
         : Math.abs(parseFloat(amount));
 
-      const response = await fetch(`${API_URL}/transactions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          title,
-          amount: formattedAmount,
-          category: selectedCategory,
-        }),
+      await createTransaction({
+        title,
+        amount: formattedAmount,
+        category: selectedCategory,
       });
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error("Too many requests");
-        }
-        const errorData = await response.json();
-        console.log(errorData);
-        throw new Error(errorData.error || "Failed to create transaction");
-      }
 
       Alert.alert("Success", "Transaction created successfully");
       router.back();
     } catch (error) {
-      if (error.message === "Too many requests") {
+      if (
+        error.message?.includes("rate") ||
+        error.message?.includes("RateLimited")
+      ) {
         Alert.alert("Too many requests", "Please try again later");
       } else {
-        Alert.alert("Error", error.message || "Failed to create transaction");
+        Alert.alert(
+          "Error",
+          error.message || "Failed to create transaction"
+        );
         console.error("Error creating transaction:", error);
       }
     } finally {

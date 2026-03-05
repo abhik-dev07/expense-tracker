@@ -1,11 +1,19 @@
-import { useUser } from "@clerk/clerk-expo";
 import { Redirect, Stack } from "expo-router";
+import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import PageLoader from "@/components/PageLoader";
 
 export default function Layout() {
-  const { isSignedIn, isLoaded } = useUser();
-
-  if (!isLoaded) return null;
-  if (!isSignedIn) return <Redirect href="/sign-in" />;
-
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      <AuthLoading>
+        <PageLoader />
+      </AuthLoading>
+      <Unauthenticated>
+        <Redirect href="/sign-in" />
+      </Unauthenticated>
+      <Authenticated>
+        <Stack screenOptions={{ headerShown: false }} />
+      </Authenticated>
+    </>
+  );
 }

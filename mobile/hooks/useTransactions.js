@@ -1,96 +1,49 @@
-import { useCallback, useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../backend/convex/_generated/api";
 import { Alert } from "react-native";
-import { API_URL } from "../constants/api";
 
-export const useTransactions = (userId) => {
-  const [transactions, setTransactions] = useState([]);
-  const [summary, setSummary] = useState({
-    balance: 0,
-    income: 0,
-    expenses: 0,
-  });
-  const [isLoading, setIsLoading] = useState(true);
+export const useTransactions = () => {
+  // Real-time reactive queries — automatically update when data changes
+  const transactions = useQuery(api.transactions.getByUserId) ?? [];
+  const summary = useQuery(api.transactions.getSummary) ?? {
+    balance: "0.00",
+    income: "0.00",
+    expenses: "0.00",
+  };
+  const user = useQuery(api.transactions.currentUser);
 
-  // useCallback is used for performance reasons, it will memoize the function
-  const fetchTransactions = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_URL}/transactions/${userId}`);
-      if (response.status === 429) {
-        throw new Error("Too many requests");
-      }
-      const data = await response.json();
-      setTransactions(data);
-    } catch (error) {
-      if (error.message !== "Too many requests") {
-        console.error("Error fetching transactions:", error);
-      }
-      throw error;
-    }
-  }, [userId]);
+  const createTransaction = useMutation(api.transactions.create);
+  const deleteTransactionMutation = useMutation(
+    api.transactions.deleteTransaction
+  );
 
-  const fetchSummary = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_URL}/transactions/summary/${userId}`);
-      if (response.status === 429) {
-        throw new Error("Too many requests");
-      }
-      const data = await response.json();
-      setSummary(data);
-    } catch (error) {
-      if (error.message !== "Too many requests") {
-        console.error("Error fetching summary:", error);
-      }
-      throw error;
-    }
-  }, [userId]);
-
-  const loadData = useCallback(async (isRefresh = false) => {
-    if (!userId) return;
-
-    if (!isRefresh) {
-      setIsLoading(true);
-    }
-
-    try {
-      // can be run in parallel
-      await Promise.all([fetchTransactions(), fetchSummary()]);
-    } catch (error) {
-      if (error.message === "Too many requests") {
-        Alert.alert("Too many requests", "Please try again later");
-      } else {
-        console.error("Error loading data:", error);
-      }
-    } finally {
-      if (!isRefresh) {
-        setIsLoading(false);
-      }
-    }
-  }, [fetchTransactions, fetchSummary, userId]);
+  // With Convex, data is reactive — no need for manual loading/refreshing
+  const isLoading = transactions === undefined || summary === undefined;
 
   const deleteTransaction = async (id) => {
     try {
-      const response = await fetch(`${API_URL}/transactions/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error("Too many requests");
-        }
-        throw new Error("Failed to delete transaction");
-      }
-
-      // Refresh data after deletion
-      loadData();
+      await deleteTransactionMutation({ id });
       Alert.alert("Success", "Transaction deleted successfully");
     } catch (error) {
-      if (error.message !== "Too many requests") {
-        console.error("Error deleting transaction:", error);
-        Alert.alert("Error", error.message);
-      } else {
+      console.error("Error deleting transaction:", error);
+      if (
+        error.message?.includes("rate") ||
+        error.message?.includes("RateLimited")
+      ) {
         Alert.alert("Too many requests", "Please try again later");
+      } else {
+        Alert.alert("Error", error.message || "Failed to delete transaction");
       }
     }
   };
 
-  return { transactions, summary, isLoading, loadData, deleteTransaction };
+  return {
+    transactions,
+    summary,
+    isLoading,
+    loadData: () => { },
+    deleteTransaction,
+    createTransaction,
+    user,
+  };
 };

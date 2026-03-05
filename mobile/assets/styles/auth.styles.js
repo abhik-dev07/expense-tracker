@@ -21,7 +21,7 @@ export const authStyles = (COLORS) =>
       textAlign: "center",
     },
     input: {
-      backgroundColor: COLORS.white,
+      backgroundColor: COLORS.card,
       borderRadius: 12,
       padding: 15,
       marginBottom: 16,
@@ -79,7 +79,7 @@ export const authStyles = (COLORS) =>
       textAlign: "center",
     },
     verificationInput: {
-      backgroundColor: COLORS.white,
+      backgroundColor: COLORS.card,
       borderRadius: 12,
       padding: 15,
       marginBottom: 16,

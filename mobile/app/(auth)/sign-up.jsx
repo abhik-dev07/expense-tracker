@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
-import { useSignUp } from "@clerk/clerk-expo";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -9,15 +9,15 @@ import { authStyles } from "@/assets/styles/auth.styles";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 export default function SignUpScreen() {
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { signIn, signOut } = useAuthActions();
   const router = useRouter();
   const { COLORS } = useTheme();
   const styles = authStyles(COLORS);
 
+  const [step, setStep] = useState("signUp"); // "signUp" | "email-verification"
   const [emailAddress, setEmailAddress] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -30,71 +30,74 @@ export default function SignUpScreen() {
   }, [error]);
 
   const onSignUpPress = async () => {
-    if (!isLoaded) return;
+    if (!username || !emailAddress || !password) {
+      setError("Please fill in all fields before signing up.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Passwords must be 8 characters or more.");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      await signUp.create({
-        emailAddress,
+      await signIn("password", {
+        email: emailAddress,
         password,
+        name: username,
         username,
+        flow: "signUp",
       });
-
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setPendingVerification(true);
+      // Convex Auth with verify option requires a code step
+      setStep("email-verification");
     } catch (err) {
-      if (err.errors?.[0]?.code === "form_identifier_exists") {
+      const errorMessage = err?.message || err?.toString() || "";
+      if (errorMessage.includes("already exists") || errorMessage.includes("AccountAlreadyExists")) {
         setError("That email address is already in use. Please try another.");
-      } else if (err.errors?.[0]?.code === "form_param_format_invalid") {
+      } else if (errorMessage.includes("email") || errorMessage.includes("invalid")) {
         setError("Please enter a valid email address.");
-      } else if (err.errors?.[0]?.code === "form_username_invalid_length") {
-        setError("Username must be between 3 and 30 characters.");
-      } else if (err.errors?.[0]?.code === "form_username_invalid_character") {
-        setError(
-          "Username can only contain letters, numbers, and underscores."
-        );
-      } else if (err.errors?.[0]?.code === "form_password_length_too_short") {
+      } else if (errorMessage.includes("password")) {
         setError("Passwords must be 8 characters or more.");
-      } else if (!username || !emailAddress || !password) {
-        setError("Please fill in all fields before signing up.");
       } else {
         setError("An error occurred. Please try again.");
       }
-      console.log(err);
+      console.error("Sign-up error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
   const onVerifyPress = async () => {
-    if (!isLoaded) return;
+    if (!code) {
+      setError("Please enter the verification code.");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const signUpAttempt = await signUp.attemptEmailAddressVerification({
+      await signIn("password", {
+        email: emailAddress,
         code,
+        flow: "email-verification",
       });
-
-      if (signUpAttempt.status === "complete") {
-        await setActive({ session: signUpAttempt.createdSessionId });
-        router.replace("/");
-      } else {
-        console.error(JSON.stringify(signUpAttempt, null, 2));
-      }
+      // Force sign out so they don't automatically get redirected to the Home screen
+      await signOut();
+      router.replace("/sign-in");
     } catch (err) {
-      if (err.errors?.[0]?.code === "form_code_incorrect") {
+      const errorMessage = err?.message || err?.toString() || "";
+      if (errorMessage.includes("InvalidSecret") || errorMessage.includes("code")) {
         setError("Verification code is incorrect. Please try again.");
-      } else if (!code) {
-        setError("Please enter the verification code.");
       } else {
         setError("An error occurred. Please try again.");
       }
+      console.error("Verification error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (pendingVerification) {
+  if (step === "email-verification") {
     return (
       <View style={styles.verificationContainer}>
         <Text style={styles.verificationTitle}>Verify your email</Text>
@@ -124,6 +127,10 @@ export default function SignUpScreen() {
           <Text style={styles.buttonText}>
             {isLoading ? "Verifying..." : "Verify"}
           </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={{ marginTop: 20 }} onPress={() => setStep("signUp")}>
+          <Text style={styles.linkText}>Back to Sign Up</Text>
         </TouchableOpacity>
       </View>
     );

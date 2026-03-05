@@ -1,13 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { LayoutAnimation, Platform, UIManager } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === "android") {
-  if (UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
-}
+import React, { createContext, useContext } from "react";
+import { useColorScheme } from "react-native";
 
 const THEMES = {
   light: {
@@ -23,11 +15,11 @@ const THEMES = {
     shadow: "#000000",
   },
   dark: {
-    primary: "#FFFFFF",
+    primary: "#8B593E",
     background: "#000000",
     text: "#F2F2F7",
     border: "#38383A",
-    white: "#000000",
+    white: "#FFFFFF",
     textLight: "#98989D",
     expense: "#FF453A",
     income: "#32D74B",
@@ -39,39 +31,12 @@ const THEMES = {
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  const [themeKey, setThemeKey] = useState("light");
-
-  const setTheme = async (key) => {
-    if (THEMES[key]) {
-      LayoutAnimation.configureNext(
-        LayoutAnimation.create(
-          700,
-          LayoutAnimation.Types.easeInEaseOut,
-          LayoutAnimation.Properties.opacity
-        )
-      );
-
-      setThemeKey(key);
-      await AsyncStorage.setItem("app_theme", key);
-    }
-  };
-
-  useEffect(() => {
-    const loadTheme = async () => {
-      const saved = await AsyncStorage.getItem("app_theme");
-      if (saved === "dark") {
-        setThemeKey("dark");
-      } else {
-        setThemeKey("light"); // Defaults legacy 'coffee' or other colors to light
-      }
-    };
-    loadTheme();
-  }, []);
-
+  const colorScheme = useColorScheme();
+  const themeKey = colorScheme === "dark" ? "dark" : "light";
   const COLORS = THEMES[themeKey] || THEMES.light;
 
   return (
-    <ThemeContext.Provider value={{ COLORS, themeKey, setTheme }}>
+    <ThemeContext.Provider value={{ COLORS, themeKey }}>
       {children}
     </ThemeContext.Provider>
   );
