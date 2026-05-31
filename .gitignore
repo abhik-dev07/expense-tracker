@@ -1,0 +1,45 @@
+# Gradle files and build outputs
+.gradle/
+build/
+/*/build/
+/captures/
+
+# Kotlin
+.kotlin/
+.kotlin-gradle/
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+.navigation/
+
+# Native build / NDK
+.externalNativeBuild/
+.cxx/
+
+# VS Code
+.vscode/
+
+# Local configuration and environment variables
+local.properties
+.env
+.env.*
+
+# Keystores and signing keys
+*.keystore
+*.jks
+debug.keystore.base64
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Antigravity / Agent files
+.antigravity/
+.build-outputs/
+
+# Temporary screenshots / media
+

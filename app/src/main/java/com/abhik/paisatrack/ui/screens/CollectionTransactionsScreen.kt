@@ -1,0 +1,1785 @@
+package com.abhik.paisatrack.ui.screens
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.compositeOver
+import com.abhik.paisatrack.R
+import com.abhik.paisatrack.data.model.CollectionEntity
+import com.abhik.paisatrack.data.model.TransactionEntity
+import com.abhik.paisatrack.ui.FinanceViewModel
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun CollectionTransactionsScreen(
+    viewModel: FinanceViewModel,
+    collectionId: Long,
+    onNavigateToAddTransaction: (Long) -> Unit,
+    onBack: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Find our active collection and summary
+    val summary = remember(uiState.collectionSummaries, collectionId) {
+        uiState.collectionSummaries.find { it.collection.id == collectionId }
+    }
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.nothing))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+    
+    val collection = summary?.collection
+    val transactions = remember(uiState.rawTransactions, collectionId, uiState.activeTimeFilter, uiState.activeTypeFilter) {
+        val now = System.currentTimeMillis()
+        uiState.rawTransactions.filter { tx ->
+            val matchesCollection = tx.collectionId == collectionId
+            val matchesType = uiState.activeTypeFilter == "All" || tx.type.uppercase() == uiState.activeTypeFilter.uppercase()
+            
+            val matchesTime = when (uiState.activeTimeFilter) {
+                "Today" -> {
+                    val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                    val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = now }
+                    cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+                            cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
+                }
+                "This Week" -> {
+                    val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                    val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = now }
+                    cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+                            cal1.get(java.util.Calendar.WEEK_OF_YEAR) == cal2.get(java.util.Calendar.WEEK_OF_YEAR)
+                }
+                "This Month" -> {
+                    val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = tx.timestamp }
+                    val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = now }
+                    cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+                            cal1.get(java.util.Calendar.MONTH) == cal2.get(java.util.Calendar.MONTH)
+                }
+                else -> true
+            }
+            matchesCollection && matchesType && matchesTime
+        }
+    }
+    
+    val dollarFormat = remember { DecimalFormat("₹#,##0.00") }
+    val isDark = isSystemInDarkTheme()
+    var showDetailDialog by remember { mutableStateOf(false) }
+    var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
+    var txDetailToShow by remember { mutableStateOf<TransactionEntity?>(null) }
+    var showEditCollectionModal by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val listState = rememberLazyListState()
+
+    var showFilters by remember { mutableStateOf(false) }
+    val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter) {
+        uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All"
+    }
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+
+    val colColor = remember(collection?.hexColor) {
+        collection?.hexColor?.let {
+            try {
+                Color(android.graphics.Color.parseColor(it))
+            } catch (e: Exception) {
+                Color(0xFF3F51B5)
+            }
+        } ?: Color(0xFF3F51B5)
+    }
+
+    val view = LocalView.current
+    val context = LocalContext.current
+    DisposableEffect(isDark) {
+        val activity = context as? android.app.Activity
+        val window = activity?.window
+        if (window != null) {
+            val originalStatusColor = window.statusBarColor
+            val originalAppearance = androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars
+
+            // Use transparent status bar to let the gradient background shine through
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
+
+            onDispose {
+                window.statusBarColor = originalStatusColor
+                androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = originalAppearance
+            }
+        } else {
+            onDispose {}
+        }
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        floatingActionButton = {
+            if (collection != null) {
+                FloatingActionButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onNavigateToAddTransaction(collection.id)
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = CircleShape,
+                    modifier = Modifier.padding(bottom = 8.dp, end = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Transaction to Collection",
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding())
+        ) {
+            // 1. Fixed Visually Rich Header (Title Row)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                colColor.copy(alpha = if (isDark) 0.15f else 0.08f),
+                                colColor.copy(alpha = if (isDark) 0.05f else 0.02f)
+                            )
+                        )
+                    )
+                    .padding(
+                        top = innerPadding.calculateTopPadding() + 20.dp,
+                        bottom = 12.dp,
+                        start = 24.dp,
+                        end = 24.dp
+                    )
+            ) {
+                // Back and Title Navigation Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Circular back button
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
+                            .border(
+                                androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
+                                ),
+                                CircleShape
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onBack()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowLeft,
+                            contentDescription = "Back to dashboard",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // Centered Column for Title & Subtitle (ledger records registered)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = collection?.name ?: "Collection details",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${transactions.size} ledger records registered",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    // Circular Edit Button with horizontal three dots (...)
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
+                            .border(
+                                androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
+                                ),
+                                CircleShape
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                showEditCollectionModal = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreHoriz,
+                            contentDescription = "Edit Collection Settings",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // 2. Scrollable content
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = 32.dp)
+            ) {
+                // Item 1: Balance Card block showing collection Balance Card
+                if (summary != null) {
+                    val netBalance = summary.totalIncome - summary.totalExpense
+                    val netStr = dollarFormat.format(netBalance)
+                    val incomeStr = dollarFormat.format(summary.totalIncome)
+                    val expenseStr = dollarFormat.format(summary.totalExpense)
+
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 8.dp)
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showDetailDialog = true
+                                },
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else Color.White
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // "Total Balance" Label
+                                Text(
+                                    text = "Collection Balance",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.Medium,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                // Giant Net Balance Center text
+                                Text(
+                                    text = netStr,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                // Side-by-side Sub cards inside row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Income Card Item (Left)
+                                    Card(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                                        ),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            // Soft clean Green arrow circle using Hex #B7DAAE
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isDark) Color(0xFFB7DAAE).copy(alpha = 0.2f) else Color(0xFFB7DAAE)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowDownward,
+                                                    contentDescription = "Income icon",
+                                                    tint = if (isDark) Color(0xFFB7DAAE) else Color(0xFF1F4D20),
+                                                    modifier = Modifier
+                                                        .size(18.dp)
+                                                        .rotate(45f)
+                                                )
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Income",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = incomeStr,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onBackground,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Expense Card Item (Right)
+                                    Card(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                                        ),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            // Soft clean Red arrow circle using Hex #FFB8A9
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (isDark) Color(0xFFFFB8A9).copy(alpha = 0.2f) else Color(0xFFFFB8A9)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ArrowUpward,
+                                                    contentDescription = "Expense icon",
+                                                    tint = if (isDark) Color(0xFFFFB8A9) else Color(0xFF6E261A),
+                                                    modifier = Modifier
+                                                        .size(18.dp)
+                                                        .rotate(45f)
+                                                )
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Expense",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = expenseStr,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onBackground,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Sticky Header: Recent Transactions Title and Filter triggers
+                stickyHeader {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Recent transactions",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+
+                            Box(
+                                modifier = Modifier.size(36.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            showFilters = !showFilters
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Tune,
+                                        contentDescription = "Show Filters",
+                                        tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                if (isAnyFilterActive && !showFilters) {
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = 1.dp, y = (-1).dp)
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF10B981))
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Transactions list items or empty state item
+                if (transactions.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 32.dp, end = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                LottieAnimation(
+                                    composition = composition,
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                )
+                                Text(
+                                    text = "No Transactions Formed",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text(
+                                    text = "Any transaction registered with this specific collection category will show up here nicely.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    itemsIndexed(transactions, key = { _, tx -> tx.id }) { index, tx ->
+                        // Wrap in staggered fade animation
+                        AnimatedTransactionItem(index = index) {
+                            TransactionListItemDetailed(
+                                transaction = tx,
+                                colColor = colColor,
+                                dollarFormat = dollarFormat,
+                                onDeleteClick = { viewModel.deleteTransaction(tx) },
+                                onLongClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    txToDelete = tx
+                                },
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    txDetailToShow = tx
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Wide Category Balance Detail Dialog
+    if (showDetailDialog && summary != null) {
+        val netBalance = summary.totalIncome - summary.totalExpense
+        val netStr = dollarFormat.format(netBalance)
+        val incomeStr = dollarFormat.format(summary.totalIncome)
+        val expenseStr = dollarFormat.format(summary.totalExpense)
+        val colName = collection?.name ?: "Category Details"
+
+        Dialog(
+            onDismissRequest = { showDetailDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(vertical = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "$colName Balance Summary",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f))
+
+                    // Detail Row 1: Total Net Balance
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Net Balance",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = netStr,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (netBalance >= 0) Color(0xFF10B981) else Color(0xFFEF4444),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f))
+
+                    // Detail Row 2: Total Income
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Total Income",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = incomeStr,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color(0xFFB7DAAE) else Color(0xFF1F4D20)
+                        )
+                    }
+
+                    // Detail Row 3: Total Expense
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Total Expense",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = expenseStr,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) Color(0xFFFFB8A9) else Color(0xFF6E261A)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showDetailDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = CircleShape,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Got it",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Wide Delete Confirmation Dialog
+    if (txToDelete != null) {
+        val tx = txToDelete!!
+        Dialog(
+            onDismissRequest = { txToDelete = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(vertical = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Warning",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(48.dp)
+                    )
+
+                    Text(
+                        text = "Delete Transaction?",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Text(
+                        text = "Are you sure you want to delete \"${tx.description}\" for ${dollarFormat.format(tx.amount)}? This action cannot be undone.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                txToDelete = null
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = CircleShape
+                        ) {
+                            Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.deleteTransaction(tx)
+                                txToDelete = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            ),
+                            modifier = Modifier.weight(1f),
+                            shape = CircleShape
+                        ) {
+                            Text("Delete", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Transaction Detail Bottom Sheet
+    if (txDetailToShow != null) {
+        val tx = txDetailToShow!!
+        val isIncome = tx.type.uppercase() == "INCOME"
+        val colName = collection?.name ?: "General"
+        val colIcon = getIconByNameLocal(collection?.iconName ?: "category")
+        val isDark = isSystemInDarkTheme()
+
+        // Match exact date & time logic from the mockup
+        val todayStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
+        val yesterdayStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(System.currentTimeMillis() - 86400000L))
+        val txDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(tx.timestamp))
+        val displayDate = when (txDateStr) {
+            todayStr -> "Today"
+            yesterdayStr -> "Yesterday"
+            else -> txDateStr
+        }
+        val displayTimeStr = remember(tx.timestamp) {
+            val sdfStr = SimpleDateFormat("h:mm a", Locale.getDefault())
+            sdfStr.format(Date(tx.timestamp)).lowercase()
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = { txDetailToShow = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = null
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Drag handle (Manual to avoid double / extra visual bar)
+                Box(
+                    modifier = Modifier
+                        .padding(top = 8.dp, bottom = 4.dp)
+                        .size(width = 40.dp, height = 4.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                        .align(Alignment.CenterHorizontally)
+                )
+
+                // Title centered matching mockup style
+                Text(
+                    text = "Transaction Details",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Centered beautifully rounded icon
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colColor.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = colIcon,
+                        contentDescription = colName,
+                        tint = colColor,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                // Centered amount matching type green/red color
+                Text(
+                    text = "${if (isIncome) "+" else "-"}${dollarFormat.format(tx.amount)}",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (isIncome) Color(0xFF10B981) else Color(0xFFEF4444)
+                )
+
+                // Description placed UNDER the Amount, centered with proper font & color
+                if (tx.description.isNotEmpty()) {
+                    Text(
+                        text = tx.description,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+                    )
+                }
+
+                // Single thin horizontal divider (mockup table style)
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                // Metadata detailed fields stacked nicely
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    DetailItemLocalRow(
+                        label = "Type",
+                        value = tx.type.lowercase().replaceFirstChar { it.uppercase() }
+                    )
+                    DetailItemLocalRow(
+                        label = "Collection Name",
+                        value = colName
+                    )
+                    DetailItemLocalRow(
+                        label = "Created Date",
+                        value = displayDate
+                    )
+                    DetailItemLocalRow(
+                        label = "Created Time",
+                        value = displayTimeStr
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Standard pill shape Rounded Close Button with Haptic
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        txDetailToShow = null
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFE4F6E6),
+                        contentColor = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF1C2C1D)
+                    )
+                ) {
+                    Text(
+                        text = "Close",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+
+    // Elegant Bottom Sheet for filters (Comes under recent transactions trigger)
+    if (showFilters) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilters = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Header of Filters with close (cross) button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Filters",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Filter Transactions",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Circle Close Icon (cross press)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                scope.launch {
+                                    sheetState.hide()
+                                    showFilters = false
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close Filters",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+
+                // Time Period Filters block
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Timeframe",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val times = listOf("All", "Daily", "Weekly", "Monthly")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        times.forEach { time ->
+                            val selected = when (time) {
+                                "Daily" -> uiState.activeTimeFilter == "Today"
+                                "Weekly" -> uiState.activeTimeFilter == "This Week"
+                                "Monthly" -> uiState.activeTimeFilter == "This Month"
+                                else -> uiState.activeTimeFilter == "All"
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        val actualFilter = when (time) {
+                                            "Daily" -> "Today"
+                                            "Weekly" -> "This Week"
+                                            "Monthly" -> "This Month"
+                                            else -> "All"
+                                        }
+                                        viewModel.setTimeFilter(actualFilter)
+                                    }
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                                        shape = RoundedCornerShape(50)
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = time,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Transaction Direction Filters block
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Transaction Type",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val types = listOf("All", "Income", "Expense")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        types.forEach { type ->
+                            val selected = uiState.activeTypeFilter.uppercase() == type.uppercase() ||
+                                    (type == "All" && uiState.activeTypeFilter == "All")
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        if (selected) {
+                                            if (type == "Income") Color(0xFFE4F6E6)
+                                            else if (type == "Expense") Color(0xFFFEE2E2)
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        }
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.setTypeFilter(if (type == "All") "All" else type.uppercase())
+                                    }
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
+                                        shape = RoundedCornerShape(50)
+                                    )
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = type,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) {
+                                        if (type == "Income") Color(0xFF1FB47B)
+                                        else if (type == "Expense") Color(0xFFEF4444)
+                                        else MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Localized Edit Collection Bottom Sheet
+    if (showEditCollectionModal && collection != null) {
+        val initialColorIdx = remember(collection.id) {
+            LocalCollectionColors.indexOfFirst { it.first.lowercase() == collection.hexColor.lowercase() }.coerceAtLeast(0)
+        }
+        val initialIconIdx = remember(collection.id) {
+            LocalCollectionIcons.indexOfFirst { it.first.lowercase() == collection.iconName.lowercase() }.coerceAtLeast(0)
+        }
+
+        var editName by remember(collection.id) { mutableStateOf(collection.name) }
+        var selectedColorIdx by remember(collection.id) { mutableStateOf(initialColorIdx) }
+        var selectedIconIdx by remember(collection.id) { mutableStateOf(initialIconIdx) }
+        var errorText by remember(collection.id) { mutableStateOf("") }
+        var showDeleteConfirm by remember { mutableStateOf(false) }
+        var showSaveConfirm by remember { mutableStateOf(false) }
+
+        ModalBottomSheet(
+            onDismissRequest = { showEditCollectionModal = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 8.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Edit Collection Settings",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 19.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { 
+                            if (it.length <= 20) {
+                                editName = it
+                                if (it.length == 20) {
+                                    focusManager.clearFocus()
+                                }
+                            }
+                        },
+                        label = { Text("Collection Name") },
+                        placeholder = { Text("e.g. Travel, Gym Expense") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (editName.length == 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    // Char limit indicator + Progress
+                    val progressEditName = editName.length / 20f
+                    val isLimitEditName = editName.length == 20
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LinearProgressIndicator(
+                            progress = progressEditName,
+                            modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
+                            color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Text(
+                            text = "${editName.length}/20",
+                            fontSize = 11.sp,
+                            color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            fontWeight = if (isLimitEditName) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+
+                // Theme color selections
+                Text("Select Theme Color", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LocalCollectionColors.forEachIndexed { i, pair ->
+                        val colorVal = Color(android.graphics.Color.parseColor(pair.first))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(colorVal)
+                                .clickable {
+                                    selectedColorIdx = i
+                                    focusManager.clearFocus()
+                                }
+                                .padding(2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (selectedColorIdx == i) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Icon selections
+                Text("Select Collection Icon", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    LocalCollectionIcons.forEachIndexed { i, pair ->
+                        val selected = selectedIconIdx == i
+                        val iconThemeColor = Color(android.graphics.Color.parseColor(LocalCollectionColors[selectedColorIdx].first))
+
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (selected) iconThemeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .clickable {
+                                    selectedIconIdx = i
+                                    focusManager.clearFocus()
+                                }
+                                .padding(6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = getIconByNameLocal(pair.first),
+                                contentDescription = pair.second,
+                                tint = if (selected) iconThemeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (errorText.isNotEmpty()) {
+                    Text(
+                        text = errorText,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Delete Button
+                    OutlinedButton(
+                        onClick = {
+                            showDeleteConfirm = true
+                        },
+                        modifier = Modifier.weight(1.5f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFEF4444)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    // Save Button
+                    Button(
+                        onClick = {
+                            if (editName.trim().isEmpty()) {
+                                errorText = "Collection name is required!"
+                            } else {
+                                showSaveConfirm = true
+                            }
+                        },
+                        modifier = Modifier.weight(2f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Save Changes", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                if (showDeleteConfirm) {
+                    Dialog(
+                        onDismissRequest = { showDeleteConfirm = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth(0.92f)
+                                .padding(vertical = 16.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Warning",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(48.dp)
+                                )
+
+                                Text(
+                                    text = "Delete Collection?",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Text(
+                                    text = "Are you sure you want to delete the collection \"${collection.name}\"? This action cannot be undone.",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            showDeleteConfirm = false
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = CircleShape
+                                        ) {
+                                        Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            viewModel.deleteCollection(collection)
+                                            showDeleteConfirm = false
+                                            showEditCollectionModal = false
+                                            onBack()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        ),
+                                        modifier = Modifier.weight(1f),
+                                        shape = CircleShape
+                                    ) {
+                                        Text("Delete", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (showSaveConfirm) {
+                    Dialog(
+                        onDismissRequest = { showSaveConfirm = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth(0.92f)
+                                .padding(vertical = 16.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Confirmation",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(48.dp)
+                                )
+
+                                Text(
+                                    text = "Save Changes?",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                val prevName = collection.name
+                                val finalName = editName.trim()
+                                Text(
+                                    text = if (prevName != finalName) {
+                                        "Are you sure you want to update the collection \"$prevName\" to \"$finalName\"?"
+                                    } else {
+                                        "Are you sure you want to save changes to the collection \"$finalName\"?"
+                                    },
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            showSaveConfirm = false
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = CircleShape
+                                    ) {
+                                        Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val updatedCol = collection.copy(
+                                                name = editName.trim(),
+                                                hexColor = LocalCollectionColors[selectedColorIdx].first,
+                                                iconName = LocalCollectionIcons[selectedIconIdx].first
+                                            )
+                                            viewModel.updateCollection(updatedCol)
+                                            showSaveConfirm = false
+                                            showEditCollectionModal = false
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        ),
+                                        modifier = Modifier.weight(1f),
+                                        shape = CircleShape
+                                    ) {
+                                        Text("Save", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailItemLocalRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.End
+        )
+    }
+}
+
+fun getIconByNameLocal(iconName: String): ImageVector {
+    return when (iconName.lowercase()) {
+        "restaurant" -> Icons.Default.Restaurant
+        "directions_car" -> Icons.Default.DirectionsCar
+        "movie" -> Icons.Default.Movie
+        "account_balance_wallet" -> Icons.Default.AccountBalanceWallet
+        "local_hospital" -> Icons.Default.LocalHospital
+        "flight" -> Icons.Default.Flight
+        "school" -> Icons.Default.School
+        "shopping_cart" -> Icons.Default.ShoppingCart
+        "home" -> Icons.Default.Home
+        "fitness_center" -> Icons.Default.FitnessCenter
+        "work" -> Icons.Default.Work
+        "category" -> Icons.Default.Category
+        else -> Icons.Default.Category
+    }
+}
+
+@Composable
+fun AnimatedTransactionItem(
+    index: Int,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(index * 45L) // Elegant incremental stagger
+        visible = true
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(400)) + slideInVertically(
+            initialOffsetY = { 60 },
+            animationSpec = tween(400)
+        ),
+        exit = fadeOut(animationSpec = tween(400))
+    ) {
+        content()
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TransactionListItemDetailed(
+    transaction: TransactionEntity,
+    colColor: Color,
+    dollarFormat: DecimalFormat,
+    onDeleteClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit
+) {
+    val dateStr = remember(transaction.timestamp) {
+        val sdfKey = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        val todayStr = sdfKey.format(Date())
+        val yesterdayStr = sdfKey.format(Date(System.currentTimeMillis() - 86400000L))
+        val txDateStr = sdfKey.format(Date(transaction.timestamp))
+        when (txDateStr) {
+            todayStr -> "Today"
+            yesterdayStr -> "Yesterday"
+            else -> SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(transaction.timestamp))
+        }
+    }
+
+    val isIncome = transaction.type.uppercase() == "INCOME"
+
+    var swipeOffsetX by remember { mutableStateOf(0f) }
+    val animatedSwipeOffset by animateFloatAsState(
+        targetValue = swipeOffsetX,
+        animationSpec = tween(150),
+        label = "SwipeOffsetDetailed"
+    )
+
+    val badgeBg = remember(isIncome, colColor) {
+        if (isIncome) Color(0xFFE4F6E6) else Color(0xFFFFB8A9).copy(alpha = 0.15f)
+    }
+    val iconColor = remember(isIncome, colColor) {
+        if (isIncome) Color(0xFF10B981) else Color(0xFFFFB8A9)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFEF4444).copy(alpha = 0.9f))
+    ) {
+        // Red Delete Underlay visual helper on vertical center end
+        Icon(
+            imageVector = Icons.Default.Delete,
+            contentDescription = "Swipe to delete",
+            tint = Color.White,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 20.dp)
+                .size(24.dp)
+        )
+
+        // Slideable Surface container
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(animatedSwipeOffset.roundToInt(), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = {},
+                        onDragEnd = {
+                            if (swipeOffsetX < -180f) {
+                                onDeleteClick()
+                            }
+                            swipeOffsetX = 0f
+                        },
+                        onDragCancel = {
+                            swipeOffsetX = 0f
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            swipeOffsetX = (swipeOffsetX + dragAmount).coerceIn(-300f, 0f)
+                        }
+                    )
+                }
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                ),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
+            shadowElevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Simple type indicators
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(badgeBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isIncome) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Details
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = transaction.description,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = dateStr,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                        if (transaction.notes.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f),
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = transaction.notes,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Amount
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(
+                    modifier = Modifier.padding(start = 8.dp),
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "${if (isIncome) "+" else "-"}${dollarFormat.format(transaction.amount)}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = if (isIncome) Color(0xFF10B981) else Color(0xFFEF4444),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+private val LocalCollectionColors = listOf(
+    "#3F51B5" to "Indigo",
+    "#009688" to "Teal",
+    "#4CAF50" to "Green",
+    "#FF9800" to "Orange",
+    "#E91E63" to "Pink",
+    "#9C27B0" to "Purple",
+    "#FFEB3B" to "Yellow",
+    "#00BCD4" to "Cyan",
+    "#F44336" to "Red"
+)
+
+private val LocalCollectionIcons = listOf(
+    "category" to "General",
+    "restaurant" to "Food & Dining",
+    "directions_car" to "Transport",
+    "movie" to "Entertainment",
+    "account_balance_wallet" to "Wallet",
+    "local_hospital" to "Health",
+    "flight" to "Travel",
+    "school" to "Education",
+    "shopping_cart" to "Shopping",
+    "home" to "Home Bills",
+    "fitness_center" to "Sports & Fitness",
+    "work" to "Work/Office"
+)
