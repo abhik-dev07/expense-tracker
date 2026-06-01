@@ -82,7 +82,8 @@ fun CollectionTransactionsScreen(
     viewModel: FinanceViewModel,
     collectionId: String,
     onNavigateToAddTransaction: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -281,7 +282,7 @@ fun CollectionTransactionsScreen(
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             if (collection != null) {
@@ -500,6 +501,7 @@ fun CollectionTransactionsScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp, vertical = 8.dp)
+                                .clip(RoundedCornerShape(24.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     showDetailDialog = true

@@ -133,6 +133,9 @@ interface PaisaTrackApi {
 
     @POST("insights")
     suspend fun getInsights(@Body body: InsightsRequest): Response<InsightsResponse>
+
+    @DELETE("users/{userId}")
+    suspend fun deleteUser(@Path("userId") userId: String): Response<Map<String, String>>
 }
 
 // ─── API Client Singleton ───────────────────────────────────────────

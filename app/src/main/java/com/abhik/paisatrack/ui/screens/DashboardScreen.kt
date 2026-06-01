@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.screens
 
 import com.abhik.paisatrack.data.AuthManager
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.BorderStroke
@@ -150,8 +152,9 @@ val CollectionIcons = listOf(
 fun DashboardScreen(
     viewModel: FinanceViewModel,
     onNavigateToAddTransaction: () -> Unit,
-    onNavigateToCollectionTransactions: (String) -> Unit,
-    onLogout: () -> Unit
+    onNavigateToCollectionTransactions: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
@@ -278,6 +281,7 @@ fun DashboardScreen(
     )
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             // Null topBar, Greeting is drawn inline inside the main body
         },
@@ -834,7 +838,6 @@ fun DashboardScreen(
 
     // Wide Delete Account Confirmation Dialog
     if (showDeleteAccountConfirmDialog) {
-        val coroutineScope = rememberCoroutineScope()
         Dialog(
             onDismissRequest = { showDeleteAccountConfirmDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -1298,6 +1301,7 @@ fun VisualSummaryHeader(
         modifier = Modifier
             .fillMaxWidth()
             .then(modifier)
+            .clip(RoundedCornerShape(24.dp))
             .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 showDetailDialog = true
@@ -2332,7 +2336,7 @@ fun CollectionsPanel(
     viewModel: FinanceViewModel,
     dollarFormat: DecimalFormat,
     onScrollProgressChanged: (Boolean) -> Unit,
-    onCollectionClick: (String) -> Unit,
+    onCollectionClick: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     onBackToTop: (suspend () -> Unit) -> Unit
 ) {
     val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
@@ -2495,8 +2499,8 @@ fun CollectionsPanel(
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     editingCollectionSummary = summary
                                 },
-                                onClick = {
-                                    onCollectionClick(summary.collection.id)
+                                onClick = { rect ->
+                                    onCollectionClick(summary.collection.id, rect)
                                 }
                             )
                         }
@@ -2972,16 +2976,25 @@ fun CollectionGridCard(
     summary: CollectionSummary,
     dollarFormat: DecimalFormat,
     onEditClick: () -> Unit,
-    onClick: () -> Unit
+    onClick: (androidx.compose.ui.geometry.Rect?) -> Unit
 ) {
     val colColor = remember(summary.collection.hexColor) {
         Color(android.graphics.Color.parseColor(summary.collection.hexColor))
     }
 
+    var coordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .onGloballyPositioned { coordinates = it }
+            .clip(RoundedCornerShape(20.dp))
+            .clickable {
+                val rect = coordinates?.let { coords ->
+                    if (coords.isAttached) coords.boundsInRoot() else null
+                }
+                onClick(rect)
+            },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -3042,28 +3055,8 @@ fun CollectionGridCard(
             )
 
             Spacer(modifier = Modifier.height(14.dp))
-
             // Net balance of the collection card
             val balance = summary.totalIncome - summary.totalExpense
-            var hasAnimated by rememberSaveable { mutableStateOf(false) }
-            val animatedBalance = remember { Animatable(0f) }
-
-            LaunchedEffect(balance) {
-                if (!hasAnimated) {
-                    animatedBalance.animateTo(
-                        targetValue = balance.toFloat(),
-                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
-                    )
-                    hasAnimated = true
-                } else {
-                    animatedBalance.animateTo(
-                        targetValue = balance.toFloat(),
-                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                    )
-                }
-            }
-
-            val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else 0.0
 
             Column {
                 Text(
@@ -3073,10 +3066,10 @@ fun CollectionGridCard(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = dollarFormat.format(displayBalance),
+                    text = dollarFormat.format(balance),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = if (displayBalance >= 0.0) Color(0xFF10B981) else Color(0xFFFFB8A9)
+                    color = if (balance >= 0.0) Color(0xFF10B981) else Color(0xFFFFB8A9)
                 )
             }
         }
@@ -3265,66 +3258,66 @@ fun InsightsPanel(
         }
 
         // 3. AI Insights Section
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color(0xFFF0FDF4)
-            ),
-            border = BorderStroke(1.dp, if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color(0xFFDCFCE7))
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Smart Financial Insights",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF166534)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onRefreshInsights,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        if (aiLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh",
-                                tint = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = aiInsights.ifEmpty { "Generating your personal financial analysis..." },
-                    fontSize = 14.sp,
-                    lineHeight = 22.sp,
-                    color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF1F2937)
-                )
-            }
-        }
+//        Card(
+//            modifier = Modifier.fillMaxWidth(),
+//            shape = RoundedCornerShape(20.dp),
+//            colors = CardDefaults.cardColors(
+//                containerColor = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color(0xFFF0FDF4)
+//            ),
+//            border = BorderStroke(1.dp, if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color(0xFFDCFCE7))
+//        ) {
+//            Column(modifier = Modifier.padding(20.dp)) {
+//                Row(
+//                    modifier = Modifier.fillMaxWidth(),
+//                    horizontalArrangement = Arrangement.SpaceBetween,
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+//                        Icon(
+//                            imageVector = Icons.Default.AutoAwesome,
+//                            contentDescription = null,
+//                            tint = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534),
+//                            modifier = Modifier.size(20.dp)
+//                        )
+//                        Text(
+//                            text = "Smart Financial Insights",
+//                            fontWeight = FontWeight.Bold,
+//                            fontSize = 16.sp,
+//                            color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF166534)
+//                        )
+//                    }
+//
+//                    IconButton(
+//                        onClick = onRefreshInsights,
+//                        modifier = Modifier.size(32.dp)
+//                    ) {
+//                        if (aiLoading) {
+//                            CircularProgressIndicator(
+//                                modifier = Modifier.size(16.dp),
+//                                strokeWidth = 2.dp,
+//                                color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534)
+//                            )
+//                        } else {
+//                            Icon(
+//                                imageVector = Icons.Default.Refresh,
+//                                contentDescription = "Refresh",
+//                                tint = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534),
+//                                modifier = Modifier.size(18.dp)
+//                            )
+//                        }
+//                    }
+//                }
+//
+//                Spacer(modifier = Modifier.height(12.dp))
+//
+//                Text(
+//                    text = aiInsights.ifEmpty { "Generating your personal financial analysis..." },
+//                    fontSize = 14.sp,
+//                    lineHeight = 22.sp,
+//                    color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF1F2937)
+//                )
+//            }
+//        }
     }
 }
 
@@ -4203,6 +4196,7 @@ fun PlusMenuDialog(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                             onAddTransaction()
@@ -4265,6 +4259,7 @@ fun PlusMenuDialog(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable {
                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                             onAddCollection()

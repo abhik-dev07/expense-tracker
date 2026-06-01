@@ -484,6 +484,10 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteAccountData(onCompleted: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
+            val userId = AuthManager.getUserId(getApplication())
+            if (userId != null) {
+                repository.deleteUserRemote(userId)
+            }
             val database = AppDatabase.getDatabase(getApplication())
             database.clearAllTables()
             viewModelScope.launch(Dispatchers.Main) {

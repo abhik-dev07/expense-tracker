@@ -303,5 +303,15 @@ class FinanceRepository(
             e.printStackTrace()
         }
     }
+
+    suspend fun deleteUserRemote(userId: String): Boolean {
+        return try {
+            val response = ApiClient.api.deleteUser(userId)
+            response.isSuccessful
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }
 
