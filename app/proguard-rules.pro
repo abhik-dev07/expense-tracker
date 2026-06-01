@@ -19,3 +19,18 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep Retrofit interface and methods
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepclassmembers class * {
+    @retrofit2.http.* <methods>;
+}
+
+# Keep PaisaTrack Network Models from obfuscation
+-keep class com.abhik.paisatrack.data.network.** { *; }
+
+# Keep Moshi reflection and KotlinJsonAdapterFactory rules
+-keep class com.squareup.moshi.** { *; }
+-keepclassmembers class * {
+    @com.squareup.moshi.Json *;
+}

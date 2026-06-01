@@ -1,5 +1,11 @@
 package com.abhik.paisatrack
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.media.AudioAttributes
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,6 +35,25 @@ class MainActivity : ComponentActivity() {
     installSplashScreen()
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    
+    // Create the notification channel with custom sound
+    createNotificationChannel()
+
+    // Request notification permission for Android 13+ (API 33+)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      if (androidx.core.content.ContextCompat.checkSelfPermission(
+          this,
+          android.Manifest.permission.POST_NOTIFICATIONS
+        ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+      ) {
+        androidx.core.app.ActivityCompat.requestPermissions(
+          this,
+          arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+          101
+        )
+      }
+    }
+
     setContent {
       MyApplicationTheme {
         Surface(
@@ -68,6 +93,7 @@ class MainActivity : ComponentActivity() {
             }
             composable("sign_in") {
               SignInScreen(
+                viewModel = viewModel,
                 onNavigateToDashboard = {
                   navController.navigate("dashboard") {
                     popUpTo("sign_in") { inclusive = true }
@@ -117,7 +143,7 @@ class MainActivity : ComponentActivity() {
                 slideOutHorizontally(animationSpec = tween(400), targetOffsetX = { it }) + fadeOut(animationSpec = tween(400))
               }
             ) { backStackEntry ->
-              val collectionId = backStackEntry.arguments?.getString("collectionId")?.toLongOrNull() ?: 0L
+              val collectionId = backStackEntry.arguments?.getString("collectionId") ?: ""
               CollectionTransactionsScreen(
                 viewModel = viewModel,
                 collectionId = collectionId,
@@ -166,7 +192,7 @@ class MainActivity : ComponentActivity() {
                 slideOutHorizontally(animationSpec = tween(400), targetOffsetX = { it }) + fadeOut(animationSpec = tween(400))
               }
             ) { backStackEntry ->
-              val colId = backStackEntry.arguments?.getString("collectionId")?.toLongOrNull() ?: 0L
+              val colId = backStackEntry.arguments?.getString("collectionId") ?: ""
               AddTransactionScreen(
                 viewModel = viewModel,
                 initialCollectionId = colId,
@@ -178,6 +204,31 @@ class MainActivity : ComponentActivity() {
           }
         }
       }
+    }
+  }
+
+  private fun createNotificationChannel() {
+    val channelId = "paisa_track_notifications"
+    val soundUri = Uri.parse("android.resource://" + packageName + "/" + R.raw.notification)
+    val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      // Delete old channel first to force sound update
+      notificationManager.deleteNotificationChannel(channelId)
+
+      val channel = NotificationChannel(
+        channelId,
+        "Paisa Track Alerts",
+        NotificationManager.IMPORTANCE_HIGH
+      ).apply {
+        description = "Channel for budget and expense push notifications"
+        val audioAttributes = AudioAttributes.Builder()
+          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+          .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+          .build()
+        setSound(soundUri, audioAttributes)
+      }
+      notificationManager.createNotificationChannel(channel)
     }
   }
 }

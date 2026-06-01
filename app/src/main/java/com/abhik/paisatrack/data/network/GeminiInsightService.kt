@@ -1,28 +1,9 @@
 package com.abhik.paisatrack.data.network
 
 import android.util.Log
-import com.abhik.paisatrack.BuildConfig
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
 
 object GeminiInsightService {
     private const val TAG = "GeminiInsight"
-    
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
-
-    // Moshi parser for extracting text from the JSON response
-    private val moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
 
     suspend fun getFinancialInsights(
         totalIncome: Double,
@@ -30,109 +11,31 @@ object GeminiInsightService {
         balance: Double,
         breakdownText: String
     ): String {
-        val apiKey = BuildConfig.GEMINI_API_KEY
-        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-            Log.d(TAG, "Gemini API key is not configured or placeholder. Falling back to default insights.")
-            return getFallbackInsights(totalIncome, totalExpense)
-        }
-
         try {
-            val prompt = """
-                You are a friendly, highly professional personal finance assistant.
-                Analyze this financial dataset and supply exactly 3 distinct, practical, encouraging, and actionable money-saving micro-tips (each 1-2 short sentences max).
-                
-                Current Financial Snapshot:
-                - Income: $$totalIncome
-                - Spent: $$totalExpense
-                - Cash flow (Savings): $$balance
-                - Spending breakdown by Collection:
-                $breakdownText
-                
-                Format requirement:
-                Write them as plain sentences, with empty lines between the tips, without asterisks, checkboxes, numbers, or headers. Just conversational finance wisdom.
-            """.trimIndent()
+            Log.d(TAG, "Requesting financial insights from backend...")
+            val response = ApiClient.api.getInsights(
+                InsightsRequest(
+                    totalIncome = totalIncome,
+                    totalExpense = totalExpense,
+                    balance = balance,
+                    breakdownText = breakdownText
+                )
+            )
 
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val requestBody = """
-                {
-                    "contents": [{
-                        "parts": [{
-                            "text": ${escapeJsonString(prompt)}
-                        }]
-                    }]
+            if (response.isSuccessful && response.body() != null) {
+                val insights = response.body()!!.insights
+                if (insights.isNotEmpty()) {
+                    return insights
                 }
-            """.trimIndent()
-
-            val request = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=$apiKey")
-                .post(requestBody.toRequestBody(mediaType))
-                .header("Content-Type", "application/json")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Log.e(TAG, "API request failed with code: ${response.code}")
-                    return getFallbackInsights(totalIncome, totalExpense)
-                }
-
-                val responseBody = response.body?.string() ?: return getFallbackInsights(totalIncome, totalExpense)
-                
-                // Extremely simple and robust parsing
-                val parsedText = extractTextFromJson(responseBody)
-                return parsedText.ifEmpty { getFallbackInsights(totalIncome, totalExpense) }
+            } else {
+                Log.e(TAG, "Backend insights API failed with code: ${response.code()}")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Exception during Gemini Call: ${e.message}", e)
-            return getFallbackInsights(totalIncome, totalExpense)
+            Log.e(TAG, "Exception during backend insights call: ${e.message}", e)
         }
-    }
 
-    private fun escapeJsonString(string: String): String {
-        val escaped = StringBuilder()
-        escaped.append("\"")
-        for (c in string) {
-            when (c) {
-                '\\' -> escaped.append("\\\\")
-                '\"' -> escaped.append("\\\"")
-                '\n' -> escaped.append("\\n")
-                '\r' -> escaped.append("\\r")
-                '\t' -> escaped.append("\\t")
-                else -> escaped.append(c)
-            }
-        }
-        escaped.append("\"")
-        return escaped.toString()
-    }
-
-    private fun extractTextFromJson(json: String): String {
-        try {
-            // Locate "text": "..." inside candidates/content/parts/text
-            var index = json.indexOf("\"text\":")
-            if (index != -1) {
-                var start = json.indexOf("\"", index + 7)
-                if (start != -1) {
-                    start += 1
-                    var end = start
-                    while (end < json.length) {
-                        if (json[end] == '\"' && json[end - 1] != '\\') {
-                            break
-                        }
-                        end++
-                    }
-                    if (end < json.length) {
-                        val rawText = json.substring(start, end)
-                        // Simple unescape of newlines and quotes
-                        return rawText
-                            .replace("\\n", "\n")
-                            .replace("\\\"", "\"")
-                            .replace("\\\\", "\\")
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed parsing text", e)
-        }
-        return ""
+        Log.d(TAG, "Falling back to default rule-based insights.")
+        return getFallbackInsights(totalIncome, totalExpense)
     }
 
     fun getFallbackInsights(income: Double, expense: Double): String {

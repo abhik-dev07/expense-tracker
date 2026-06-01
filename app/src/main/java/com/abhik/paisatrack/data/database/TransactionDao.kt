@@ -10,7 +10,7 @@ interface TransactionDao {
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM transactions WHERE collectionId = :collectionId ORDER BY timestamp DESC")
-    fun getTransactionsByCollection(collectionId: Long): Flow<List<TransactionEntity>>
+    fun getTransactionsByCollection(collectionId: String): Flow<List<TransactionEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
@@ -19,8 +19,8 @@ interface TransactionDao {
     suspend fun deleteTransaction(transaction: TransactionEntity)
 
     @Query("DELETE FROM transactions WHERE id = :id")
-    suspend fun deleteTransactionById(id: Long)
+    suspend fun deleteTransactionById(id: String)
 
     @Query("DELETE FROM transactions WHERE collectionId = :collectionId")
-    suspend fun deleteTransactionsByCollection(collectionId: Long)
+    suspend fun deleteTransactionsByCollection(collectionId: String)
 }

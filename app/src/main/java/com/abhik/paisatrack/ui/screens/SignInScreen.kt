@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.abhik.paisatrack.R
 import com.abhik.paisatrack.data.AuthManager
+import com.abhik.paisatrack.ui.FinanceViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.Animatable
@@ -59,6 +60,7 @@ enum class SignInButtonState {
 
 @Composable
 fun SignInScreen(
+    viewModel: FinanceViewModel,
     onNavigateToDashboard: () -> Unit
 ) {
     val context = LocalContext.current
@@ -138,7 +140,7 @@ fun SignInScreen(
             )
 
             // Google sign in button
-            val buttonOpacity = if (!isAgreed) 0.5f else 1f
+            val buttonOpacity = if (!isAgreed) 0.5f else if (isLoading) 0.6f else 1f
             if (authReady) {
                 GoogleButtonUiContainer(
                     onGoogleSignInResult = { googleUser ->
@@ -148,17 +150,19 @@ fun SignInScreen(
                                 delay(400)
                                 
                                 val email = getEmailFromIdToken(googleUser.idToken) ?: "no-email@google.com"
-                                AuthManager.setUserSignedIn(
-                                    context,
-                                    true,
-                                    googleUser.displayName,
-                                    email,
-                                    googleUser.profilePicUrl
+                                val googleId = getGoogleIdFromIdToken(googleUser.idToken) ?: email
+                                viewModel.onUserSignedIn(
+                                    googleId = googleId,
+                                    email = email,
+                                    name = googleUser.displayName ?: "",
+                                    image = googleUser.profilePicUrl ?: "",
+                                    onComplete = {
+                                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                        Toast.makeText(context, "Signed in successfully!", Toast.LENGTH_SHORT).show()
+                                        isLoading = false
+                                        onNavigateToDashboard()
+                                    }
                                 )
-                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                Toast.makeText(context, "Signed in successfully!", Toast.LENGTH_SHORT).show()
-                                isLoading = false
-                                onNavigateToDashboard()
                             }
                         } else {
                             coroutineScope.launch {
@@ -243,8 +247,8 @@ fun SignInScreen(
                         colors = ButtonDefaults.outlinedButtonColors(
                             containerColor = buttonBg,
                             contentColor = MaterialTheme.colorScheme.onBackground,
-                            disabledContainerColor = buttonBg,
-                            disabledContentColor = MaterialTheme.colorScheme.onBackground
+                            disabledContainerColor = buttonBg.copy(alpha = 0.5f),
+                            disabledContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         ),
                         border = BorderStroke(1.dp, buttonBorderColor),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
@@ -294,10 +298,9 @@ fun SignInScreen(
                                         horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        CircularProgressIndicator(
+                                        LoadingIndicator(
                                             modifier = Modifier.size(24.dp),
-                                            color = MaterialTheme.colorScheme.onBackground,
-                                            strokeWidth = 2.dp
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(
@@ -335,10 +338,9 @@ fun SignInScreen(
                         horizontalArrangement = Arrangement.Center,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        CircularProgressIndicator(
+                        LoadingIndicator(
                             modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onBackground,
-                            strokeWidth = 2.dp
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
@@ -499,6 +501,25 @@ private fun getEmailFromIdToken(idToken: String?): String? {
         val payloadBytes = android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
         val payloadString = String(payloadBytes, Charsets.UTF_8)
         val pattern = java.util.regex.Pattern.compile("\"email\"\\s*:\\s*\"([^\"]+)\"")
+        val matcher = pattern.matcher(payloadString)
+        if (matcher.find()) {
+            matcher.group(1)
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun getGoogleIdFromIdToken(idToken: String?): String? {
+    if (idToken.isNullOrEmpty()) return null
+    val parts = idToken.split(".")
+    if (parts.size < 2) return null
+    return try {
+        val payloadBytes = android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+        val payloadString = String(payloadBytes, Charsets.UTF_8)
+        val pattern = java.util.regex.Pattern.compile("\"sub\"\\s*:\\s*\"([^\"]+)\"")
         val matcher = pattern.matcher(payloadString)
         if (matcher.find()) {
             matcher.group(1)

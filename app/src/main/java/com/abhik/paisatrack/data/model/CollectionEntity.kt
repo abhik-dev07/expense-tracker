@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "collections")
 data class CollectionEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey val id: String = java.util.UUID.randomUUID().toString(),
     val name: String,
     val hexColor: String, // Hex string, e.g., "#3F51B5"
     val iconName: String, // Name matching a key in our icon lookup, e.g., "General", "Food", "Transport"

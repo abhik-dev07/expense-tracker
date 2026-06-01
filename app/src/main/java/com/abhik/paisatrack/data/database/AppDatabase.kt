@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
 
-@Database(entities = [CollectionEntity::class, TransactionEntity::class], version = 2, exportSchema = false)
+@Database(entities = [CollectionEntity::class, TransactionEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun collectionDao(): CollectionDao
     abstract fun transactionDao(): TransactionDao

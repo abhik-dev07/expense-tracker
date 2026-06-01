@@ -33,7 +33,7 @@ import com.abhik.paisatrack.ui.FinanceViewModel
 @Composable
 fun AddTransactionScreen(
     viewModel: FinanceViewModel,
-    initialCollectionId: Long = 0L,
+    initialCollectionId: String = "",
     onBack: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
@@ -45,15 +45,15 @@ fun AddTransactionScreen(
     var description by remember { mutableStateOf("") }
     var amountString by remember { mutableStateOf("") }
     var transactionType by remember { mutableStateOf("EXPENSE") } // "EXPENSE" or "INCOME"
-    var selectedCollectionId by remember { mutableStateOf(if (initialCollectionId != 0L) initialCollectionId else (collections.firstOrNull()?.id ?: 0L)) }
+    var selectedCollectionId by remember { mutableStateOf(if (initialCollectionId.isNotEmpty()) initialCollectionId else (collections.firstOrNull()?.id ?: "")) }
     var selectedPaymentType by remember { mutableStateOf("Cash") } // "Cash", "Credit/Debit Card", "Check"
 
     var errorText by remember { mutableStateOf("") }
 
     // Fallback selection update when collections load
     LaunchedEffect(collections) {
-        if (selectedCollectionId == 0L && collections.isNotEmpty()) {
-            selectedCollectionId = if (initialCollectionId != 0L) initialCollectionId else (collections.firstOrNull()?.id ?: 0L)
+        if (selectedCollectionId.isEmpty() && collections.isNotEmpty()) {
+            selectedCollectionId = if (initialCollectionId.isNotEmpty()) initialCollectionId else (collections.firstOrNull()?.id ?: "")
         }
     }
 

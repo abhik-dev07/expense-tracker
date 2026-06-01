@@ -3,6 +3,8 @@ package com.abhik.paisatrack.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,10 +32,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.rotate
@@ -40,6 +46,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,12 +80,20 @@ import java.util.Locale
 @Composable
 fun CollectionTransactionsScreen(
     viewModel: FinanceViewModel,
-    collectionId: Long,
-    onNavigateToAddTransaction: (Long) -> Unit,
+    collectionId: String,
+    onNavigateToAddTransaction: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var visibleLimit by rememberSaveable { mutableStateOf(20) }
+    var animationStartLimit by rememberSaveable { mutableStateOf(0) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+
+    LaunchedEffect(collectionId, uiState.collActiveTimeFilter, uiState.collActiveTypeFilter, uiState.collActiveSortOrder) {
+        visibleLimit = 20
+        animationStartLimit = 0
+    }
     
     // Find our active collection and summary
     val summary = remember(uiState.collectionSummaries, collectionId) {
@@ -91,35 +106,54 @@ fun CollectionTransactionsScreen(
     )
     
     val collection = summary?.collection
-    val transactions = remember(uiState.rawTransactions, collectionId, uiState.activeTimeFilter, uiState.activeTypeFilter) {
+    val transactions = remember(uiState.rawTransactions, collectionId, uiState.collActiveTimeFilter, uiState.collActiveTypeFilter, uiState.collActiveSortOrder) {
         val now = System.currentTimeMillis()
-        uiState.rawTransactions.filter { tx ->
+        val filter = uiState.collActiveTimeFilter
+        val typeFilter = uiState.collActiveTypeFilter.uppercase()
+        val sortOrder = uiState.collActiveSortOrder
+        
+        val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = now }
+        val todayYear = cal2.get(java.util.Calendar.YEAR)
+        val todayDay = cal2.get(java.util.Calendar.DAY_OF_YEAR)
+        val weekYear = cal2.get(java.util.Calendar.YEAR)
+        val weekOfYear = cal2.get(java.util.Calendar.WEEK_OF_YEAR)
+        val monthYear = cal2.get(java.util.Calendar.YEAR)
+        val month = cal2.get(java.util.Calendar.MONTH)
+
+        val filtered = uiState.rawTransactions.filter { tx ->
             val matchesCollection = tx.collectionId == collectionId
-            val matchesType = uiState.activeTypeFilter == "All" || tx.type.uppercase() == uiState.activeTypeFilter.uppercase()
+            val matchesType = typeFilter == "ALL" || tx.type.uppercase() == typeFilter
             
-            val matchesTime = when (uiState.activeTimeFilter) {
+            val matchesTime = when (filter) {
                 "Today" -> {
                     val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-                    val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = now }
-                    cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
-                            cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
+                    cal1.get(java.util.Calendar.YEAR) == todayYear &&
+                            cal1.get(java.util.Calendar.DAY_OF_YEAR) == todayDay
                 }
                 "This Week" -> {
                     val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-                    val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = now }
-                    cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
-                            cal1.get(java.util.Calendar.WEEK_OF_YEAR) == cal2.get(java.util.Calendar.WEEK_OF_YEAR)
+                    cal1.get(java.util.Calendar.YEAR) == weekYear &&
+                            cal1.get(java.util.Calendar.WEEK_OF_YEAR) == weekOfYear
                 }
                 "This Month" -> {
                     val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = tx.timestamp }
-                    val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = now }
-                    cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
-                            cal1.get(java.util.Calendar.MONTH) == cal2.get(java.util.Calendar.MONTH)
+                    cal1.get(java.util.Calendar.YEAR) == monthYear &&
+                            cal1.get(java.util.Calendar.MONTH) == month
                 }
                 else -> true
             }
             matchesCollection && matchesType && matchesTime
         }
+
+        if (sortOrder == "Newest") {
+            filtered.sortedByDescending { it.timestamp }
+        } else {
+            filtered.sortedBy { it.timestamp }
+        }
+    }
+
+    val paginatedTransactions = remember(transactions, visibleLimit) {
+        transactions.take(visibleLimit)
     }
     
     val dollarFormat = remember { DecimalFormat("₹#,##0.00") }
@@ -132,11 +166,87 @@ fun CollectionTransactionsScreen(
     val listState = rememberLazyListState()
 
     var showFilters by remember { mutableStateOf(false) }
-    val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter) {
-        uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All"
+    val isAnyFilterActive = remember(uiState.collActiveTimeFilter, uiState.collActiveTypeFilter, uiState.collActiveSortOrder) {
+        uiState.collActiveTimeFilter != "All" || uiState.collActiveTypeFilter != "All" || uiState.collActiveSortOrder != "Newest"
     }
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
+
+    var isScrolling by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val headerHeight = 220.dp
+    val headerHeightPx = remember(density) { with(density) { headerHeight.toPx() } }
+    var headerOffsetHeightPx by rememberSaveable { mutableStateOf(0f) }
+    var lockHeaderExpansionInCurrentGesture by remember { mutableStateOf(false) }
+    var isScrollingToTop by remember { mutableStateOf(false) }
+
+    val showBackToTop by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 300
+        }
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collect { (currentIndex, currentOffset) ->
+                if (currentIndex == 0 && currentOffset == 0) {
+                    isScrolling = false
+                } else {
+                    isScrolling = true
+                }
+            }
+    }
+
+    val nestedScrollConnection = remember(headerHeightPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (isScrollingToTop) return Offset.Zero
+                val delta = available.y
+                
+                // Update header collapse offset ONLY when scrolling up
+                if (delta < 0) {
+                    val newOffset = headerOffsetHeightPx + delta
+                    headerOffsetHeightPx = newOffset.coerceIn(-headerHeightPx, 0f)
+                }
+
+                // If scrolling up (delta < 0) and header is not fully collapsed, consume the scroll
+                return if (delta < 0 && headerOffsetHeightPx > -headerHeightPx) {
+                    Offset(0f, delta)
+                } else {
+                    Offset.Zero
+                }
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (isScrollingToTop) return Offset.Zero
+                val delta = available.y
+
+                // If the list consumed some scroll down delta, it means it was not at the top at start,
+                // so we lock header expansion for the rest of this gesture.
+                if (delta > 0 && consumed.y > 0.5f) {
+                    lockHeaderExpansionInCurrentGesture = true
+                }
+
+                // If scrolling down (delta > 0), header is not fully expanded, and we are not locked, expand it
+                if (delta > 0 && headerOffsetHeightPx < 0f && !lockHeaderExpansionInCurrentGesture) {
+                    val newOffset = headerOffsetHeightPx + delta
+                    headerOffsetHeightPx = newOffset.coerceIn(-headerHeightPx, 0f)
+                    return Offset(0f, delta)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+                // Reset gesture lock when the user lifts their finger (fling event starts)
+                lockHeaderExpansionInCurrentGesture = false
+                return androidx.compose.ui.unit.Velocity.Zero
+            }
+        }
+    }
 
     val colColor = remember(collection?.hexColor) {
         collection?.hexColor?.let {
@@ -175,21 +285,27 @@ fun CollectionTransactionsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             if (collection != null) {
-                FloatingActionButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onNavigateToAddTransaction(collection.id)
-                    },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = CircleShape,
-                    modifier = Modifier.padding(bottom = 8.dp, end = 8.dp)
+                AnimatedVisibility(
+                    visible = !isScrolling,
+                    enter = fadeIn() + scaleIn(),
+                    exit = fadeOut() + scaleOut()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add Transaction to Collection",
-                        modifier = Modifier.size(28.dp)
-                    )
+                    FloatingActionButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onNavigateToAddTransaction(collection.id)
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = CircleShape,
+                        modifier = Modifier.padding(bottom = 8.dp, end = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Transaction to Collection",
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
         },
@@ -199,6 +315,7 @@ fun CollectionTransactionsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = innerPadding.calculateBottomPadding())
+                .nestedScroll(nestedScrollConnection)
         ) {
             // 1. Fixed Visually Rich Header (Title Row)
             Box(
@@ -305,22 +422,80 @@ fun CollectionTransactionsScreen(
                 }
             }
 
-            // 2. Scrollable content
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 32.dp)
-            ) {
-                // Item 1: Balance Card block showing collection Balance Card
-                if (summary != null) {
-                    val netBalance = summary.totalIncome - summary.totalExpense
-                    val netStr = dollarFormat.format(netBalance)
-                    val incomeStr = dollarFormat.format(summary.totalIncome)
-                    val expenseStr = dollarFormat.format(summary.totalExpense)
+            // Collapsible Balance Card container
+            if (summary != null) {
+                val balanceCardHeightDp = with(LocalDensity.current) { (headerHeightPx + headerOffsetHeightPx).toDp() }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(balanceCardHeightDp)
+                        .clipToBounds()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset { IntOffset(0, headerOffsetHeightPx.roundToInt()) }
+                    ) {
+                        val netBalance = summary.totalIncome - summary.totalExpense
+                        
+                        var hasAnimated by rememberSaveable { mutableStateOf(false) }
+                        val animatedBalance = remember { Animatable(0f) }
+                        val animatedIncome = remember { Animatable(0f) }
+                        val animatedExpense = remember { Animatable(0f) }
 
-                    item {
+                        LaunchedEffect(netBalance, summary.totalIncome, summary.totalExpense, uiState.isLoading) {
+                            if (!uiState.isLoading) {
+                                if (!hasAnimated) {
+                                    launch {
+                                        animatedBalance.animateTo(
+                                            targetValue = netBalance.toFloat(),
+                                            animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                    launch {
+                                        animatedIncome.animateTo(
+                                            targetValue = summary.totalIncome.toFloat(),
+                                            animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                    launch {
+                                        animatedExpense.animateTo(
+                                            targetValue = summary.totalExpense.toFloat(),
+                                            animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                    hasAnimated = true
+                                } else {
+                                    launch {
+                                        animatedBalance.animateTo(
+                                            targetValue = netBalance.toFloat(),
+                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                    launch {
+                                        animatedIncome.animateTo(
+                                            targetValue = summary.totalIncome.toFloat(),
+                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                    launch {
+                                        animatedExpense.animateTo(
+                                            targetValue = summary.totalExpense.toFloat(),
+                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else 0.0
+                        val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else 0.0
+                        val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else 0.0
+
+                        val netStr = dollarFormat.format(displayBalance)
+                        val incomeStr = dollarFormat.format(displayIncome)
+                        val expenseStr = dollarFormat.format(displayExpense)
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -495,117 +670,225 @@ fun CollectionTransactionsScreen(
                         }
                     }
                 }
+            }
 
-                // Sticky Header: Recent Transactions Title and Filter triggers
-                stickyHeader {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+            // 2. Scrollable content
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 32.dp)
+                ) {
+
+                    // Sticky Header: Recent Transactions Title and Filter triggers
+                    stickyHeader {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.background
                         ) {
-                            Text(
-                                text = "Recent transactions",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-
-                            Box(
-                                modifier = Modifier.size(36.dp),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Text(
+                                    text = "Recent transactions",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+
                                 Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(CircleShape)
-                                        .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            showFilters = !showFilters
-                                        },
+                                    modifier = Modifier.size(36.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Tune,
-                                        contentDescription = "Show Filters",
-                                        tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                if (isAnyFilterActive && !showFilters) {
                                     Box(
                                         modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .offset(x = 1.dp, y = (-1).dp)
-                                            .size(8.dp)
+                                            .fillMaxSize()
                                             .clip(CircleShape)
-                                            .background(Color(0xFF10B981))
+                                            .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                showFilters = !showFilters
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Tune,
+                                            contentDescription = "Show Filters",
+                                            tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    if (isAnyFilterActive && !showFilters) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .offset(x = 1.dp, y = (-1).dp)
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF10B981))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Transactions list items or empty state item
+                    if (transactions.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 32.dp, end = 32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    LottieAnimation(
+                                        composition = composition,
+                                        progress = { progress },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(200.dp)
                                     )
+                                    Text(
+                                        text = "No Transactions Formed",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                    Text(
+                                        text = "Any transaction registered with this specific collection category will show up here nicely.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        itemsIndexed(paginatedTransactions, key = { _, tx -> tx.id }) { index, tx ->
+                            val alpha = remember(tx.id) { androidx.compose.animation.core.Animatable(if (index >= animationStartLimit) 0f else 1f) }
+                            LaunchedEffect(tx.id) {
+                                if (index >= animationStartLimit) {
+                                    kotlinx.coroutines.delay((index - animationStartLimit) * 25L)
+                                    alpha.animateTo(1f, tween(150))
+                                }
+                            }
+
+                            Box(modifier = Modifier.alpha(alpha.value)) {
+                                TransactionListItemDetailed(
+                                    transaction = tx,
+                                    colColor = colColor,
+                                    dollarFormat = dollarFormat,
+                                    onDeleteClick = { viewModel.deleteTransaction(tx) },
+                                    onLongClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        txToDelete = tx
+                                    },
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        txDetailToShow = tx
+                                    }
+                                )
+                            }
+                        }
+
+                        if (transactions.size > visibleLimit) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isLoadingMore) {
+                                        LoadingIndicator(
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                isLoadingMore = true
+                                                scope.launch {
+                                                    kotlinx.coroutines.delay(800)
+                                                    animationStartLimit = visibleLimit
+                                                    visibleLimit += 20
+                                                    isLoadingMore = false
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            ),
+                                            shape = RoundedCornerShape(50),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 24.dp)
+                                                .height(48.dp)
+                                        ) {
+                                            Text(
+                                                text = "Load More (${transactions.size - visibleLimit} remaining)",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                // Transactions list items or empty state item
-                if (transactions.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 32.dp, end = 32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                LottieAnimation(
-                                    composition = composition,
-                                    progress = { progress },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(200.dp)
-                                )
-                                Text(
-                                    text = "No Transactions Formed",
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                Text(
-                                    text = "Any transaction registered with this specific collection category will show up here nicely.",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    itemsIndexed(transactions, key = { _, tx -> tx.id }) { index, tx ->
-                        // Wrap in staggered fade animation
-                        AnimatedTransactionItem(index = index) {
-                            TransactionListItemDetailed(
-                                transaction = tx,
-                                colColor = colColor,
-                                dollarFormat = dollarFormat,
-                                onDeleteClick = { viewModel.deleteTransaction(tx) },
-                                onLongClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    txToDelete = tx
-                                },
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    txDetailToShow = tx
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showBackToTop,
+                    enter = fadeIn() + slideInVertically { it / 2 },
+                    exit = fadeOut() + slideOutVertically { it / 2 },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 70.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            scope.launch {
+                                isScrollingToTop = true
+                                headerOffsetHeightPx = -headerHeightPx
+                                try {
+                                    if (listState.firstVisibleItemIndex > 0) {
+                                        listState.scrollToItem(0)
+                                    }
+                                    listState.animateScrollToItem(0)
+                                } finally {
+                                    isScrollingToTop = false
                                 }
-                            )
-                        }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .height(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowUpward,
+                            contentDescription = "Back to Top",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1027,53 +1310,41 @@ fun CollectionTransactionsScreen(
                     }
                 }
 
-                // Time Period Filters block
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Sort By Filters block (First)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "Timeframe",
-                        fontSize = 12.sp,
+                        text = "Sort By",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    val times = listOf("All", "Daily", "Weekly", "Monthly")
+                    val sortOrders = listOf("Newest", "Oldest")
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        times.forEach { time ->
-                            val selected = when (time) {
-                                "Daily" -> uiState.activeTimeFilter == "Today"
-                                "Weekly" -> uiState.activeTimeFilter == "This Week"
-                                "Monthly" -> uiState.activeTimeFilter == "This Month"
-                                else -> uiState.activeTimeFilter == "All"
-                            }
+                        sortOrders.forEach { order ->
+                            val selected = uiState.collActiveSortOrder == order
                             Box(
                                 modifier = Modifier
+                                    .weight(1f)
                                     .clip(RoundedCornerShape(50))
                                     .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        val actualFilter = when (time) {
-                                            "Daily" -> "Today"
-                                            "Weekly" -> "This Week"
-                                            "Monthly" -> "This Month"
-                                            else -> "All"
-                                        }
-                                        viewModel.setTimeFilter(actualFilter)
+                                        viewModel.setCollectionSortOrder(order)
                                     }
                                     .border(
                                         width = 1.dp,
                                         color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
                                         shape = RoundedCornerShape(50)
                                     )
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    .padding(vertical = 6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = time,
-                                    fontSize = 14.sp,
+                                    text = order,
+                                    fontSize = 12.sp,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                     color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1082,22 +1353,22 @@ fun CollectionTransactionsScreen(
                     }
                 }
 
-                // Transaction Direction Filters block
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Transaction Direction Filters block (Middle)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "Transaction Type",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     val types = listOf("All", "Income", "Expense")
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         types.forEach { type ->
-                            val selected = uiState.activeTypeFilter.uppercase() == type.uppercase() ||
-                                    (type == "All" && uiState.activeTypeFilter == "All")
+                            val selected = uiState.collActiveTypeFilter.uppercase() == type.uppercase() ||
+                                    (type == "All" && uiState.collActiveTypeFilter == "All")
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -1113,19 +1384,19 @@ fun CollectionTransactionsScreen(
                                     )
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setTypeFilter(if (type == "All") "All" else type.uppercase())
+                                        viewModel.setCollectionTypeFilter(if (type == "All") "All" else type.uppercase())
                                     }
                                     .border(
                                         width = 1.dp,
                                         color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
                                         shape = RoundedCornerShape(50)
                                     )
-                                    .padding(vertical = 10.dp),
+                                    .padding(vertical = 6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = type,
-                                    fontSize = 14.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                     color = if (selected) {
                                         if (type == "Income") Color(0xFF1FB47B)
@@ -1134,6 +1405,61 @@ fun CollectionTransactionsScreen(
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Time Period Filters block (Last)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Timeframe",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val times = listOf("All", "Daily", "Weekly", "Monthly")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        times.forEach { time ->
+                            val selected = when (time) {
+                                "Daily" -> uiState.collActiveTimeFilter == "Today"
+                                "Weekly" -> uiState.collActiveTimeFilter == "This Week"
+                                "Monthly" -> uiState.collActiveTimeFilter == "This Month"
+                                else -> uiState.collActiveTimeFilter == "All"
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        val actualFilter = when (time) {
+                                            "Daily" -> "Today"
+                                            "Weekly" -> "This Week"
+                                            "Monthly" -> "This Month"
+                                            else -> "All"
+                                        }
+                                        viewModel.setCollectionTimeFilter(actualFilter)
+                                    }
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                                        shape = RoundedCornerShape(50)
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = time,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -1544,42 +1870,20 @@ fun DetailItemLocalRow(label: String, value: String) {
 }
 
 fun getIconByNameLocal(iconName: String): ImageVector {
-    return when (iconName.lowercase()) {
-        "restaurant" -> Icons.Default.Restaurant
-        "directions_car" -> Icons.Default.DirectionsCar
-        "movie" -> Icons.Default.Movie
-        "account_balance_wallet" -> Icons.Default.AccountBalanceWallet
-        "local_hospital" -> Icons.Default.LocalHospital
-        "flight" -> Icons.Default.Flight
-        "school" -> Icons.Default.School
-        "shopping_cart" -> Icons.Default.ShoppingCart
-        "home" -> Icons.Default.Home
-        "fitness_center" -> Icons.Default.FitnessCenter
-        "work" -> Icons.Default.Work
-        "category" -> Icons.Default.Category
+    return when (iconName.lowercase().trim()) {
+        "restaurant", "coffee", "utensils", "food", "fast-food", "food and drinks", "food-and-drinks", "hamburger" -> Icons.Default.Restaurant
+        "directions_car", "car", "bus", "transport", "automobile", "carfront", "car-front" -> Icons.Default.DirectionsCar
+        "movie", "film", "clapperboard", "play", "tv", "entertainment" -> Icons.Default.Movie
+        "account_balance_wallet", "wallet", "dollar-sign", "trending-up", "savings", "cash", "bills", "receiptindianrupee", "receipt-indian-rupee" -> Icons.Default.AccountBalanceWallet
+        "local_hospital", "heart", "activity", "stethoscope", "health", "medical", "health care", "health-care", "hospital" -> Icons.Default.LocalHospital
+        "flight", "plane", "travel", "airplane" -> Icons.Default.Flight
+        "school", "book", "book-open", "graduation-cap", "graduationcap", "education", "study" -> Icons.Default.School
+        "shopping_cart", "shopping-cart", "shopping-bag", "shopping", "gift", "gifts", "groceries", "shoppingbasket", "shopping-basket" -> Icons.Default.ShoppingCart
+        "home", "home-bills", "house", "rent" -> Icons.Default.Home
+        "fitness_center", "dumbbell", "sports", "gym", "workout" -> Icons.Default.FitnessCenter
+        "work", "briefcase", "job", "business" -> Icons.Default.Work
+        "category", "general", "pet", "pawprint", "paw-print", "others", "ellipsis" -> Icons.Default.Category
         else -> Icons.Default.Category
-    }
-}
-
-@Composable
-fun AnimatedTransactionItem(
-    index: Int,
-    content: @Composable () -> Unit
-) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(index * 45L) // Elegant incremental stagger
-        visible = true
-    }
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(animationSpec = tween(400)) + slideInVertically(
-            initialOffsetY = { 60 },
-            animationSpec = tween(400)
-        ),
-        exit = fadeOut(animationSpec = tween(400))
-    ) {
-        content()
     }
 }
 
@@ -1715,24 +2019,6 @@ fun TransactionListItemDetailed(
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
-                        if (transaction.notes.isNotEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f),
-                                        RoundedCornerShape(4.dp)
-                                    )
-                                    .padding(horizontal = 4.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = transaction.notes,
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
                     }
                 }
 

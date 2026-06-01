@@ -8,6 +8,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,8 +26,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -95,19 +99,19 @@ import java.util.Locale
 
 // Icon mapper helper
 fun getIconByName(iconName: String): ImageVector {
-    return when (iconName.lowercase()) {
-        "restaurant" -> Icons.Default.Restaurant
-        "directions_car" -> Icons.Default.DirectionsCar
-        "movie" -> Icons.Default.Movie
-        "account_balance_wallet" -> Icons.Default.AccountBalanceWallet
-        "local_hospital" -> Icons.Default.LocalHospital
-        "flight" -> Icons.Default.Flight
-        "school" -> Icons.Default.School
-        "shopping_cart" -> Icons.Default.ShoppingCart
-        "home" -> Icons.Default.Home
-        "fitness_center" -> Icons.Default.FitnessCenter
-        "work" -> Icons.Default.Work
-        "category" -> Icons.Default.Category
+    return when (iconName.lowercase().trim()) {
+        "restaurant", "coffee", "utensils", "food", "fast-food", "food and drinks", "food-and-drinks", "hamburger" -> Icons.Default.Restaurant
+        "directions_car", "car", "bus", "transport", "automobile", "carfront", "car-front" -> Icons.Default.DirectionsCar
+        "movie", "film", "clapperboard", "play", "tv", "entertainment" -> Icons.Default.Movie
+        "account_balance_wallet", "wallet", "dollar-sign", "trending-up", "savings", "cash", "bills", "receiptindianrupee", "receipt-indian-rupee" -> Icons.Default.AccountBalanceWallet
+        "local_hospital", "heart", "activity", "stethoscope", "health", "medical", "health care", "health-care", "hospital" -> Icons.Default.LocalHospital
+        "flight", "plane", "travel", "airplane" -> Icons.Default.Flight
+        "school", "book", "book-open", "graduation-cap", "graduationcap", "education", "study" -> Icons.Default.School
+        "shopping_cart", "shopping-cart", "shopping-bag", "shopping", "gift", "gifts", "groceries", "shoppingbasket", "shopping-basket" -> Icons.Default.ShoppingCart
+        "home", "home-bills", "house", "rent" -> Icons.Default.Home
+        "fitness_center", "dumbbell", "sports", "gym", "workout" -> Icons.Default.FitnessCenter
+        "work", "briefcase", "job", "business" -> Icons.Default.Work
+        "category", "general", "pet", "pawprint", "paw-print", "others", "ellipsis" -> Icons.Default.Category
         else -> Icons.Default.Category
     }
 }
@@ -146,7 +150,7 @@ val CollectionIcons = listOf(
 fun DashboardScreen(
     viewModel: FinanceViewModel,
     onNavigateToAddTransaction: () -> Unit,
-    onNavigateToCollectionTransactions: (Long) -> Unit,
+    onNavigateToCollectionTransactions: (String) -> Unit,
     onLogout: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -595,7 +599,18 @@ fun DashboardScreen(
                             dollarFormat = dollarFormat,
                             onScrollProgressChanged = { isScrolling = it },
                             onTransactionLongClick = { tx -> txToDelete = tx },
-                            onTransactionClick = { tx -> txDetailToShow = tx }
+                            onTransactionClick = { tx -> txDetailToShow = tx },
+                            onBackToTop = { scrollAction ->
+                                coroutineScope.launch {
+                                    isScrollingToTop = true
+                                    headerOffsetHeightPx = -headerHeightPx
+                                    try {
+                                        scrollAction()
+                                    } finally {
+                                        isScrollingToTop = false
+                                    }
+                                }
+                            }
                         )
                         "Collections" -> CollectionsPanel(
                             uiState = uiState,
@@ -1217,9 +1232,64 @@ fun VisualSummaryHeader(
     var showDetailDialog by remember { mutableStateOf(false) }
     
     val netBalance = uiState.totalIncome - uiState.totalExpense
-    val incomeStr = dollarFormat.format(uiState.totalIncome)
-    val expenseStr = dollarFormat.format(uiState.totalExpense)
-    val netStr = dollarFormat.format(netBalance)
+    
+    var hasAnimated by rememberSaveable { mutableStateOf(false) }
+    val animatedBalance = remember { Animatable(0f) }
+    val animatedIncome = remember { Animatable(0f) }
+    val animatedExpense = remember { Animatable(0f) }
+
+    LaunchedEffect(netBalance, uiState.totalIncome, uiState.totalExpense, uiState.isLoading) {
+        if (!uiState.isLoading) {
+            if (!hasAnimated) {
+                launch {
+                    animatedBalance.animateTo(
+                        targetValue = netBalance.toFloat(),
+                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                    )
+                }
+                launch {
+                    animatedIncome.animateTo(
+                        targetValue = uiState.totalIncome.toFloat(),
+                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                    )
+                }
+                launch {
+                    animatedExpense.animateTo(
+                        targetValue = uiState.totalExpense.toFloat(),
+                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                    )
+                }
+                hasAnimated = true
+            } else {
+                launch {
+                    animatedBalance.animateTo(
+                        targetValue = netBalance.toFloat(),
+                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                    )
+                }
+                launch {
+                    animatedIncome.animateTo(
+                        targetValue = uiState.totalIncome.toFloat(),
+                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                    )
+                }
+                launch {
+                    animatedExpense.animateTo(
+                        targetValue = uiState.totalExpense.toFloat(),
+                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                    )
+                }
+            }
+        }
+    }
+
+    val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else 0.0
+    val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else 0.0
+    val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else 0.0
+
+    val incomeStr = dollarFormat.format(displayIncome)
+    val expenseStr = dollarFormat.format(displayExpense)
+    val netStr = dollarFormat.format(displayBalance)
 
     val isDark = isSystemInDarkTheme()
     
@@ -1521,9 +1591,20 @@ fun TransactionsPanel(
     dollarFormat: DecimalFormat,
     onScrollProgressChanged: (Boolean) -> Unit,
     onTransactionLongClick: (TransactionEntity) -> Unit,
-    onTransactionClick: (TransactionEntity) -> Unit
+    onTransactionClick: (TransactionEntity) -> Unit,
+    onBackToTop: (suspend () -> Unit) -> Unit
 ) {
+    val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
+    val aiLoading by viewModel.aiLoading.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    var visibleLimit by rememberSaveable { mutableStateOf(20) }
+    var animationStartLimit by rememberSaveable { mutableStateOf(0) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.activeCollectionFilter, uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
+        visibleLimit = 20
+        animationStartLimit = 0
+    }
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.nothing))
     val progress by animateLottieCompositionAsState(
         composition = composition,
@@ -1543,19 +1624,30 @@ fun TransactionsPanel(
 
     var showFilters by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
-    val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter) {
-        uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All"
+    val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
+        uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All" || uiState.activeSortOrder != "Newest"
     }
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .fillMaxWidth(),
-        contentPadding = PaddingValues(bottom = 120.dp)
-    ) {
+    val showBackToTop by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 300
+        }
+    }
+
+    val paginatedTransactions = remember(uiState.filteredTransactions, visibleLimit) {
+        uiState.filteredTransactions.take(visibleLimit)
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = 120.dp)
+        ) {
         // Sticky Header: Recent transactions list header (with integrated filter trigger)
         stickyHeader {
             Surface(
@@ -1618,7 +1710,11 @@ fun TransactionsPanel(
         }
 
         // Transactions list or empty state
-        if (uiState.filteredTransactions.isEmpty()) {
+        if (uiState.isLoading) {
+            items(5) {
+                TransactionSkeletonItem()
+            }
+        } else if (uiState.filteredTransactions.isEmpty()) {
             item {
                 Box(
                     modifier = Modifier
@@ -1651,29 +1747,123 @@ fun TransactionsPanel(
                 }
             }
         } else {
-            items(uiState.filteredTransactions, key = { it.id }) { tx ->
+            itemsIndexed(paginatedTransactions, key = { _, tx -> tx.id }) { index, tx ->
                 // Find parent collection for styling information
                 val parentCollection = uiState.collections.find { it.id == tx.collectionId }
                 val categoryColor = parentCollection?.hexColor?.let {
                     Color(android.graphics.Color.parseColor(it))
                 } ?: Color(0xFF9CA3AF)
 
-                TransactionListItem(
-                    transaction = tx,
-                    categoryName = parentCollection?.name ?: "General",
-                    categoryColor = categoryColor,
-                    categoryIcon = getIconByName(parentCollection?.iconName ?: "category"),
-                    dollarFormat = dollarFormat,
-                    onDeleteClick = { viewModel.deleteTransaction(tx) },
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onTransactionLongClick(tx)
-                    },
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onTransactionClick(tx)
+                val alpha = remember(tx.id) { androidx.compose.animation.core.Animatable(if (index >= animationStartLimit) 0f else 1f) }
+                LaunchedEffect(tx.id) {
+                    if (index >= animationStartLimit) {
+                        kotlinx.coroutines.delay((index - animationStartLimit) * 25L)
+                        alpha.animateTo(1f, tween(150))
                     }
+                }
+
+                Box(modifier = Modifier.alpha(alpha.value)) {
+                    TransactionListItem(
+                        transaction = tx,
+                        categoryName = parentCollection?.name ?: "General",
+                        categoryColor = categoryColor,
+                        categoryIcon = getIconByName(parentCollection?.iconName ?: "category"),
+                        dollarFormat = dollarFormat,
+                        onDeleteClick = { viewModel.deleteTransaction(tx) },
+                        onLongClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onTransactionLongClick(tx)
+                        },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onTransactionClick(tx)
+                        }
+                    )
+                }
+            }
+
+            if (uiState.filteredTransactions.size > visibleLimit) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoadingMore) {
+                            LoadingIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        } else {
+                            Button(
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    isLoadingMore = true
+                                    scope.launch {
+                                        kotlinx.coroutines.delay(800)
+                                        animationStartLimit = visibleLimit
+                                        visibleLimit += 20
+                                        isLoadingMore = false
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .height(48.dp)
+                            ) {
+                                Text(
+                                    text = "Load More (${uiState.filteredTransactions.size - visibleLimit} remaining)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    androidx.compose.animation.AnimatedVisibility(
+            visible = showBackToTop,
+            enter = fadeIn() + slideInVertically { it / 2 },
+            exit = fadeOut() + slideOutVertically { it / 2 },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 70.dp)
+        ) {
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onBackToTop {
+                        if (listState.firstVisibleItemIndex > 0) {
+                            listState.scrollToItem(0)
+                        }
+                        listState.animateScrollToItem(0)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                shape = CircleShape,
+                modifier = Modifier
+                    .height(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowUpward,
+                    contentDescription = "Back to Top",
+                    modifier = Modifier.size(16.dp)
                 )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1739,11 +1929,112 @@ fun TransactionsPanel(
                     }
                 }
 
-                // Time Period Filters block
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Sort By Filters block (First)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Sort By",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val sortOrders = listOf("Newest", "Oldest")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        sortOrders.forEach { order ->
+                            val selected = uiState.activeSortOrder == order
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.setSortOrder(order)
+                                    }
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                                        shape = RoundedCornerShape(50)
+                                    )
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = order,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Transaction Direction Filters block (Middle)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Transaction Type",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val types = listOf("All", "Income", "Expense")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        types.forEach { type ->
+                            val selected = uiState.activeTypeFilter.uppercase() == type.uppercase() ||
+                                    (type == "All" && uiState.activeTypeFilter == "All")
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        if (selected) {
+                                            if (type == "Income") Color(0xFFE4F6E6)
+                                            else if (type == "Expense") Color(0xFFFEE2E2)
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        }
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.setTypeFilter(if (type == "All") "All" else type.uppercase())
+                                    }
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
+                                        shape = RoundedCornerShape(50)
+                                    )
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = type,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) {
+                                        if (type == "Income") Color(0xFF1FB47B)
+                                        else if (type == "Expense") Color(0xFFEF4444)
+                                        else MaterialTheme.colorScheme.onSurface
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Time Period Filters block (Last)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "Timeframe",
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1752,7 +2043,7 @@ fun TransactionsPanel(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         times.forEach { time ->
                             val selected = when (time) {
@@ -1780,12 +2071,12 @@ fun TransactionsPanel(
                                         color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
                                         shape = RoundedCornerShape(50)
                                     )
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = time,
-                                    fontSize = 14.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                     color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1793,64 +2084,72 @@ fun TransactionsPanel(
                         }
                     }
                 }
+            }
+        }
+    }
+}
 
-                // Transaction Direction Filters block
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Transaction Type",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val types = listOf("All", "Income", "Expense")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        types.forEach { type ->
-                            val selected = uiState.activeTypeFilter.uppercase() == type.uppercase() ||
-                                    (type == "All" && uiState.activeTypeFilter == "All")
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(
-                                        if (selected) {
-                                            if (type == "Income") Color(0xFFE4F6E6)
-                                            else if (type == "Expense") Color(0xFFFEE2E2)
-                                            else MaterialTheme.colorScheme.surfaceVariant
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        }
-                                    )
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setTypeFilter(if (type == "All") "All" else type.uppercase())
-                                    }
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
-                                        shape = RoundedCornerShape(50)
-                                    )
-                                    .padding(vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = type,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selected) {
-                                        if (type == "Income") Color(0xFF1FB47B)
-                                        else if (type == "Expense") Color(0xFFEF4444)
-                                        else MaterialTheme.colorScheme.onSurface
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+@Composable
+fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
+        shadowElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .shimmerEffect()
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
+            }
+            Column(
+                modifier = Modifier.padding(start = 8.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .width(50.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
             }
         }
     }
@@ -1989,7 +2288,7 @@ fun TransactionListItem(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (transaction.notes.isNotEmpty()) transaction.notes else categoryName,
+                        text = categoryName,
                         fontSize = 13.sp,
                         color = Color(0xFF9CA3AF),
                         maxLines = 1,
@@ -2033,11 +2332,14 @@ fun CollectionsPanel(
     viewModel: FinanceViewModel,
     dollarFormat: DecimalFormat,
     onScrollProgressChanged: (Boolean) -> Unit,
-    onCollectionClick: (Long) -> Unit,
+    onCollectionClick: (String) -> Unit,
     onBackToTop: (suspend () -> Unit) -> Unit
 ) {
+    val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
+    val aiLoading by viewModel.aiLoading.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
     val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
     
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.nothing))
     val progress by animateLottieCompositionAsState(
@@ -2058,6 +2360,14 @@ fun CollectionsPanel(
 
     var editingCollectionSummary by remember { mutableStateOf<CollectionSummary?>(null) }
     val activeColTab by viewModel.activeCollectionTab.collectAsStateWithLifecycle()
+    var visibleLimit by rememberSaveable { mutableStateOf(6) }
+    var animationStartLimit by rememberSaveable { mutableStateOf(0) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+
+    LaunchedEffect(activeColTab) {
+        visibleLimit = 6
+        animationStartLimit = 0
+    }
 
     val showBackToTop by remember {
         derivedStateOf {
@@ -2076,6 +2386,10 @@ fun CollectionsPanel(
             "Owned" -> sorted.filter { !it.collection.isPrebuilt }
             else -> sorted
         }
+    }
+
+    val paginatedSummaries = remember(filteredSummaries, visibleLimit) {
+        filteredSummaries.take(visibleLimit)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -2164,18 +2478,74 @@ fun CollectionsPanel(
                         }
                     }
                 } else {
-                    items(filteredSummaries) { summary ->
-                        CollectionGridCard(
-                            summary = summary,
-                            dollarFormat = dollarFormat,
-                            onEditClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                editingCollectionSummary = summary
-                            },
-                            onClick = {
-                                onCollectionClick(summary.collection.id)
+                    itemsIndexed(paginatedSummaries) { index, summary ->
+                        val alpha = remember(summary.collection.id) { androidx.compose.animation.core.Animatable(if (index >= animationStartLimit) 0f else 1f) }
+                        LaunchedEffect(summary.collection.id) {
+                            if (index >= animationStartLimit) {
+                                kotlinx.coroutines.delay((index - animationStartLimit) * 25L)
+                                alpha.animateTo(1f, tween(150))
                             }
-                        )
+                        }
+
+                        Box(modifier = Modifier.alpha(alpha.value)) {
+                            CollectionGridCard(
+                                summary = summary,
+                                dollarFormat = dollarFormat,
+                                onEditClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    editingCollectionSummary = summary
+                                },
+                                onClick = {
+                                    onCollectionClick(summary.collection.id)
+                                }
+                            )
+                        }
+                    }
+
+                    if (filteredSummaries.size > visibleLimit) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isLoadingMore) {
+                                    LoadingIndicator(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            isLoadingMore = true
+                                            scope.launch {
+                                                kotlinx.coroutines.delay(800)
+                                                animationStartLimit = visibleLimit
+                                                visibleLimit += 6
+                                                isLoadingMore = false
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        shape = RoundedCornerShape(50),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 24.dp)
+                                            .height(48.dp)
+                                    ) {
+                                        Text(
+                                            text = "Load More (${filteredSummaries.size - visibleLimit} remaining)",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2213,6 +2583,7 @@ fun CollectionsPanel(
                     Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
+        }
 
         // Bottom Sheet for Editing / Deleting a collection
         if (editingCollectionSummary != null) {
@@ -2595,7 +2966,6 @@ fun CollectionsPanel(
         }
     }
 }
-}
 
 @Composable
 fun CollectionGridCard(
@@ -2675,6 +3045,26 @@ fun CollectionGridCard(
 
             // Net balance of the collection card
             val balance = summary.totalIncome - summary.totalExpense
+            var hasAnimated by rememberSaveable { mutableStateOf(false) }
+            val animatedBalance = remember { Animatable(0f) }
+
+            LaunchedEffect(balance) {
+                if (!hasAnimated) {
+                    animatedBalance.animateTo(
+                        targetValue = balance.toFloat(),
+                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                    )
+                    hasAnimated = true
+                } else {
+                    animatedBalance.animateTo(
+                        targetValue = balance.toFloat(),
+                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                    )
+                }
+            }
+
+            val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else 0.0
+
             Column {
                 Text(
                     text = "Balance",
@@ -2683,10 +3073,10 @@ fun CollectionGridCard(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = dollarFormat.format(balance),
+                    text = dollarFormat.format(displayBalance),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = if (balance >= 0.0) Color(0xFF10B981) else Color(0xFFFFB8A9)
+                    color = if (displayBalance >= 0.0) Color(0xFF10B981) else Color(0xFFFFB8A9)
                 )
             }
         }
@@ -2873,6 +3263,68 @@ fun InsightsPanel(
                 }
             }
         }
+
+        // 3. AI Insights Section
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color(0xFFF0FDF4)
+            ),
+            border = BorderStroke(1.dp, if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color(0xFFDCFCE7))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Smart Financial Insights",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF166534)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onRefreshInsights,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        if (aiLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh",
+                                tint = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.primary else Color(0xFF166534),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = aiInsights.ifEmpty { "Generating your personal financial analysis..." },
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
+                    color = if (isSystemInDarkTheme()) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF1F2937)
+                )
+            }
+        }
     }
 }
 
@@ -2998,13 +3450,13 @@ fun DailyBarChart(dailySums: List<DailySum>) {
 fun AddTransactionDialog(
     collections: List<CollectionEntity>,
     onDismiss: () -> Unit,
-    onConfirm: (description: String, amount: Double, type: String, collectionId: Long) -> Unit
+    onConfirm: (description: String, amount: Double, type: String, collectionId: String) -> Unit
 ) {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     var description by remember { mutableStateOf("") }
     var amountString by remember { mutableStateOf("") }
     var transactionType by remember { mutableStateOf("EXPENSE") } // "EXPENSE" or "INCOME"
-    var selectedCollectionId by remember { mutableStateOf(collections.firstOrNull()?.id ?: 0L) }
+    var selectedCollectionId by remember { mutableStateOf(collections.firstOrNull()?.id ?: "") }
     var selectedPaymentType by remember { mutableStateOf("Cash") } // "Cash", "Credit/Debit Card", "Check"
     
     var errorText by remember { mutableStateOf("") }

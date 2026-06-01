@@ -6,6 +6,7 @@ import com.mmk.kmpauth.google.GoogleAuthProvider
 object AuthManager {
     private const val PREFS_NAME = "paisa_track_prefs"
     private const val KEY_SIGNED_IN = "is_signed_in"
+    private const val KEY_USER_ID = "user_id"
     private const val KEY_USER_NAME = "user_name"
     private const val KEY_USER_EMAIL = "user_email"
     private const val KEY_SEEN_ONBOARDING = "has_seen_onboarding"
@@ -42,7 +43,8 @@ object AuthManager {
         signedIn: Boolean,
         name: String? = null,
         email: String? = null,
-        profilePicUrl: String? = null
+        profilePicUrl: String? = null,
+        userId: String? = null
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().apply {
@@ -58,8 +60,18 @@ object AuthManager {
             } else if (!signedIn) {
                 remove(KEY_PROFILE_PIC_URL)
             }
+            if (userId != null) {
+                putString(KEY_USER_ID, userId)
+            } else if (!signedIn) {
+                remove(KEY_USER_ID)
+            }
             apply()
         }
+    }
+
+    fun getUserId(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_USER_ID, null)
     }
 
     fun getUserName(context: Context): String {

@@ -3,6 +3,7 @@ package com.abhik.paisatrack.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.abhik.paisatrack.data.AuthManager
 import com.abhik.paisatrack.data.database.AppDatabase
 import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
@@ -41,16 +42,23 @@ data class FinanceUiState(
     val savingsRate: Double = 0.0,
     val collectionSummaries: List<CollectionSummary> = emptyList(),
     val dailyTransactionSums: List<DailySum> = emptyList(),
-    val activeCollectionFilter: Long? = null,
-    val activeTimeFilter: String = "All", // "All", "Today", "This Week", "This Month"
-    val activeTypeFilter: String = "All" // "All", "INCOME", "EXPENSE"
+    val activeCollectionFilter: String? = null,
+    val activeTimeFilter: String = "All",
+    val activeTypeFilter: String = "All",
+    val activeSortOrder: String = "Newest",
+    
+    // Separate filters for Collection Detail Screen
+    val collActiveTimeFilter: String = "All",
+    val collActiveTypeFilter: String = "All",
+    val collActiveSortOrder: String = "Newest",
+    val isLoading: Boolean = true
 )
 
 class FinanceViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: FinanceRepository
     
-    private val _selectedCollectionFilter = MutableStateFlow<Long?>(null)
+    private val _selectedCollectionFilter = MutableStateFlow<String?>(null)
     val selectedCollectionFilter = _selectedCollectionFilter.asStateFlow()
 
     private val _selectedTimeFilter = MutableStateFlow("All")
@@ -59,12 +67,28 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     private val _selectedTypeFilter = MutableStateFlow("All")
     val selectedTypeFilter = _selectedTypeFilter.asStateFlow()
 
+    private val _selectedSortOrder = MutableStateFlow("Newest")
+    val selectedSortOrder = _selectedSortOrder.asStateFlow()
+
+    // Dedicated filter states for the Collection Detail screen
+    private val _collTimeFilter = MutableStateFlow("All")
+    val collTimeFilter = _collTimeFilter.asStateFlow()
+
+    private val _collTypeFilter = MutableStateFlow("All")
+    val collTypeFilter = _collTypeFilter.asStateFlow()
+
+    private val _collSortOrder = MutableStateFlow("Newest")
+    val collSortOrder = _collSortOrder.asStateFlow()
+
     // AI Insight state
     private val _aiInsights = MutableStateFlow("")
     val aiInsights: StateFlow<String> = _aiInsights.asStateFlow()
 
     private val _aiLoading = MutableStateFlow(false)
     val aiLoading: StateFlow<Boolean> = _aiLoading.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     // Global active tab state to maintain consistent navigation stack transitions
     private val _activeTab = MutableStateFlow("Transactions")
@@ -87,8 +111,16 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
         // Ensure seeding is completed in a safe thread
         viewModelScope.launch(Dispatchers.IO) {
-            repository.ensureDefaultCollectionsPreseeded()
+            val context = getApplication<Application>().applicationContext
+            val userId = AuthManager.getUserId(context)
+            if (userId != null) {
+                repository.syncFromBackend(userId)
+                syncFcmToken(userId)
+            } else {
+                repository.ensureDefaultCollectionsPreseeded()
+            }
             _aiInsights.value = GeminiInsightService.getFallbackInsights(0.0, 0.0)
+            _isLoading.value = false
         }
     }
 
@@ -98,29 +130,45 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         repository.allTransactions,
         _selectedCollectionFilter,
         _selectedTimeFilter,
-        _selectedTypeFilter
-    ) { collections, transactions, collectionFilter, timeFilter, typeFilter ->
+        _selectedTypeFilter,
+        _selectedSortOrder,
+        _collTimeFilter,
+        _collTypeFilter,
+        _collSortOrder,
+        _isLoading
+    ) { args ->
+        val collections = args[0] as List<CollectionEntity>
+        val transactions = args[1] as List<TransactionEntity>
+        val collectionFilter = args[2] as String?
+        val timeFilter = args[3] as String
+        val typeFilter = args[4] as String
+        val sortOrder = args[5] as String
+        val cTime = args[6] as String
+        val cType = args[7] as String
+        val cSort = args[8] as String
+        val isLoading = args[9] as Boolean
         
-        // 1. Filter transactions
+        // 1. Filter transactions for Dashboard
         val now = System.currentTimeMillis()
         val filtered = transactions.filter { tx ->
             val matchesCollection = collectionFilter == null || tx.collectionId == collectionFilter
             val matchesType = typeFilter == "All" || tx.type.uppercase() == typeFilter.uppercase()
             
             val matchesTime = when (timeFilter) {
-                "Today" -> {
-                    isSameDay(tx.timestamp, now)
-                }
-                "This Week" -> {
-                    isSameWeek(tx.timestamp, now)
-                }
-                "This Month" -> {
-                    isSameMonth(tx.timestamp, now)
-                }
-                else -> true // "All"
+                "Today" -> isSameDay(tx.timestamp, now)
+                "This Week" -> isSameWeek(tx.timestamp, now)
+                "This Month" -> isSameMonth(tx.timestamp, now)
+                else -> true
             }
             
             matchesCollection && matchesType && matchesTime
+        }
+
+        // Apply Dashboard Sorting
+        val sorted = if (sortOrder == "Newest") {
+            filtered.sortedByDescending { it.timestamp }
+        } else {
+            filtered.sortedBy { it.timestamp }
         }
 
         // 2. Compute totals for active transactions (all transactions, unfiltered)
@@ -164,7 +212,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         FinanceUiState(
             collections = collections,
             rawTransactions = transactions,
-            filteredTransactions = filtered,
+            filteredTransactions = sorted,
             totalIncome = totalInc,
             totalExpense = totalExp,
             balance = currentBalance,
@@ -173,56 +221,144 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             dailyTransactionSums = dailySums,
             activeCollectionFilter = collectionFilter,
             activeTimeFilter = timeFilter,
-            activeTypeFilter = typeFilter
+            activeTypeFilter = typeFilter,
+            activeSortOrder = sortOrder,
+            collActiveTimeFilter = cTime,
+            collActiveTypeFilter = cType,
+            collActiveSortOrder = cSort,
+            isLoading = isLoading
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = FinanceUiState()
+        initialValue = FinanceUiState(isLoading = true)
     )
 
-    fun addTransaction(description: String, amount: Double, type: String, collectionId: Long, timestamp: Long = System.currentTimeMillis()) {
+    fun onUserSignedIn(
+        googleId: String,
+        email: String,
+        name: String,
+        image: String,
+        onComplete: (String) -> Unit
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
-            repository.insertTransaction(
-                TransactionEntity(
-                    description = description,
-                    amount = amount,
-                    type = type.uppercase(),
-                    collectionId = collectionId,
-                    timestamp = timestamp
-                )
+            val response = repository.signupUser(googleId, email, name, image)
+            val finalUserId = response?.userId ?: googleId
+
+            AuthManager.setUserSignedIn(
+                getApplication(),
+                signedIn = true,
+                name = name,
+                email = email,
+                profilePicUrl = image,
+                userId = finalUserId
             )
+
+            // Migrate local anonymous data to backend first
+            repository.migrateLocalDataToBackend(finalUserId)
+
+            // Force clear and download database data for backward compatibility
+            repository.syncFromBackend(finalUserId)
+            syncFcmToken(finalUserId)
+
+            viewModelScope.launch(Dispatchers.Main) {
+                onComplete(finalUserId)
+            }
+        }
+    }
+
+    fun syncFcmToken(userId: String) {
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful && task.result != null) {
+                    val token = task.result
+                    viewModelScope.launch(Dispatchers.IO) {
+                        repository.updatePushTokenRemote(userId, token)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun addTransaction(description: String, amount: Double, type: String, collectionId: String, timestamp: Long = System.currentTimeMillis()) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val transaction = TransactionEntity(
+                description = description,
+                amount = amount,
+                type = type.uppercase(),
+                collectionId = collectionId,
+                timestamp = timestamp
+            )
+            repository.insertTransaction(transaction)
+
+            val userId = AuthManager.getUserId(getApplication())
+            if (userId != null) {
+                repository.addTransactionRemote(userId, transaction)
+            }
         }
     }
 
     fun deleteTransaction(transaction: TransactionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTransaction(transaction)
+
+            val userId = AuthManager.getUserId(getApplication())
+            if (userId != null) {
+                repository.deleteTransactionRemote(userId, transaction.id)
+            }
         }
     }
 
     fun addCollection(name: String, hexColor: String, iconName: String, monthlyBudget: Double?) {
         viewModelScope.launch(Dispatchers.IO) {
-            repository.insertCollection(
-                CollectionEntity(
-                    name = name,
-                    hexColor = hexColor,
-                    iconName = iconName,
-                    monthlyBudget = monthlyBudget
-                )
+            val collection = CollectionEntity(
+                name = name,
+                hexColor = hexColor,
+                iconName = iconName,
+                monthlyBudget = monthlyBudget
             )
+            repository.insertCollection(collection)
+
+            val userId = AuthManager.getUserId(getApplication())
+            if (userId != null) {
+                repository.addCollectionRemote(userId, collection)
+            }
         }
     }
 
     fun updateCollection(collection: CollectionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.insertCollection(collection)
+            // Wait, does the backend support update? Yes, PUT /api/collections/{collectionId}
+            val userId = AuthManager.getUserId(getApplication())
+            if (userId != null) {
+                try {
+                    com.abhik.paisatrack.data.network.ApiClient.api.updateCollection(
+                        collection.id,
+                        com.abhik.paisatrack.data.network.UpdateCollectionRequest(
+                            title = collection.name,
+                            color = collection.hexColor,
+                            icon = collection.iconName
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
     }
 
     fun deleteCollection(collection: CollectionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteCollection(collection)
+
+            val userId = AuthManager.getUserId(getApplication())
+            if (userId != null) {
+                repository.deleteCollectionRemote(userId, collection.id)
+            }
+
             // Reset filter if we deleted the currently selected collection
             if (_selectedCollectionFilter.value == collection.id) {
                 _selectedCollectionFilter.value = null
@@ -230,7 +366,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun setCollectionFilter(collectionId: Long?) {
+    fun setCollectionFilter(collectionId: String?) {
         _selectedCollectionFilter.value = collectionId
     }
 
@@ -240,6 +376,23 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun setTypeFilter(typeFilter: String) {
         _selectedTypeFilter.value = typeFilter
+    }
+
+    fun setSortOrder(order: String) {
+        _selectedSortOrder.value = order
+    }
+
+    // Collection Screen filter setters
+    fun setCollectionTimeFilter(filter: String) {
+        _collTimeFilter.value = filter
+    }
+
+    fun setCollectionTypeFilter(filter: String) {
+        _collTypeFilter.value = filter
+    }
+
+    fun setCollectionSortOrder(order: String) {
+        _collSortOrder.value = order
     }
 
     // Triggers local or remote Gemini insights based on current states
@@ -288,7 +441,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun computeDailySums(transactions: List<TransactionEntity>): List<DailySum> {
-        val cal = Calendar.getInstance()
         val dailyMap = mutableMapOf<String, Pair<Double, Double>>() // Key: DateString, Value: Pair(IncomeSum, ExpenseSum)
         val format = SimpleDateFormat("EEE", Locale.getDefault()) // "Mon", "Tue"
         
