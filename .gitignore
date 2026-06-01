@@ -26,6 +26,7 @@ build/
 local.properties
 .env
 .env.*
+!.env.example
 
 # Keystores and signing keys
 *.keystore

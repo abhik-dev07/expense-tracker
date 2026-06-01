@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -21,17 +23,23 @@ android {
   }
 
   signingConfigs {
+    val env = Properties()
+    val envFile = rootProject.file(".env")
+    if (envFile.exists()) {
+      envFile.inputStream().use { env.load(it) }
+    }
+
     create("release") {
       storeFile = file("keystore.jks")
-      storePassword = "0a24c2c591b6763178743d09a7b95f30"
-      keyAlias = "6eb390bddabf88cb05474b1cfed7dace"
-      keyPassword = "401999ffc87e2cde3caa165ce6bbfa89"
+      storePassword = env.getProperty("STORE_PASSWORD")
+      keyAlias = env.getProperty("KEY_ALIAS")
+      keyPassword = env.getProperty("KEY_PASSWORD")
     }
     getByName("debug") {
       storeFile = file("keystore.jks")
-      storePassword = "0a24c2c591b6763178743d09a7b95f30"
-      keyAlias = "6eb390bddabf88cb05474b1cfed7dace"
-      keyPassword = "401999ffc87e2cde3caa165ce6bbfa89"
+      storePassword = env.getProperty("STORE_PASSWORD") ?: "android"
+      keyAlias = env.getProperty("KEY_ALIAS") ?: "androiddebugkey"
+      keyPassword = env.getProperty("KEY_PASSWORD") ?: "android"
     }
   }
 
