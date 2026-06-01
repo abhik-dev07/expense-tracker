@@ -6,6 +6,7 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
+  id("com.google.gms.google-services")
 }
 
 android {
@@ -46,7 +47,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
@@ -79,6 +81,9 @@ dependencies {
   implementation(platform(libs.firebase.bom))
   implementation("io.github.mirzemehdi:kmpauth-google:2.0.0")
   implementation("io.github.mirzemehdi:kmpauth-uihelper:2.0.0")
+  implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
+  implementation("com.google.firebase:firebase-analytics")
+  implementation(libs.firebase.messaging)
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
