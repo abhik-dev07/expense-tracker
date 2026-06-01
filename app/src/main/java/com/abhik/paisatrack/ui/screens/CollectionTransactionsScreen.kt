@@ -75,6 +75,7 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.abhik.paisatrack.ui.components.*
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -1026,229 +1027,31 @@ fun CollectionTransactionsScreen(
     // Wide Delete Confirmation Dialog
     if (txToDelete != null) {
         val tx = txToDelete!!
-        Dialog(
-            onDismissRequest = { txToDelete = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .padding(vertical = 16.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Warning",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(48.dp)
-                    )
-
-                    Text(
-                        text = "Delete Transaction?",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Text(
-                        text = "Are you sure you want to delete \"${tx.description}\" for ${dollarFormat.format(tx.amount)}? This action cannot be undone.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                txToDelete = null
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = CircleShape
-                        ) {
-                            Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-
-                        Button(
-                            onClick = {
-                                viewModel.deleteTransaction(tx)
-                                txToDelete = null
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            ),
-                            modifier = Modifier.weight(1f),
-                            shape = CircleShape
-                        ) {
-                            Text("Delete", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+        DeleteTransactionConfirmDialog(
+            transaction = tx,
+            dollarFormat = dollarFormat,
+            onDismiss = { txToDelete = null },
+            onConfirm = {
+                viewModel.deleteTransaction(tx)
+                txToDelete = null
             }
-        }
+        )
     }
 
     // Transaction Detail Bottom Sheet
     if (txDetailToShow != null) {
         val tx = txDetailToShow!!
-        val isIncome = tx.type.uppercase() == "INCOME"
         val colName = collection?.name ?: "General"
         val colIcon = getIconByNameLocal(collection?.iconName ?: "category")
-        val isDark = isSystemInDarkTheme()
 
-        // Match exact date & time logic from the mockup
-        val todayStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
-        val yesterdayStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(System.currentTimeMillis() - 86400000L))
-        val txDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(tx.timestamp))
-        val displayDate = when (txDateStr) {
-            todayStr -> "Today"
-            yesterdayStr -> "Yesterday"
-            else -> txDateStr
-        }
-        val displayTimeStr = remember(tx.timestamp) {
-            val sdfStr = SimpleDateFormat("h:mm a", Locale.getDefault())
-            sdfStr.format(Date(tx.timestamp)).lowercase()
-        }
-
-        ModalBottomSheet(
-            onDismissRequest = { txDetailToShow = null },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            dragHandle = null
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Drag handle (Manual to avoid double / extra visual bar)
-                Box(
-                    modifier = Modifier
-                        .padding(top = 8.dp, bottom = 4.dp)
-                        .size(width = 40.dp, height = 4.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
-                        .align(Alignment.CenterHorizontally)
-                )
-
-                // Title centered matching mockup style
-                Text(
-                    text = "Transaction Details",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                // Centered beautifully rounded icon
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(colColor.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = colIcon,
-                        contentDescription = colName,
-                        tint = colColor,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                // Centered amount matching type green/red color
-                Text(
-                    text = "${if (isIncome) "+" else "-"}${dollarFormat.format(tx.amount)}",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Black,
-                    color = if (isIncome) Color(0xFF10B981) else Color(0xFFEF4444)
-                )
-
-                // Description placed UNDER the Amount, centered with proper font & color
-                if (tx.description.isNotEmpty()) {
-                    Text(
-                        text = tx.description,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
-                    )
-                }
-
-                // Single thin horizontal divider (mockup table style)
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-
-                // Metadata detailed fields stacked nicely
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    DetailItemLocalRow(
-                        label = "Type",
-                        value = tx.type.lowercase().replaceFirstChar { it.uppercase() }
-                    )
-                    DetailItemLocalRow(
-                        label = "Collection Name",
-                        value = colName
-                    )
-                    DetailItemLocalRow(
-                        label = "Created Date",
-                        value = displayDate
-                    )
-                    DetailItemLocalRow(
-                        label = "Created Time",
-                        value = displayTimeStr
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Standard pill shape Rounded Close Button with Haptic
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        txDetailToShow = null
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFE4F6E6),
-                        contentColor = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF1C2C1D)
-                    )
-                ) {
-                    Text(
-                        text = "Close",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
+        TransactionDetailBottomSheet(
+            transaction = tx,
+            collectionName = colName,
+            collectionColor = colColor,
+            collectionIcon = colIcon,
+            dollarFormat = dollarFormat,
+            onDismiss = { txDetailToShow = null }
+        )
     }
 
     // Elegant Bottom Sheet for filters (Comes under recent transactions trigger)
@@ -1848,28 +1651,7 @@ fun CollectionTransactionsScreen(
     }
 }
 
-@Composable
-fun DetailItemLocalRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = value,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.End
-        )
-    }
-}
+
 
 fun getIconByNameLocal(iconName: String): ImageVector {
     return when (iconName.lowercase().trim()) {
