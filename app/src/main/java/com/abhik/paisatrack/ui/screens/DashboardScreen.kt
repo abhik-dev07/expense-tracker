@@ -1,5 +1,6 @@
 package com.abhik.paisatrack.ui.screens
 
+import android.annotation.SuppressLint
 import com.abhik.paisatrack.data.AuthManager
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
@@ -19,6 +20,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
@@ -41,6 +44,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -100,6 +104,7 @@ import java.util.Date
 import java.util.Locale
 import com.abhik.paisatrack.ui.components.*
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -123,6 +128,12 @@ fun DashboardScreen(
     val coroutineScope = rememberCoroutineScope()
     LaunchedEffect(activeTab) {
         isScrolling = false
+    }
+
+    // Entrance fade-in animation (plays once when Dashboard first appears after LoaderScreen)
+    val entranceAlpha = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        entranceAlpha.animateTo(1f, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
     }
 
     val density = LocalDensity.current
@@ -232,152 +243,169 @@ fun DashboardScreen(
     )
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.alpha(entranceAlpha.value),
         topBar = {
             // Null topBar, Greeting is drawn inline inside the main body
         },
         bottomBar = {
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .offset(y = bottomBarOffset)
                     .alpha(bottomBarAlpha)
-                    .padding(bottom = 16.dp, start = 20.dp, end = 20.dp),
-                contentAlignment = Alignment.Center
+                    .padding(bottom = 16.dp, start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Card(
+                // Glassmorphic Tab Container Pill
+                val tabs = remember {
+                    listOf(
+                        Pair("Transactions", "Home"),
+                        Pair("Insights", "Analysis"),
+                        Pair("Collections", "Collection")
+                    )
+                }
+                val activeIndex = when (activeTab) {
+                    "Transactions" -> 0
+                    "Insights" -> 1
+                    "Collections" -> 2
+                    else -> 0
+                }
+                val animatedIndex by animateFloatAsState(
+                    targetValue = activeIndex.toFloat(),
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    label = "TabIndicatorIndexAnimation"
+                )
+
+                BoxWithConstraints(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(76.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f), RoundedCornerShape(38.dp)),
-                    shape = RoundedCornerShape(38.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        .weight(1f)
+                        .height(72.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            shape = CircleShape
+                        )
+                        .padding(6.dp)
                 ) {
-                    Row(
+                    val containerWidth = maxWidth
+                    val tabWidth = containerWidth / 3
+
+                    // Slidable Highlight Indicator Box
+                    Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
+                            .offset(x = tabWidth * animatedIndex)
+                            .width(tabWidth)
+                            .fillMaxHeight()
+                            .background(
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                shape = CircleShape
+                            )
+                    )
+
+                    // Row of Tab items
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. Home Tab
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setActiveTab("Transactions")
-                                    },
-                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                    indication = null
-                                ),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Home,
-                                contentDescription = "Home",
-                                tint = if (activeTab == "Transactions") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Home",
-                                fontSize = 11.sp,
-                                fontWeight = if (activeTab == "Transactions") FontWeight.Bold else FontWeight.Medium,
-                                color = if (activeTab == "Transactions") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-
-                        // 2. Analysis Tab
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setActiveTab("Insights")
-                                    },
-                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                    indication = null
-                                ),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.TrendingUp,
-                                contentDescription = "Analysis",
-                                tint = if (activeTab == "Insights") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Analysis",
-                                fontSize = 11.sp,
-                                fontWeight = if (activeTab == "Insights") FontWeight.Bold else FontWeight.Medium,
-                                color = if (activeTab == "Insights") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-
-                        // 3. Collection Tab
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setActiveTab("Collections")
-                                    },
-                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                    indication = null
-                                ),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Folder,
-                                contentDescription = "Collection",
-                                tint = if (activeTab == "Collections") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Collection",
-                                fontSize = 11.sp,
-                                fontWeight = if (activeTab == "Collections") FontWeight.Bold else FontWeight.Medium,
-                                color = if (activeTab == "Collections") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-
-                        // 4. Plus Action Button (Right of Analysis)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
+                        tabs.forEachIndexed { index, tab ->
+                            val isSelected = index == activeIndex
+                            Column(
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        showPlusMenu = true
-                                    },
-                                contentAlignment = Alignment.Center
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clickable(
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.setActiveTab(tab.first)
+                                        },
+                                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                        indication = null
+                                    ),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Add Menu",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(24.dp)
+                                val contentColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                }
+
+                                // Icon mapping
+                                when (tab.first) {
+                                    "Transactions" -> HomeIcon(
+                                        tint = contentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+
+                                    "Insights" -> AnalysisIcon(
+                                        tint = contentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+
+                                    "Collections" -> FolderIcon(
+                                        tint = contentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Label
+                                Text(
+                                    text = tab.second,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = contentColor
                                 )
                             }
                         }
                     }
+                }
+
+                val plusButtonInteractionSource = remember { MutableInteractionSource() }
+                val plusButtonPressed by plusButtonInteractionSource.collectIsPressedAsState()
+                val plusButtonAlpha by animateFloatAsState(
+                    targetValue = if (plusButtonPressed) 0.72f else 1f,
+                    animationSpec = tween(durationMillis = 120),
+                    label = "PlusButtonPressAlpha"
+                )
+
+                // Glassmorphic FAB Container
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .alpha(plusButtonAlpha)
+                        .background(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            shape = CircleShape
+                        )
+                        .clickable(
+                            interactionSource = plusButtonInteractionSource,
+                            indication = ripple(bounded = true, radius = 36.dp)
+                        ) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showPlusMenu = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Menu",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
         }
@@ -590,6 +618,90 @@ fun DashboardScreen(
             collectionIcon = colIcon,
             dollarFormat = dollarFormat,
             onDismiss = { txDetailToShow = null }
+        )
+    }
+}
+
+@Composable
+private fun HomeIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val strokeWidth = 2.dp.toPx()
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(5.dp.toPx(), 20.dp.toPx())
+            lineTo(5.dp.toPx(), 11.dp.toPx())
+            lineTo(12.dp.toPx(), 4.dp.toPx())
+            lineTo(19.dp.toPx(), 11.dp.toPx())
+            lineTo(19.dp.toPx(), 20.dp.toPx())
+            close()
+            
+            moveTo(10.dp.toPx(), 20.dp.toPx())
+            lineTo(10.dp.toPx(), 15.dp.toPx())
+            quadraticTo(10.dp.toPx(), 14.dp.toPx(), 11.dp.toPx(), 14.dp.toPx())
+            lineTo(13.dp.toPx(), 14.dp.toPx())
+            quadraticTo(14.dp.toPx(), 14.dp.toPx(), 14.dp.toPx(), 15.dp.toPx())
+            lineTo(14.dp.toPx(), 20.dp.toPx())
+        }
+        drawPath(
+            path = path,
+            color = tint,
+            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round, cap = StrokeCap.Round)
+        )
+    }
+}
+
+@Composable
+private fun AnalysisIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val strokeWidth = 2.dp.toPx()
+        
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(4.dp.toPx(), 18.dp.toPx())
+            lineTo(9.dp.toPx(), 13.dp.toPx())
+            lineTo(14.dp.toPx(), 16.dp.toPx())
+            lineTo(20.dp.toPx(), 8.dp.toPx())
+        }
+        drawPath(
+            path = path,
+            color = tint,
+            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round, cap = StrokeCap.Round)
+        )
+        
+        val arrowPath = androidx.compose.ui.graphics.Path().apply {
+            moveTo(15.dp.toPx(), 8.dp.toPx())
+            lineTo(20.dp.toPx(), 8.dp.toPx())
+            lineTo(20.dp.toPx(), 13.dp.toPx())
+        }
+        drawPath(
+            path = arrowPath,
+            color = tint,
+            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round, cap = StrokeCap.Round)
+        )
+    }
+}
+
+@Composable
+private fun FolderIcon(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val strokeWidth = 2.dp.toPx()
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(2.dp.toPx(), 8.dp.toPx())
+            lineTo(2.dp.toPx(), 6.dp.toPx())
+            quadraticTo(2.dp.toPx(), 4.dp.toPx(), 4.dp.toPx(), 4.dp.toPx())
+            lineTo(8.dp.toPx(), 4.dp.toPx())
+            quadraticTo(9.5.dp.toPx(), 4.dp.toPx(), 10.5.dp.toPx(), 6.dp.toPx())
+            lineTo(11.5.dp.toPx(), 8.dp.toPx())
+            lineTo(20.dp.toPx(), 8.dp.toPx())
+            quadraticTo(22.dp.toPx(), 8.dp.toPx(), 22.dp.toPx(), 10.dp.toPx())
+            lineTo(22.dp.toPx(), 18.dp.toPx())
+            quadraticTo(22.dp.toPx(), 20.dp.toPx(), 20.dp.toPx(), 20.dp.toPx())
+            lineTo(4.dp.toPx(), 20.dp.toPx())
+            quadraticTo(2.dp.toPx(), 20.dp.toPx(), 2.dp.toPx(), 18.dp.toPx())
+            close()
+        }
+        drawPath(
+            path = path,
+            color = tint,
+            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round)
         )
     }
 }

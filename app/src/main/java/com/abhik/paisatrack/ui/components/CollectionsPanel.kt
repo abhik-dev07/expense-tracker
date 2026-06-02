@@ -76,10 +76,12 @@ fun CollectionsPanel(
     var visibleLimit by rememberSaveable { mutableStateOf(6) }
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }
     var isLoadingMore by remember { mutableStateOf(false) }
+    val revealedCollectionIds = remember(activeColTab) { mutableStateListOf<String>() }
 
     LaunchedEffect(activeColTab) {
         visibleLimit = 6
         animationStartLimit = 0
+        revealedCollectionIds.clear()
     }
 
     val showBackToTop by remember {
@@ -103,6 +105,20 @@ fun CollectionsPanel(
 
     val paginatedSummaries = remember(filteredSummaries, visibleLimit) {
         filteredSummaries.take(visibleLimit)
+    }
+
+    LaunchedEffect(paginatedSummaries, animationStartLimit) {
+        val toReveal = paginatedSummaries
+            .drop(animationStartLimit)
+            .map { it.collection.id }
+            .filterNot { revealedCollectionIds.contains(it) }
+
+        if (toReveal.isNotEmpty()) {
+            toReveal.forEach { collectionId ->
+                revealedCollectionIds.add(collectionId)
+                kotlinx.coroutines.delay(16L)
+            }
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -192,15 +208,14 @@ fun CollectionsPanel(
                     }
                 } else {
                     itemsIndexed(paginatedSummaries) { index, summary ->
-                        val alpha = remember(summary.collection.id) { androidx.compose.animation.core.Animatable(if (index >= animationStartLimit) 0f else 1f) }
-                        LaunchedEffect(summary.collection.id) {
-                            if (index >= animationStartLimit) {
-                                kotlinx.coroutines.delay((index - animationStartLimit) * 25L)
-                                alpha.animateTo(1f, tween(150))
-                            }
-                        }
+                        val shouldBeVisible = index < animationStartLimit || revealedCollectionIds.contains(summary.collection.id)
+                        val alpha by animateFloatAsState(
+                            targetValue = if (shouldBeVisible) 1f else 0f,
+                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                            label = "CollectionCardFadeIn"
+                        )
 
-                        Box(modifier = Modifier.alpha(alpha.value)) {
+                        Box(modifier = Modifier.alpha(alpha)) {
                             CollectionGridCard(
                                 summary = summary,
                                 dollarFormat = dollarFormat,
