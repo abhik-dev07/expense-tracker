@@ -86,24 +86,24 @@ fun SettingsBottomSheet(
                             }
                         }
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
-                    ListItem(
-                        headlineContent = { Text("Delete Account", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
-                        supportingContent = { Text("Permanently erase all your data and collections", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) },
-                        leadingContent = {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete Account",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable {
-                            scope.launch { sheetState.hide() }.invokeOnCompletion {
-                                showDeleteAccountConfirmDialog = true
-                            }
-                        }
-                    )
+//                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+//                    ListItem(
+//                        headlineContent = { Text("Delete Account", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+//                        supportingContent = { Text("Permanently erase all your data and collections", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) },
+//                        leadingContent = {
+//                            Icon(
+//                                imageVector = Icons.Default.Delete,
+//                                contentDescription = "Delete Account",
+//                                tint = MaterialTheme.colorScheme.error
+//                            )
+//                        },
+//                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+//                        modifier = Modifier.clickable {
+//                            scope.launch { sheetState.hide() }.invokeOnCompletion {
+//                                showDeleteAccountConfirmDialog = true
+//                            }
+//                        }
+//                    )
                 }
             }
         }

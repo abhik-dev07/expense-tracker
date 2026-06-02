@@ -1,16 +1,23 @@
 package com.abhik.paisatrack.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -138,19 +145,40 @@ fun OnboardingScreen(
 
         // Skip button (Top Right) - placed after pager so it draws on top and is clickable
         if (pagerState.currentPage < steps.size - 1) {
-            Text(
-                text = "Skip",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+            val skipInteractionSource = remember { MutableInteractionSource() }
+            val skipPressed by skipInteractionSource.collectIsPressedAsState()
+            val skipAlpha by animateFloatAsState(
+                targetValue = if (skipPressed) 0.72f else 1f,
+                animationSpec = tween(durationMillis = 120),
+                label = "SkipButtonAlpha"
+            )
+
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .clickable {
+                    .width(72.dp)
+                    .height(36.dp)
+                    .alpha(skipAlpha)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                    .clickable(
+                        interactionSource = skipInteractionSource,
+                        indication = LocalIndication.current
+                    ) {
                         handleComplete()
                     }
-            )
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Skip",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         // Bottom Actions (Indicator + Buttons)

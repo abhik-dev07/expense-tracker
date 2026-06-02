@@ -357,7 +357,6 @@ fun CollectionTransactionsScreen(
                                 CircleShape
                             )
                             .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onBack()
                             },
                         contentAlignment = Alignment.Center

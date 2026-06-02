@@ -88,7 +88,6 @@ fun AddTransactionScreen(
                             CircleShape
                         )
                         .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onBack()
                         },
                     contentAlignment = Alignment.Center
@@ -136,7 +135,7 @@ fun AddTransactionScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Cash in",
+                        text = "Cash In (+)",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
@@ -156,7 +155,7 @@ fun AddTransactionScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Cash out",
+                        text = "Cash Out (-)",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)

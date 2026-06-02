@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
@@ -283,12 +284,20 @@ fun DashboardScreen(
                         .weight(1f)
                         .height(72.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            color = if (isDark) {
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                            } else {
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
+                            },
                             shape = CircleShape
                         )
                         .border(
-                            width = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            width = 1.dp,
+                            color = if (isDark) {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.40f)
+                            } else {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                            },
                             shape = CircleShape
                         )
                         .padding(6.dp)
@@ -383,12 +392,20 @@ fun DashboardScreen(
                         .clip(CircleShape)
                         .alpha(plusButtonAlpha)
                         .background(
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            color = if (isDark) {
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                            } else {
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
+                            },
                             shape = CircleShape
                         )
                         .border(
-                            width = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            width = 1.dp,
+                            color = if (isDark) {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.40f)
+                            } else {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                            },
                             shape = CircleShape
                         )
                         .clickable(

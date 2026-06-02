@@ -77,6 +77,7 @@ fun CollectionsPanel(
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }
     var isLoadingMore by remember { mutableStateOf(false) }
     val revealedCollectionIds = remember(activeColTab) { mutableStateListOf<String>() }
+    var lastFilterTapAt by rememberSaveable { mutableStateOf(0L) }
 
     LaunchedEffect(activeColTab) {
         visibleLimit = 6
@@ -146,6 +147,9 @@ fun CollectionsPanel(
                             shape = CircleShape
                         )
                         .clickable {
+                            val now = System.currentTimeMillis()
+                            if (selected || now - lastFilterTapAt < 180L) return@clickable
+                            lastFilterTapAt = now
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             viewModel.setActiveCollectionTab(option)
                         }
@@ -208,7 +212,11 @@ fun CollectionsPanel(
                     }
                 } else {
                     itemsIndexed(paginatedSummaries) { index, summary ->
-                        val shouldBeVisible = index < animationStartLimit || revealedCollectionIds.contains(summary.collection.id)
+                        val shouldBeVisible =
+                            // Avoid "empty/vanish" state when rapid tab presses keep resetting reveal list.
+                            revealedCollectionIds.isEmpty() ||
+                            index < animationStartLimit ||
+                            revealedCollectionIds.contains(summary.collection.id)
                         val alpha by animateFloatAsState(
                             targetValue = if (shouldBeVisible) 1f else 0f,
                             animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
@@ -705,6 +713,7 @@ fun CollectionGridCard(
     val colColor = remember(summary.collection.hexColor) {
         Color(android.graphics.Color.parseColor(summary.collection.hexColor))
     }
+    val haptic = LocalHapticFeedback.current
 
     var coordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
@@ -714,6 +723,7 @@ fun CollectionGridCard(
             .onGloballyPositioned { coordinates = it }
             .clip(RoundedCornerShape(20.dp))
             .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 val rect = coordinates?.let { coords ->
                     if (coords.isAttached) coords.boundsInRoot() else null
                 }

@@ -144,20 +144,9 @@ fun TransactionListItem(
         label = "SwipeOffsetDashboard"
     )
 
-    // Determine premium color matching the exact mockup
-    val (badgeBg, iconColor) = remember(categoryName, transaction.type) {
-        val nameLower = categoryName.lowercase()
-        if (transaction.type.uppercase() == "INCOME") {
-            Color(0xFFE4F6E6) to Color(0xFF10B981)
-        } else if (nameLower.contains("food") || nameLower.contains("dining") || nameLower.contains("restaurant") || nameLower.contains("coffee")) {
-            Color(0xFFFFEDD5) to Color(0xFFF97316)
-        } else if (nameLower.contains("entertainment") || nameLower.contains("movie") || nameLower.contains("game") || nameLower.contains("ticket")) {
-            Color(0xFFF3E8FF) to Color(0xFFA855F7)
-        } else if (nameLower.contains("transport") || nameLower.contains("car") || nameLower.contains("travel") || nameLower.contains("flight")) {
-            Color(0xFFE0F2FE) to Color(0xFF0EA5E9)
-        } else {
-            categoryColor.copy(alpha = 0.15f) to categoryColor
-        }
+    // Match the transaction badge styling to the collection cards by using the collection color directly.
+    val (badgeBg, iconColor) = remember(categoryColor) {
+        categoryColor.copy(alpha = 0.15f) to categoryColor
     }
 
     Box(
