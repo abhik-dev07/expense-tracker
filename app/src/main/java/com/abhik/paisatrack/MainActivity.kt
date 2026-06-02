@@ -30,7 +30,14 @@ import com.abhik.paisatrack.ui.screens.CollectionTransactionsScreen
 import com.abhik.paisatrack.ui.screens.LoaderScreen
 import com.abhik.paisatrack.ui.screens.SignInScreen
 import com.abhik.paisatrack.ui.screens.OnboardingScreen
+import com.abhik.paisatrack.ui.screens.NoInternetScreen
+import com.abhik.paisatrack.ui.screens.ServerErrorScreen
 import com.abhik.paisatrack.ui.theme.MyApplicationTheme
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,161 +81,206 @@ class MainActivity : ComponentActivity() {
           modifier = Modifier.fillMaxSize(),
           color = MaterialTheme.colorScheme.background
         ) {
-          val viewModel: FinanceViewModel = viewModel()
-          val navController = rememberNavController()
-
-          NavHost(navController = navController, startDestination = "loader") {
-            composable("loader") {
-              LoaderScreen(
-                onNavigateToDashboard = {
-                  navController.navigate("dashboard") {
-                    popUpTo("loader") { inclusive = true }
-                  }
-                },
-                onNavigateToSignIn = {
-                  navController.navigate("sign_in") {
-                    popUpTo("loader") { inclusive = true }
-                  }
-                },
-                onNavigateToOnboarding = {
-                  navController.navigate("onboarding") {
-                    popUpTo("loader") { inclusive = true }
-                  }
-                }
-              )
-            }
-            composable("onboarding") {
-              OnboardingScreen(
-                onNavigateToSignIn = {
-                  navController.navigate("sign_in") {
-                    popUpTo("onboarding") { inclusive = true }
-                  }
-                }
-              )
-            }
-            composable("sign_in") {
-              SignInScreen(
-                viewModel = viewModel,
-                onNavigateToDashboard = {
-                  navController.navigate("dashboard") {
-                    popUpTo("sign_in") { inclusive = true }
-                  }
-                }
-              )
-            }
-            composable(
-              "dashboard",
-              enterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-              },
-              exitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
-              },
-              popEnterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-              },
-              popExitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-              }
-            ) { _ ->
-              DashboardScreen(
-                modifier = Modifier,
-                viewModel = viewModel,
-                onNavigateToAddTransaction = {
-                  navController.navigate("add_transaction")
-                },
-                onNavigateToCollectionTransactions = { collectionId, rect ->
-                  navController.navigate("collection_transactions/$collectionId")
-                },
-                onLogout = {
-                  navController.navigate("sign_in") {
-                    popUpTo(0) { inclusive = true }
-                  }
-                }
-              )
-            }
-            composable(
-              "collection_transactions/{collectionId}",
-              enterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
-              },
-              exitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-              },
-              popEnterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-              },
-              popExitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-              }
-            ) { backStackEntry ->
-              val collectionId = backStackEntry.arguments?.getString("collectionId") ?: ""
-              var isBackNavigating by rememberSaveable(collectionId) { mutableStateOf(false) }
-
-              androidx.activity.compose.BackHandler(enabled = !isBackNavigating) {
-                isBackNavigating = true
-                navController.popBackStack()
+          val context = LocalContext.current
+          val isOnline by produceState(initialValue = true) {
+            val connectivityManager =
+              context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val callback = object : ConnectivityManager.NetworkCallback() {
+              override fun onAvailable(network: Network) {
+                value = true
               }
 
-              CollectionTransactionsScreen(
-                modifier = Modifier,
-                viewModel = viewModel,
-                collectionId = collectionId,
-                onNavigateToAddTransaction = { colId ->
-                  navController.navigate("add_transaction/$colId")
-                },
-                onBack = {
-                  if (isBackNavigating) return@CollectionTransactionsScreen
-                  isBackNavigating = true
-                  navController.popBackStack()
-                }
-              )
-            }
-            composable(
-              "add_transaction",
-              enterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
-              },
-              exitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
-              },
-              popEnterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-              },
-              popExitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
+              override fun onLost(network: Network) {
+                value = false
               }
-            ) {
-              AddTransactionScreen(
-                viewModel = viewModel,
-                onBack = {
-                  navController.popBackStack()
-                }
-              )
             }
-            composable(
-              "add_transaction/{collectionId}",
-              enterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
-              },
-              exitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
-              },
-              popEnterTransition = {
-                slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-              },
-              popExitTransition = {
-                slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
+            connectivityManager.registerDefaultNetworkCallback(callback)
+
+            val activeNetwork = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+            value = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+            awaitDispose {
+              connectivityManager.unregisterNetworkCallback(callback)
+            }
+          }
+
+          if (!isOnline) {
+            NoInternetScreen(onRetry = {
+              val connectivityManager =
+                context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+              val activeNetwork = connectivityManager.activeNetwork
+              val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+              val connected =
+                capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+              if (connected) {
+                // The produceState value will update via the callback or manually if needed
               }
-            ) { backStackEntry ->
-              val colId = backStackEntry.arguments?.getString("collectionId") ?: ""
-              AddTransactionScreen(
-                viewModel = viewModel,
-                initialCollectionId = colId,
-                onBack = {
-                  navController.popBackStack()
+            })
+          } else {
+            val viewModel: FinanceViewModel = viewModel()
+            val uiState by viewModel.uiState.collectAsState()
+            val navController = rememberNavController()
+
+            if (uiState.isServerError) {
+              ServerErrorScreen(onRetry = {
+                viewModel.retrySync()
+              })
+            } else {
+              NavHost(navController = navController, startDestination = "loader") {
+                composable("loader") {
+                  LoaderScreen(
+                    onNavigateToDashboard = {
+                      navController.navigate("dashboard") {
+                        popUpTo("loader") { inclusive = true }
+                      }
+                    },
+                    onNavigateToSignIn = {
+                      navController.navigate("sign_in") {
+                        popUpTo("loader") { inclusive = true }
+                      }
+                    },
+                    onNavigateToOnboarding = {
+                      navController.navigate("onboarding") {
+                        popUpTo("loader") { inclusive = true }
+                      }
+                    }
+                  )
                 }
-              )
+                composable("onboarding") {
+                  OnboardingScreen(
+                    onNavigateToSignIn = {
+                      navController.navigate("sign_in") {
+                        popUpTo("onboarding") { inclusive = true }
+                      }
+                    }
+                  )
+                }
+                composable("sign_in") {
+                  SignInScreen(
+                    viewModel = viewModel,
+                    onNavigateToDashboard = {
+                      navController.navigate("dashboard") {
+                        popUpTo("sign_in") { inclusive = true }
+                      }
+                    }
+                  )
+                }
+                composable(
+                  "dashboard",
+                  enterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
+                  },
+                  exitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
+                  },
+                  popEnterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
+                  },
+                  popExitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
+                  }
+                ) { _ ->
+                  DashboardScreen(
+                    modifier = Modifier,
+                    viewModel = viewModel,
+                    onNavigateToAddTransaction = {
+                      navController.navigate("add_transaction")
+                    },
+                    onNavigateToCollectionTransactions = { collectionId, rect ->
+                      navController.navigate("collection_transactions/$collectionId")
+                    },
+                    onLogout = {
+                      navController.navigate("sign_in") {
+                        popUpTo(0) { inclusive = true }
+                      }
+                    }
+                  )
+                }
+                composable(
+                  "collection_transactions/{collectionId}",
+                  enterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
+                  },
+                  exitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
+                  },
+                  popEnterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
+                  },
+                  popExitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
+                  }
+                ) { backStackEntry ->
+                  val collectionId = backStackEntry.arguments?.getString("collectionId") ?: ""
+                  var isBackNavigating by rememberSaveable(collectionId) { mutableStateOf(false) }
+
+                  androidx.activity.compose.BackHandler(enabled = !isBackNavigating) {
+                    isBackNavigating = true
+                    navController.popBackStack()
+                  }
+
+                  CollectionTransactionsScreen(
+                    modifier = Modifier,
+                    viewModel = viewModel,
+                    collectionId = collectionId,
+                    onNavigateToAddTransaction = { colId ->
+                      navController.navigate("add_transaction/$colId")
+                    },
+                    onBack = {
+                      if (isBackNavigating) return@CollectionTransactionsScreen
+                      isBackNavigating = true
+                      navController.popBackStack()
+                    }
+                  )
+                }
+                composable(
+                  "add_transaction",
+                  enterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
+                  },
+                  exitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
+                  },
+                  popEnterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
+                  },
+                  popExitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
+                  }
+                ) {
+                  AddTransactionScreen(
+                    viewModel = viewModel,
+                    onBack = {
+                      navController.popBackStack()
+                    }
+                  )
+                }
+                composable(
+                  "add_transaction/{collectionId}",
+                  enterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
+                  },
+                  exitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
+                  },
+                  popEnterTransition = {
+                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
+                  },
+                  popExitTransition = {
+                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
+                  }
+                ) { backStackEntry ->
+                  val colId = backStackEntry.arguments?.getString("collectionId") ?: ""
+                  AddTransactionScreen(
+                    viewModel = viewModel,
+                    initialCollectionId = colId,
+                    onBack = {
+                      navController.popBackStack()
+                    }
+                  )
+                }
+              }
             }
           }
         }

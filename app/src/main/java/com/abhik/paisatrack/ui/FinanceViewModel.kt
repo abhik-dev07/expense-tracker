@@ -51,7 +51,8 @@ data class FinanceUiState(
     val collActiveTimeFilter: String = "All",
     val collActiveTypeFilter: String = "All",
     val collActiveSortOrder: String = "Newest",
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val isServerError: Boolean = false
 )
 
 class FinanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -90,6 +91,9 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isServerError = MutableStateFlow(false)
+    val isServerError: StateFlow<Boolean> = _isServerError.asStateFlow()
+
     // Global active tab state to maintain consistent navigation stack transitions
     private val _activeTab = MutableStateFlow("Transactions")
     val activeTab: StateFlow<String> = _activeTab.asStateFlow()
@@ -114,7 +118,10 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             val context = getApplication<Application>().applicationContext
             val userId = AuthManager.getUserId(context)
             if (userId != null) {
-                repository.syncFromBackend(userId)
+                val success = repository.syncFromBackend(userId)
+                if (!success) {
+                    _isServerError.value = true
+                }
                 syncFcmToken(userId)
             } else {
                 repository.ensureDefaultCollectionsPreseeded()
@@ -135,7 +142,8 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         _collTimeFilter,
         _collTypeFilter,
         _collSortOrder,
-        _isLoading
+        _isLoading,
+        _isServerError
     ) { args ->
         val collections = args[0] as List<CollectionEntity>
         val transactions = args[1] as List<TransactionEntity>
@@ -147,6 +155,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         val cType = args[7] as String
         val cSort = args[8] as String
         val isLoading = args[9] as Boolean
+        val isServerError = args[10] as Boolean
         
         // 1. Filter transactions for Dashboard
         val now = System.currentTimeMillis()
@@ -226,7 +235,8 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             collActiveTimeFilter = cTime,
             collActiveTypeFilter = cType,
             collActiveSortOrder = cSort,
-            isLoading = isLoading
+            isLoading = isLoading,
+            isServerError = isServerError
         )
     }.stateIn(
         scope = viewModelScope,
@@ -258,7 +268,10 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             repository.migrateLocalDataToBackend(finalUserId)
 
             // Force clear and download database data for backward compatibility
-            repository.syncFromBackend(finalUserId)
+            val success = repository.syncFromBackend(finalUserId)
+            if (!success) {
+                _isServerError.value = true
+            }
             syncFcmToken(finalUserId)
 
             viewModelScope.launch(Dispatchers.Main) {
@@ -393,6 +406,22 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun setCollectionSortOrder(order: String) {
         _collSortOrder.value = order
+    }
+
+    fun retrySync() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isServerError.value = false
+            _isLoading.value = true
+            val context = getApplication<Application>().applicationContext
+            val userId = AuthManager.getUserId(context)
+            if (userId != null) {
+                val success = repository.syncFromBackend(userId)
+                if (!success) {
+                    _isServerError.value = true
+                }
+            }
+            _isLoading.value = false
+        }
     }
 
     // Triggers local or remote Gemini insights based on current states

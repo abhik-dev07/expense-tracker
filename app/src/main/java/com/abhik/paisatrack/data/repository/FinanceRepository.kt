@@ -82,7 +82,7 @@ class FinanceRepository(
         }
     }
 
-    suspend fun syncFromBackend(userId: String) {
+    suspend fun syncFromBackend(userId: String): Boolean {
         try {
             val collectionsResponse = ApiClient.api.getCollections(userId)
             val transactionsResponse = ApiClient.api.getTransactions(userId)
@@ -133,9 +133,12 @@ class FinanceRepository(
                         )
                     )
                 }
+                return true
             }
+            return false
         } catch (e: Exception) {
             e.printStackTrace()
+            return false
         }
     }
 
