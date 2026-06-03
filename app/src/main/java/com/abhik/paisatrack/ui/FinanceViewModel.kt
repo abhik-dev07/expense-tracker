@@ -8,10 +8,14 @@ import com.abhik.paisatrack.data.database.AppDatabase
 import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.data.repository.FinanceRepository
+import com.abhik.paisatrack.data.repository.SyncResult
 import com.abhik.paisatrack.data.network.GeminiInsightService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.BufferOverflow
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -94,6 +98,9 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     private val _isServerError = MutableStateFlow(false)
     val isServerError: StateFlow<Boolean> = _isServerError.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     // Global active tab state to maintain consistent navigation stack transitions
     private val _activeTab = MutableStateFlow("Transactions")
     val activeTab: StateFlow<String> = _activeTab.asStateFlow()
@@ -101,6 +108,14 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     fun setActiveTab(tab: String) {
         _activeTab.value = tab
     }
+
+    // One-shot event emitted when sync detects the user was deleted from the backend.
+    // The UI collects this to force a logout.
+    private val _userDeletedEvent = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val userDeletedEvent: SharedFlow<Unit> = _userDeletedEvent.asSharedFlow()
 
     private val _activeCollectionTab = MutableStateFlow("All")
     val activeCollectionTab: StateFlow<String> = _activeCollectionTab.asStateFlow()
@@ -118,9 +133,17 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             val context = getApplication<Application>().applicationContext
             val userId = AuthManager.getUserId(context)
             if (userId != null) {
-                val success = repository.syncFromBackend(userId)
-                if (!success) {
-                    _isServerError.value = true
+                val result = repository.syncFromBackend(userId)
+                when (result) {
+                    SyncResult.SUCCESS -> { /* data is fresh */ }
+                    SyncResult.NETWORK_ERROR -> {
+                        _isServerError.value = true
+                    }
+                    SyncResult.USER_DELETED -> {
+                        _userDeletedEvent.tryEmit(Unit)
+                        _isLoading.value = false
+                        return@launch
+                    }
                 }
                 syncFcmToken(userId)
             } else {
@@ -268,9 +291,16 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             repository.migrateLocalDataToBackend(finalUserId)
 
             // Force clear and download database data for backward compatibility
-            val success = repository.syncFromBackend(finalUserId)
-            if (!success) {
-                _isServerError.value = true
+            val result = repository.syncFromBackend(finalUserId)
+            when (result) {
+                SyncResult.NETWORK_ERROR -> {
+                    _isServerError.value = true
+                }
+                SyncResult.USER_DELETED -> {
+                    _userDeletedEvent.tryEmit(Unit)
+                    return@launch
+                }
+                SyncResult.SUCCESS -> { /* data is fresh */ }
             }
             syncFcmToken(finalUserId)
 
@@ -415,12 +445,47 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             val context = getApplication<Application>().applicationContext
             val userId = AuthManager.getUserId(context)
             if (userId != null) {
-                val success = repository.syncFromBackend(userId)
-                if (!success) {
-                    _isServerError.value = true
+                val result = repository.syncFromBackend(userId)
+                when (result) {
+                    SyncResult.NETWORK_ERROR -> {
+                        _isServerError.value = true
+                    }
+                    SyncResult.USER_DELETED -> {
+                        _userDeletedEvent.tryEmit(Unit)
+                        _isLoading.value = false
+                        return@launch
+                    }
+                    SyncResult.SUCCESS -> { /* data is fresh */ }
                 }
             }
             _isLoading.value = false
+        }
+    }
+
+    /**
+     * Re-sync data from backend. Call this when the app resumes to pick up
+     * any changes made externally (e.g. data deleted from admin panel).
+     * If the user was deleted from the backend, emits userDeletedEvent.
+     */
+    fun refreshFromBackend(noCache: Boolean = false) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isRefreshing.value = true
+            try {
+                val context = getApplication<Application>().applicationContext
+                val userId = AuthManager.getUserId(context) ?: return@launch
+                val result = repository.syncFromBackend(userId, noCache)
+                when (result) {
+                    SyncResult.USER_DELETED -> {
+                        _userDeletedEvent.tryEmit(Unit)
+                    }
+                    SyncResult.NETWORK_ERROR -> {
+                        // Silently ignore on resume — don't show error screen
+                    }
+                    SyncResult.SUCCESS -> { /* data is fresh */ }
+                }
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

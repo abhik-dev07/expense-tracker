@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -331,12 +332,12 @@ fun TransactionsPanel(
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 120.dp)
-        ) {
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = 120.dp)
+            ) {
             // Sticky Header: Recent transactions list header (with integrated filter trigger)
             stickyHeader {
                 Surface(
@@ -517,7 +518,7 @@ fun TransactionsPanel(
                     }
                 }
             }
-        }
+    }
 
         AnimatedVisibility(
             visible = showBackToTop,

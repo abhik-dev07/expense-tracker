@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
@@ -677,12 +678,12 @@ fun CollectionTransactionsScreen(
             // 2. Scrollable content
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .fillMaxWidth(),
-                    contentPadding = PaddingValues(bottom = 32.dp)
-                ) {
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
 
                     // Sticky Header: Recent Transactions Title and Filter triggers
                     stickyHeader {
@@ -849,9 +850,9 @@ fun CollectionTransactionsScreen(
                             }
                         }
                     }
-                }
+            }
 
-                androidx.compose.animation.AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                     visible = showBackToTop,
                     enter = fadeIn() + slideInVertically { it / 2 },
                     exit = fadeOut() + slideOutVertically { it / 2 },

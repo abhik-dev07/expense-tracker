@@ -11,6 +11,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class SyncResult {
+    SUCCESS,
+    NETWORK_ERROR,
+    USER_DELETED
+}
+
 class FinanceRepository(
     private val collectionDao: CollectionDao,
     private val transactionDao: TransactionDao
@@ -82,10 +88,55 @@ class FinanceRepository(
         }
     }
 
-    suspend fun syncFromBackend(userId: String): Boolean {
+    /**
+     * Check if the user still exists on the backend.
+     * Returns true if user exists, false if deleted or API unreachable.
+     */
+    suspend fun checkUserExists(userId: String, noCache: Boolean = false): Boolean {
+        return try {
+            val response = ApiClient.api.getCurrentUser(userId, noCache = if (noCache) "true" else "false")
+            if (response.isSuccessful) {
+                true
+            } else if (response.code() == 404) {
+                // User explicitly does not exist in DB anymore
+                false
+            } else {
+                // On rate limit (429), server error (500), etc. assume user exists to avoid false logouts
+                true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // On network error, assume user exists to avoid false logouts
+            true
+        }
+    }
+
+    /**
+     * Clear all local data (collections + transactions) from Room.
+     */
+    suspend fun clearAllLocalData() {
+        val localCols = collectionDao.getAllCollections().first()
+        for (col in localCols) {
+            collectionDao.deleteCollection(col)
+        }
+        val localTxns = transactionDao.getAllTransactions().first()
+        for (tx in localTxns) {
+            transactionDao.deleteTransaction(tx)
+        }
+    }
+
+    suspend fun syncFromBackend(userId: String, noCache: Boolean = false): SyncResult {
         try {
-            val collectionsResponse = ApiClient.api.getCollections(userId)
-            val transactionsResponse = ApiClient.api.getTransactions(userId)
+            // First, verify user still exists on the backend
+            val userExists = checkUserExists(userId, noCache)
+            if (!userExists) {
+                // User was deleted from DB — clear local data
+                clearAllLocalData()
+                return SyncResult.USER_DELETED
+            }
+
+            val collectionsResponse = ApiClient.api.getCollections(userId, noCache = if (noCache) "true" else "false")
+            val transactionsResponse = ApiClient.api.getTransactions(userId, noCache = if (noCache) "true" else "false")
             
             if (collectionsResponse.isSuccessful && transactionsResponse.isSuccessful) {
                 val remoteCollections = collectionsResponse.body() ?: emptyList()
@@ -95,6 +146,10 @@ class FinanceRepository(
                 val localCols = collectionDao.getAllCollections().first()
                 for (col in localCols) {
                     collectionDao.deleteCollection(col)
+                }
+                val localTxns = transactionDao.getAllTransactions().first()
+                for (tx in localTxns) {
+                    transactionDao.deleteTransaction(tx)
                 }
 
                 // Insert remote collections
@@ -133,12 +188,12 @@ class FinanceRepository(
                         )
                     )
                 }
-                return true
+                return SyncResult.SUCCESS
             }
-            return false
+            return SyncResult.NETWORK_ERROR
         } catch (e: Exception) {
             e.printStackTrace()
-            return false
+            return SyncResult.NETWORK_ERROR
         }
     }
 

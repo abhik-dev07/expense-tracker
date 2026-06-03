@@ -91,6 +91,12 @@ data class InsightsResponse(
 // ─── API Endpoints Service ──────────────────────────────────────────
 
 interface PaisaTrackApi {
+    @GET("users/current")
+    suspend fun getCurrentUser(
+        @Query("userId") userId: String,
+        @Query("noCache") noCache: String = "false"
+    ): Response<Any?>
+
     @POST("users/signup")
     suspend fun signupUser(@Body body: SignupRequest): Response<SignupResponse>
 
@@ -98,7 +104,10 @@ interface PaisaTrackApi {
     suspend fun updatePushToken(@Body body: UpdatePushTokenRequest): Response<Map<String, Any>>
 
     @GET("collections/{userId}")
-    suspend fun getCollections(@Path("userId") userId: String): Response<List<NetworkCollection>>
+    suspend fun getCollections(
+        @Path("userId") userId: String,
+        @Query("noCache") noCache: String = "false"
+    ): Response<List<NetworkCollection>>
 
     @POST("collections/create")
     suspend fun createCollection(@Body body: CreateCollectionRequest): Response<NetworkCollection>
@@ -128,7 +137,8 @@ interface PaisaTrackApi {
     suspend fun getTransactions(
         @Path("userId") userId: String,
         @Query("limit") limit: Int = 1000,
-        @Query("offset") offset: Int = 0
+        @Query("offset") offset: Int = 0,
+        @Query("noCache") noCache: String = "false"
     ): Response<List<NetworkTransaction>>
 
     @POST("insights")

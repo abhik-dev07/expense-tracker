@@ -38,6 +38,9 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,6 +124,36 @@ class MainActivity : ComponentActivity() {
             val viewModel: FinanceViewModel = viewModel()
             val uiState by viewModel.uiState.collectAsState()
             val navController = rememberNavController()
+
+            // Sync data from backend when the app is resumed (comes to foreground)
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+              val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                  viewModel.refreshFromBackend()
+                }
+              }
+              lifecycleOwner.lifecycle.addObserver(observer)
+              onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+              }
+            }
+
+            // Force logout when the backend reports this user was deleted
+            LaunchedEffect(Unit) {
+              viewModel.userDeletedEvent.collect {
+                val ctx = context
+                com.abhik.paisatrack.data.AuthManager.signOut(ctx)
+                android.widget.Toast.makeText(
+                  ctx,
+                  "Your account has been removed. Please sign in again.",
+                  android.widget.Toast.LENGTH_LONG
+                ).show()
+                navController.navigate("sign_in") {
+                  popUpTo(0) { inclusive = true }
+                }
+              }
+            }
 
             if (uiState.isServerError) {
               ServerErrorScreen(onRetry = {
