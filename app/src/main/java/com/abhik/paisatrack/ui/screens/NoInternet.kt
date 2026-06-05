@@ -15,8 +15,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -27,6 +29,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
+import com.swmansion.pulsar.Pulsar
 
 @Composable
 fun NoInternetScreen(
@@ -37,6 +40,9 @@ fun NoInternetScreen(
         composition = composition,
         iterations = LottieConstants.IterateForever
     )
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
 
     Column(
         modifier = Modifier
@@ -72,7 +78,10 @@ fun NoInternetScreen(
         )
 
         Button(
-            onClick = onRetry,
+            onClick = {
+                presets.ping()
+                onRetry()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),

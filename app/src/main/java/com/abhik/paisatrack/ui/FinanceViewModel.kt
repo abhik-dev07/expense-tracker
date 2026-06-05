@@ -11,8 +11,6 @@ import com.abhik.paisatrack.data.repository.FinanceRepository
 import com.abhik.paisatrack.data.repository.SyncResult
 import com.abhik.paisatrack.data.network.GeminiInsightService
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.BufferOverflow

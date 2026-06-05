@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -17,11 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +34,7 @@ import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.screens.LoadingIndicator
 import com.airbnb.lottie.compose.*
+import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import kotlinx.coroutines.launch
 
@@ -49,9 +48,9 @@ fun CollectionsPanel(
     onCollectionClick: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     onBackToTop: (suspend () -> Unit) -> Unit
 ) {
-    val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
-    val aiLoading by viewModel.aiLoading.collectAsStateWithLifecycle()
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     
@@ -151,7 +150,7 @@ fun CollectionsPanel(
                             val now = System.currentTimeMillis()
                             if (selected || now - lastFilterTapAt < 180L) return@clickable
                             lastFilterTapAt = now
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.boulder()
                             viewModel.setActiveCollectionTab(option)
                         }
                         .padding(horizontal = 16.dp, vertical = 6.dp), // Sleeker, smaller height
@@ -229,7 +228,7 @@ fun CollectionsPanel(
                                 summary = summary,
                                 dollarFormat = dollarFormat,
                                 onEditClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    presets.plunk()
                                     editingCollectionSummary = summary
                                 },
                                 onClick = { rect ->
@@ -255,7 +254,7 @@ fun CollectionsPanel(
                                 } else {
                                     Button(
                                         onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            presets.flick()
                                             isLoadingMore = true
                                             scope.launch {
                                                 kotlinx.coroutines.delay(800)
@@ -297,7 +296,7 @@ fun CollectionsPanel(
             ) {
                 Button(
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        presets.ping()
                         onBackToTop {
                             gridState.animateScrollToItem(0)
                         }
@@ -421,6 +420,7 @@ fun CollectionsPanel(
                                     .clickable {
                                         selectedColorIdx = i
                                         focusManager.clearFocus()
+                                        presets.boulder()
                                     }
                                     .padding(2.dp),
                                 contentAlignment = Alignment.Center
@@ -457,6 +457,7 @@ fun CollectionsPanel(
                                     .clickable {
                                         selectedIconIdx = i
                                         focusManager.clearFocus()
+                                        presets.boulder()
                                     }
                                     .padding(6.dp),
                                 contentAlignment = Alignment.Center
@@ -491,6 +492,7 @@ fun CollectionsPanel(
                         OutlinedButton(
                             onClick = {
                                 showDeleteConfirm = true
+                                presets.bassDrop()
                             },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.outlinedButtonColors(
@@ -512,6 +514,7 @@ fun CollectionsPanel(
                                 } else {
                                     showSaveConfirm = true
                                 }
+                                presets.ping()
                             },
                             modifier = Modifier.weight(1.5f),
                             colors = ButtonDefaults.buttonColors(
@@ -576,7 +579,7 @@ fun CollectionsPanel(
                                     ) {
                                         OutlinedButton(
                                             onClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                presets.boulder()
                                                 showDeleteConfirm = false
                                             },
                                             modifier = Modifier.weight(1f),
@@ -592,6 +595,7 @@ fun CollectionsPanel(
                                                 }
                                                 showDeleteConfirm = false
                                                 editingCollectionSummary = null
+                                                presets.bassDrop()
                                             },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.error,
@@ -664,7 +668,7 @@ fun CollectionsPanel(
                                     ) {
                                         OutlinedButton(
                                             onClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                presets.boulder()
                                                 showSaveConfirm = false
                                             },
                                             modifier = Modifier.weight(1f),
@@ -683,6 +687,7 @@ fun CollectionsPanel(
                                                 viewModel.updateCollection(updatedCol)
                                                 showSaveConfirm = false
                                                 editingCollectionSummary = null
+                                                presets.ping()
                                             },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.primary,
@@ -714,7 +719,9 @@ fun CollectionGridCard(
     val colColor = remember(summary.collection.hexColor) {
         Color(android.graphics.Color.parseColor(summary.collection.hexColor))
     }
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
 
     var coordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
 
@@ -724,7 +731,7 @@ fun CollectionGridCard(
             .onGloballyPositioned { coordinates = it }
             .clip(RoundedCornerShape(20.dp))
             .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                presets.ping()
                 val rect = coordinates?.let { coords ->
                     if (coords.isAttached) coords.boundsInRoot() else null
                 }

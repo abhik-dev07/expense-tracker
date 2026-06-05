@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -24,16 +23,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abhik.paisatrack.R
 import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceUiState
@@ -47,6 +43,8 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import com.swmansion.pulsar.Pulsar
 
 @Composable
 fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
@@ -138,6 +136,11 @@ fun TransactionListItem(
         }
     }
 
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
+    val realtime = remember { pulsar.getRealtimeComposer(com.swmansion.pulsar.types.RealtimeComposerStrategy.PRIMITIVE_TICK) }
+
     var swipeOffsetX by remember { mutableStateOf(0f) }
     val animatedSwipeOffset by animateFloatAsState(
         targetValue = swipeOffsetX,
@@ -175,19 +178,28 @@ fun TransactionListItem(
                 .offset { IntOffset(animatedSwipeOffset.roundToInt(), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
-                        onDragStart = {},
+                        onDragStart = {
+                            realtime.start()
+                        },
                         onDragEnd = {
+                            realtime.stop()
                             if (swipeOffsetX < -180f) {
+                                presets.cleave()
                                 onDeleteClick()
                             }
                             swipeOffsetX = 0f
                         },
                         onDragCancel = {
+                            realtime.stop()
                             swipeOffsetX = 0f
                         },
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
                             swipeOffsetX = (swipeOffsetX + dragAmount).coerceIn(-300f, 0f)
+                            val progress = (-swipeOffsetX / 180f).coerceIn(0f, 1f)
+                            val amplitude = 0.1f + 0.9f * progress
+                            val frequency = 0.2f + 0.8f * progress
+                            realtime.set(amplitude, frequency, startIfNeeded = true)
                         }
                     )
                 }
@@ -284,8 +296,9 @@ fun TransactionsPanel(
     onTransactionClick: (TransactionEntity) -> Unit,
     onBackToTop: (suspend () -> Unit) -> Unit
 ) {
-    val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
-    val aiLoading by viewModel.aiLoading.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     val listState = rememberLazyListState()
     var visibleLimit by rememberSaveable { mutableStateOf(20) }
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }
@@ -313,7 +326,6 @@ fun TransactionsPanel(
     }
 
     var showFilters by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
     val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
         uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All" || uiState.activeSortOrder != "Newest"
     }
@@ -370,7 +382,7 @@ fun TransactionsPanel(
                                     .clip(CircleShape)
                                     .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
                                     .clickable { 
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        presets.plunk()
                                         showFilters = !showFilters 
                                     },
                                 contentAlignment = Alignment.Center
@@ -459,13 +471,16 @@ fun TransactionsPanel(
                             categoryColor = categoryColor,
                             categoryIcon = getIconByName(parentCollection?.iconName ?: "category"),
                             dollarFormat = dollarFormat,
-                            onDeleteClick = { viewModel.deleteTransaction(tx) },
+                            onDeleteClick = {
+                                viewModel.deleteTransaction(tx)
+                                android.widget.Toast.makeText(context, "Transaction deleted successfully", android.widget.Toast.LENGTH_SHORT).show()
+                            },
                             onLongClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                presets.bassDrop()
                                 onTransactionLongClick(tx)
                             },
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                presets.boulder()
                                 onTransactionClick(tx)
                             }
                         )
@@ -488,7 +503,7 @@ fun TransactionsPanel(
                             } else {
                                 Button(
                                     onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        presets.boulder()
                                         isLoadingMore = true
                                         scope.launch {
                                             kotlinx.coroutines.delay(800)
@@ -530,7 +545,7 @@ fun TransactionsPanel(
         ) {
             Button(
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    presets.ping()
                     onBackToTop {
                         if (listState.firstVisibleItemIndex > 0) {
                             listState.scrollToItem(0)
@@ -557,223 +572,17 @@ fun TransactionsPanel(
         }
     }
 
-    // Elegant Bottom Sheet for filters (Comes under recent transactions trigger)
+    // Shared Filter Bottom Sheet
     if (showFilters) {
-        ModalBottomSheet(
-            onDismissRequest = { showFilters = false },
+        FilterBottomSheet(
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                // Header of Filters with close (cross) button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "Filters",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text = "Filter Transactions",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Circle Close Icon (cross press)
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { 
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                scope.launch {
-                                    sheetState.hide()
-                                    showFilters = false
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close Filters",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-
-                // Sort By Filters block (First)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Sort By",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val sortOrders = listOf("Newest", "Oldest")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        sortOrders.forEach { order ->
-                            val selected = uiState.activeSortOrder == order
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setSortOrder(order)
-                                    }
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-                                        shape = RoundedCornerShape(50)
-                                    )
-                                    .padding(vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                  Text(
-                                    text = order,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Transaction Direction Filters block (Middle)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Transaction Type",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val types = listOf("All", "Income", "Expense")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        types.forEach { type ->
-                            val selected = uiState.activeTypeFilter.uppercase() == type.uppercase() ||
-                                    (type == "All" && uiState.activeTypeFilter == "All")
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(
-                                        if (selected) {
-                                            if (type == "Income") Color(0xFFE4F6E6)
-                                            else if (type == "Expense") Color(0xFFFEE2E2)
-                                            else MaterialTheme.colorScheme.surfaceVariant
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        }
-                                    )
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setTypeFilter(if (type == "All") "All" else type.uppercase())
-                                    }
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
-                                        shape = RoundedCornerShape(50)
-                                    )
-                                    .padding(vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = type,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selected) {
-                                        if (type == "Income") Color(0xFF1FB47B)
-                                        else if (type == "Expense") Color(0xFFEF4444)
-                                        else MaterialTheme.colorScheme.onSurface
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Time Period Filters block (Last)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Timeframe",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val times = listOf("All", "Daily", "Weekly", "Monthly")
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        times.forEach { time ->
-                            val selected = when (time) {
-                                "Daily" -> uiState.activeTimeFilter == "Today"
-                                "Weekly" -> uiState.activeTimeFilter == "This Week"
-                                "Monthly" -> uiState.activeTimeFilter == "This Month"
-                                else -> uiState.activeTimeFilter == "All"
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        val actualFilter = when (time) {
-                                            "Daily" -> "Today"
-                                            "Weekly" -> "This Week"
-                                            "Monthly" -> "This Month"
-                                            else -> "All"
-                                        }
-                                        viewModel.setTimeFilter(actualFilter)
-                                    }
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-                                        shape = RoundedCornerShape(50)
-                                    )
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = time,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            activeSortOrder = uiState.activeSortOrder,
+            activeTypeFilter = uiState.activeTypeFilter,
+            activeTimeFilter = uiState.activeTimeFilter,
+            onSortOrderChange = { viewModel.setSortOrder(it) },
+            onTypeFilterChange = { viewModel.setTypeFilter(it) },
+            onTimeFilterChange = { viewModel.setTimeFilter(it) },
+            onDismissRequest = { showFilters = false }
+        )
     }
 }

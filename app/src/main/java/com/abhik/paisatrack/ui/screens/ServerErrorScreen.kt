@@ -6,14 +6,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.R
 import com.airbnb.lottie.compose.*
+import com.swmansion.pulsar.Pulsar
 
 @Composable
 fun ServerErrorScreen(
@@ -24,6 +27,9 @@ fun ServerErrorScreen(
         composition = composition,
         iterations = LottieConstants.IterateForever
     )
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
 
     Column(
         modifier = Modifier
@@ -59,7 +65,10 @@ fun ServerErrorScreen(
         )
 
         Button(
-            onClick = onRetry,
+            onClick = {
+                presets.ping()
+                onRetry()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),

@@ -20,10 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +49,7 @@ import com.mmk.kmpauth.google.GoogleAuthCredentials
 import com.mmk.kmpauth.google.GoogleAuthProvider
 import com.mmk.kmpauth.google.GoogleButtonUiContainer
 import com.abhik.paisatrack.BuildConfig
+import com.swmansion.pulsar.Pulsar
 
 enum class SignInButtonState {
     Idle,
@@ -64,7 +63,8 @@ fun SignInScreen(
     onNavigateToDashboard: () -> Unit
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
     val view = LocalView.current
@@ -185,14 +185,14 @@ fun SignInScreen(
                     OutlinedButton(
                         onClick = {
                             if (!isAgreed) {
-                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                presets.catPaw()
                                 Toast.makeText(
                                     context,
                                     "Please agree to our Terms & Conditions and Privacy Policy to continue",
                                     Toast.LENGTH_LONG
                                 ).show()
                             } else if (!isLoading && authReady) {
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                presets.ping()
                                 isLoading = true
                                 val triggerSignIn = { this.onClick() }
                                 coroutineScope.launch {
@@ -376,7 +376,7 @@ fun SignInScreen(
                         )
                         .clickable {
                             val newVal = !isAgreed
-                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            presets.plunk()
                             isAgreed = newVal
                             AuthManager.setAgreedToTerms(context, newVal)
                         },
@@ -441,7 +441,7 @@ fun SignInScreen(
                         onClick = { offset ->
                             annotatedText.getStringAnnotations(tag = "terms", start = offset, end = offset)
                                 .firstOrNull()?.let { annotation ->
-                                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                                    presets.plunk()
                                     uriHandler.openUri(annotation.item)
                                 }
                             annotatedText.getStringAnnotations(tag = "privacy", start = offset, end = offset)
@@ -468,6 +468,7 @@ fun SignInScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textDecoration = TextDecoration.Underline,
                     modifier = Modifier.clickable {
+                        presets.plunk()
                         uriHandler.openUri("https://www.notion.so/About-Us-Paisa-Track-34005815a54c8002926bfee1bf0f8efb")
                     }
                 )
@@ -485,6 +486,7 @@ fun SignInScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textDecoration = TextDecoration.Underline,
                     modifier = Modifier.clickable {
+                        presets.plunk()
                         uriHandler.openUri("https://www.notion.so/Disclaimer-for-Paisa-Track-34005815a54c8016827bd3d0374f5dd4")
                     }
                 )

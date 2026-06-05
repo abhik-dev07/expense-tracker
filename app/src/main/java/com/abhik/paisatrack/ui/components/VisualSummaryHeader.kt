@@ -20,8 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.abhik.paisatrack.ui.FinanceUiState
+import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import kotlinx.coroutines.launch
 
@@ -61,7 +61,7 @@ fun VisualSummaryHeader(
     dollarFormat: DecimalFormat,
     modifier: Modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
 ) {
-    val haptic = LocalHapticFeedback.current
+
     var showDetailDialog by remember { mutableStateOf(false) }
     
     val netBalance = uiState.totalIncome - uiState.totalExpense
@@ -70,6 +70,9 @@ fun VisualSummaryHeader(
     val animatedBalance = remember { Animatable(0f) }
     val animatedIncome = remember { Animatable(0f) }
     val animatedExpense = remember { Animatable(0f) }
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
 
     LaunchedEffect(netBalance, uiState.totalIncome, uiState.totalExpense, uiState.isLoading) {
         if (!uiState.isLoading) {
@@ -133,7 +136,7 @@ fun VisualSummaryHeader(
             .then(modifier)
             .clip(RoundedCornerShape(24.dp))
             .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                presets.ping()
                 showDetailDialog = true
             },
         shape = RoundedCornerShape(24.dp),
@@ -395,7 +398,7 @@ fun VisualSummaryHeader(
 
                     Button(
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.boulder()
                             showDetailDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(

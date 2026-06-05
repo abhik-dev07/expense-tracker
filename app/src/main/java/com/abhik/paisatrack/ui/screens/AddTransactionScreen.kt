@@ -18,17 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.getIconByName
+import com.swmansion.pulsar.Pulsar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +35,9 @@ fun AddTransactionScreen(
     initialCollectionId: String = "",
     onBack: () -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     val isDark = isSystemInDarkTheme()
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -128,7 +128,7 @@ fun AddTransactionScreen(
                         .clip(CircleShape)
                         .background(if (!isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
                         .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.ping()
                             transactionType = "INCOME"
                         }
                         .padding(vertical = 12.dp),
@@ -148,7 +148,7 @@ fun AddTransactionScreen(
                         .clip(CircleShape)
                         .background(if (isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
                         .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.ping()
                             transactionType = "EXPENSE"
                         }
                         .padding(vertical = 12.dp),
@@ -316,7 +316,7 @@ fun AddTransactionScreen(
                                     shape = RoundedCornerShape(16.dp)
                                 )
                                 .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    presets.plunk()
                                     dropdownExpanded = true
                                 }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -400,7 +400,7 @@ fun AddTransactionScreen(
                                                 shape = CircleShape
                                             )
                                             .clickable {
-                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                presets.plunk()
                                                 categoryFilter = filter
                                             }
                                             .padding(vertical = 8.dp),
@@ -512,7 +512,7 @@ fun AddTransactionScreen(
                                             }
                                         },
                                         onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            presets.ping()
                                             selectedCollectionId = col.id
                                             dropdownExpanded = false
                                         },
@@ -624,7 +624,7 @@ fun AddTransactionScreen(
                         .clip(RoundedCornerShape(100))
                         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(100))
                         .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.boulder()
                             onBack()
                         }
                         .padding(vertical = 16.dp),
@@ -645,7 +645,6 @@ fun AddTransactionScreen(
                         .clip(RoundedCornerShape(100))
                         .background(MaterialTheme.colorScheme.primary)
                         .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             val amt = amountString.toDoubleOrNull()
                             val desc = if (description.trim().isEmpty()) {
                                 val currentSelection = collections.find { it.id == selectedCollectionId }
@@ -655,10 +654,13 @@ fun AddTransactionScreen(
                             }
 
                             if (amt == null || amt <= 0.0) {
+                                presets.systemNotificationError()
                                 errorText = "Enter a valid positive transaction amount!"
                             } else if (collections.isEmpty()) {
+                                presets.systemNotificationError()
                                 errorText = "Create a category collection first!"
                             } else {
+                                presets.ping()
                                 viewModel.addTransaction(desc, amt, transactionType, selectedCollectionId)
                                 onBack()
                             }

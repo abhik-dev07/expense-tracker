@@ -2,11 +2,6 @@ package com.abhik.paisatrack.ui.screens
 
 import android.annotation.SuppressLint
 import com.abhik.paisatrack.data.AuthManager
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.boundsInRoot
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.BorderStroke
 import kotlinx.coroutines.launch
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -17,30 +12,14 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -52,10 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -64,46 +40,22 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import android.widget.Toast
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.abhik.paisatrack.R
-import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
-import com.abhik.paisatrack.ui.CollectionSummary
-import com.abhik.paisatrack.ui.DailySum
-import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
 import java.text.DecimalFormat
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import com.abhik.paisatrack.ui.components.*
+import com.swmansion.pulsar.Pulsar
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -151,11 +103,12 @@ fun DashboardScreen(
     }
 
     val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     val userName = remember { AuthManager.getUserName(context) }
     val firstName = remember(userName) { userName.split(" ").firstOrNull() ?: userName }
     val profilePicUrl = remember { AuthManager.getProfilePicUrl(context) }
     val dollarFormat = remember { DecimalFormat("₹#,##0.00") }
-    val haptic = LocalHapticFeedback.current
 
     val isDark = isSystemInDarkTheme()
     val view = LocalView.current
@@ -330,7 +283,7 @@ fun DashboardScreen(
                                     .fillMaxHeight()
                                     .clickable(
                                         onClick = {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            presets.ping()
                                             viewModel.setActiveTab(tab.first)
                                         },
                                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
@@ -412,7 +365,7 @@ fun DashboardScreen(
                             interactionSource = plusButtonInteractionSource,
                             indication = ripple(bounded = true, radius = 36.dp)
                         ) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.plunk()
                             showPlusMenu = true
                         },
                     contentAlignment = Alignment.Center
@@ -615,6 +568,7 @@ fun DashboardScreen(
             onDismiss = { txToDelete = null },
             onConfirm = {
                 viewModel.deleteTransaction(tx)
+                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT).show()
                 txToDelete = null
             }
         )

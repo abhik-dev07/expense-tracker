@@ -1,7 +1,6 @@
 package com.abhik.paisatrack.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -14,14 +13,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +35,9 @@ fun SettingsBottomSheet(
     val scope = rememberCoroutineScope()
     var showLogoutConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteAccountConfirmDialog by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -83,6 +84,8 @@ fun SettingsBottomSheet(
                         modifier = Modifier.clickable {
                             scope.launch { sheetState.hide() }.invokeOnCompletion {
                                 showLogoutConfirmDialog = true
+                                presets.ping()
+
                             }
                         }
                     )
@@ -100,6 +103,7 @@ fun SettingsBottomSheet(
 //                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
 //                        modifier = Modifier.clickable {
 //                            scope.launch { sheetState.hide() }.invokeOnCompletion {
+//                                  presets.bassDrop()
 //                                showDeleteAccountConfirmDialog = true
 //                            }
 //                        }
@@ -164,7 +168,7 @@ fun SettingsBottomSheet(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                presets.boulder()
                                 showLogoutConfirmDialog = false
                                 onDismiss()
                             },
@@ -179,6 +183,7 @@ fun SettingsBottomSheet(
                                 showLogoutConfirmDialog = false
                                 onDismiss()
                                 onSignOutClick()
+                                presets.ping()
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
@@ -250,7 +255,7 @@ fun SettingsBottomSheet(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                presets.boulder()
                                 showDeleteAccountConfirmDialog = false
                                 onDismiss()
                             },
@@ -265,6 +270,7 @@ fun SettingsBottomSheet(
                                 showDeleteAccountConfirmDialog = false
                                 onDismiss()
                                 onDeleteAccountClick()
+                                presets.bassDrop()
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,

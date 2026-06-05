@@ -13,9 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -26,6 +25,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
+import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,6 +35,9 @@ fun AddTransactionDialog(
     onDismiss: () -> Unit,
     onConfirm: (description: String, amount: Double, type: String, collectionId: String) -> Unit
 ) {
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     val focusManager = LocalFocusManager.current
     var description by remember { mutableStateOf("") }
     var amountString by remember { mutableStateOf("") }
@@ -70,7 +73,10 @@ fun AddTransactionDialog(
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(Color.White)
-                            .clickable { onDismiss() }
+                            .clickable {
+                                presets.boulder()
+                                onDismiss()
+                            }
                             .border(1.dp, Color(0xFFE5E7EB), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
@@ -108,7 +114,10 @@ fun AddTransactionDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isExpense) Color.White else Color.Transparent)
-                            .clickable { transactionType = "EXPENSE" }
+                            .clickable {
+                                presets.plunk()
+                                transactionType = "EXPENSE"
+                            }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -125,7 +134,10 @@ fun AddTransactionDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (!isExpense) Color.White else Color.Transparent)
-                            .clickable { transactionType = "INCOME" }
+                            .clickable {
+                                presets.plunk()
+                                transactionType = "INCOME"
+                            }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -298,7 +310,10 @@ fun AddTransactionDialog(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(Color(0xFFF7F8F9))
-                                .clickable { dropdownExpanded = true }
+                                .clickable {
+                                    presets.ping()
+                                    dropdownExpanded = true
+                                }
                                 .padding(16.dp)
                         ) {
                             Row(
@@ -366,6 +381,7 @@ fun AddTransactionDialog(
                                             }
                                         },
                                         onClick = {
+                                            presets.plunk()
                                             selectedCollectionId = col.id
                                             dropdownExpanded = false
                                         }
@@ -397,7 +413,10 @@ fun AddTransactionDialog(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(if (isSelected) Color(0xFFE4F6E6) else Color.Transparent)
-                                    .clickable { selectedPaymentType = type }
+                                    .clickable {
+                                        presets.plunk()
+                                        selectedPaymentType = type
+                                    }
                                     .border(
                                         width = 1.dp,
                                         color = if (isSelected) Color(0xFFB7DAAE) else Color(0xFFE5E7EB),
@@ -467,7 +486,10 @@ fun AddTransactionDialog(
                             .weight(1f)
                             .clip(RoundedCornerShape(100))
                             .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(100))
-                            .clickable { onDismiss() }
+                            .clickable {
+                                presets.boulder()
+                                onDismiss()
+                            }
                             .padding(vertical = 14.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -496,9 +518,11 @@ fun AddTransactionDialog(
 
                                 if (amt == null || amt <= 0.0) {
                                     errorText = "Enter a valid positive transaction amount!"
+                                    presets.boulder()
                                 } else if (collections.isEmpty()) {
                                     errorText = "Create a collection before adding transaction!"
                                 } else {
+                                    presets.bassDrop()
                                     onConfirm(desc, amt, transactionType, selectedCollectionId)
                                 }
                             }
@@ -524,6 +548,9 @@ fun AddCollectionDialog(
     onDismiss: () -> Unit,
     onConfirm: (name: String, colorHex: String, iconName: String, budget: Double?) -> Unit
 ) {
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     var name by remember { mutableStateOf("") }
     var selectedColorIdx by remember { mutableStateOf(0) }
     var selectedIconIdx by remember { mutableStateOf(0) }
@@ -531,7 +558,6 @@ fun AddCollectionDialog(
     var errorText by remember { mutableStateOf("") }
 
     val focusManager = LocalFocusManager.current
-    val haptic = LocalHapticFeedback.current
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -618,6 +644,7 @@ fun AddCollectionDialog(
                                 .clip(CircleShape)
                                 .background(colorVal)
                                 .clickable {
+                                    presets.plunk()
                                     selectedColorIdx = i
                                     focusManager.clearFocus()
                                 }
@@ -654,6 +681,7 @@ fun AddCollectionDialog(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (selected) iconThemeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 .clickable {
+                                    presets.plunk()
                                     selectedIconIdx = i
                                     focusManager.clearFocus()
                                 }
@@ -682,7 +710,7 @@ fun AddCollectionDialog(
                     // Cancel Text Button
                     TextButton(
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.boulder()
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f),
@@ -701,7 +729,9 @@ fun AddCollectionDialog(
                         onClick = {
                             if (name.trim().isEmpty()) {
                                 errorText = "Collection name is required!"
+                                presets.boulder()
                             } else {
+                                presets.bassDrop()
                                 onConfirm(
                                     name.trim(),
                                     CollectionColors[selectedColorIdx].first,
@@ -727,7 +757,9 @@ fun PlusMenuDialog(
     onAddCollection: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -788,7 +820,7 @@ fun PlusMenuDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.ping()
                             onAddTransaction()
                         },
                     shape = RoundedCornerShape(16.dp),
@@ -851,7 +883,7 @@ fun PlusMenuDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.ping()
                             onAddCollection()
                         },
                     shape = RoundedCornerShape(16.dp),
@@ -913,7 +945,7 @@ fun PlusMenuDialog(
                 // Cancel Text Button
                 TextButton(
                     onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        presets.boulder()
                         onDismiss()
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -938,7 +970,9 @@ fun DeleteTransactionConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -988,7 +1022,7 @@ fun DeleteTransactionConfirmDialog(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            presets.boulder()
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f),
@@ -998,7 +1032,10 @@ fun DeleteTransactionConfirmDialog(
                     }
 
                     Button(
-                        onClick = onConfirm,
+                        onClick = {
+                            presets.bassDrop()
+                            onConfirm()
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError

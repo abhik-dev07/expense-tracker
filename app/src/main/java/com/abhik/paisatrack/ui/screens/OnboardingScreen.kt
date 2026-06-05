@@ -19,10 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,6 +30,7 @@ import com.abhik.paisatrack.data.AuthManager
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalView
 import android.view.HapticFeedbackConstants
+import com.swmansion.pulsar.Pulsar
 
 data class OnboardingStep(
     val title: String,
@@ -46,7 +44,8 @@ fun OnboardingScreen(
     onNavigateToSignIn: () -> Unit
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
     val coroutineScope = rememberCoroutineScope()
     val view = LocalView.current
 
@@ -167,6 +166,7 @@ fun OnboardingScreen(
                         interactionSource = skipInteractionSource,
                         indication = LocalIndication.current
                     ) {
+                        presets.plunk()
                         handleComplete()
                     }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -222,7 +222,7 @@ fun OnboardingScreen(
                 if (!isFirstPage) {
                     OutlinedButton(
                         onClick = {
-                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                            presets.boulder()
                             coroutineScope.launch {
                                 pagerState.animateScrollToPage(pagerState.currentPage - 1)
                             }
@@ -243,7 +243,7 @@ fun OnboardingScreen(
                 // Next / Get Started Button
                 Button(
                     onClick = {
-                        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        presets.ping()
                         if (isLastPage) {
                             handleComplete()
                         } else {
