@@ -552,8 +552,8 @@ fun TransactionsPanel(
                 onClick = {
                     presets.ping()
                     onBackToTop {
-                        if (listState.firstVisibleItemIndex > 0) {
-                            listState.scrollToItem(0)
+                        if (listState.firstVisibleItemIndex > 2) {
+                            listState.scrollToItem(2)
                         }
                         listState.animateScrollToItem(0)
                     }

@@ -12,13 +12,16 @@ plugins {
 android {
   namespace = "com.abhik.paisatrack"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
+  lint {
+    baseline = file("lint-baseline.xml")
+  }
 
   defaultConfig {
     applicationId = "com.abhik.paisatrack"
     minSdk = 24
     targetSdk = 36
-    versionCode = 7
-    versionName = "2.0"
+    versionCode = 8
+    versionName = "2.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -88,6 +91,7 @@ dependencies {
   implementation("com.google.android.play:app-update-ktx:2.1.0")
   implementation(libs.firebase.messaging)
   implementation(libs.androidx.activity.compose)
+  implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.material3)

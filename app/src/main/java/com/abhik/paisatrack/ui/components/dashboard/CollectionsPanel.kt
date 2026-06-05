@@ -304,6 +304,9 @@ fun CollectionsPanel(
                     onClick = {
                         presets.ping()
                         onBackToTop {
+                            if (gridState.firstVisibleItemIndex > 2) {
+                                gridState.scrollToItem(2)
+                            }
                             gridState.animateScrollToItem(0)
                         }
                     },

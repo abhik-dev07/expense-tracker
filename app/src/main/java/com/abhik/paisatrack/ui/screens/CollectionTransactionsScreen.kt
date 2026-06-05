@@ -872,8 +872,8 @@ fun CollectionTransactionsScreen(
                                 isScrollingToTop = true
                                 headerOffsetHeightPx = -headerHeightPx
                                 try {
-                                    if (listState.firstVisibleItemIndex > 0) {
-                                        listState.scrollToItem(0)
+                                    if (listState.firstVisibleItemIndex > 2) {
+                                        listState.scrollToItem(2)
                                     }
                                     listState.animateScrollToItem(0)
                                 } finally {
