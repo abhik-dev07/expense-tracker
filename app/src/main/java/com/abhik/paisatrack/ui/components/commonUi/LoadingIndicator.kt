@@ -1,4 +1,4 @@
-package com.abhik.paisatrack.ui.screens
+package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas

@@ -1,4 +1,4 @@
-package com.abhik.paisatrack.ui.components
+package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -7,6 +7,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +28,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
+import com.abhik.paisatrack.ui.components.CollectionColors
+import com.abhik.paisatrack.ui.components.CollectionIcons
+import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 
@@ -81,7 +87,7 @@ fun AddTransactionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             tint = Color(0xFF1E2541),
                             modifier = Modifier.size(18.dp)
@@ -190,7 +196,7 @@ fun AddTransactionDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         LinearProgressIndicator(
-                            progress = progressDesc,
+                            progress = { progressDesc },
                             modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                             color = if (isLimitDesc) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -263,7 +269,7 @@ fun AddTransactionDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         LinearProgressIndicator(
-                            progress = progressAmount,
+                            progress = { progressAmount },
                             modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                             color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -614,7 +620,7 @@ fun AddCollectionDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         LinearProgressIndicator(
-                            progress = progressName,
+                            progress = { progressName },
                             modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                             color = if (isLimitName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -673,7 +679,8 @@ fun AddCollectionDialog(
                 ) {
                     CollectionIcons.forEachIndexed { i, pair ->
                         val selected = selectedIconIdx == i
-                        val iconThemeColor = Color(android.graphics.Color.parseColor(CollectionColors[selectedColorIdx].first))
+                        val iconThemeColor = Color(android.graphics.Color.parseColor(
+                            CollectionColors[selectedColorIdx].first))
                         
                         Box(
                             modifier = Modifier
@@ -847,7 +854,7 @@ fun PlusMenuDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ReceiptLong,
+                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                                 contentDescription = null,
                                 tint = Color(0xFFB7DAAE),
                                 modifier = Modifier.size(22.dp)
@@ -869,7 +876,7 @@ fun PlusMenuDialog(
                         }
 
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(16.dp)
@@ -932,7 +939,7 @@ fun PlusMenuDialog(
                         }
 
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(16.dp)

@@ -1,5 +1,6 @@
 package com.abhik.paisatrack.ui.screens
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
@@ -28,6 +29,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -68,7 +72,10 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.abhik.paisatrack.ui.components.*
+import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
+import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
+import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
+import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
 import com.swmansion.pulsar.Pulsar
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -257,6 +264,7 @@ fun CollectionTransactionsScreen(
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
     val presets = remember { pulsar.getPresets() }
+    @Suppress("DEPRECATION")
     DisposableEffect(isDark) {
         val activity = context as? android.app.Activity
         val window = activity?.window
@@ -357,7 +365,7 @@ fun CollectionTransactionsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowLeft,
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "Back to dashboard",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(24.dp)
@@ -1030,7 +1038,8 @@ fun CollectionTransactionsScreen(
             onDismiss = { txToDelete = null },
             onConfirm = {
                 viewModel.deleteTransaction(tx)
-                android.widget.Toast.makeText(context, "Transaction deleted successfully", android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT)
+                    .show()
                 txToDelete = null
             }
         )
@@ -1130,7 +1139,7 @@ fun CollectionTransactionsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         LinearProgressIndicator(
-                            progress = progressEditName,
+                            progress = { progressEditName },
                             modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                             color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -1584,7 +1593,7 @@ fun TransactionListItemDetailed(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (isIncome) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                        imageVector = if (isIncome) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                         contentDescription = null,
                         tint = iconColor,
                         modifier = Modifier.size(20.dp)

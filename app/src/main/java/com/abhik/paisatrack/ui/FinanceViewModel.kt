@@ -166,7 +166,9 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         _isLoading,
         _isServerError
     ) { args ->
+        @Suppress("UNCHECKED_CAST")
         val collections = args[0] as List<CollectionEntity>
+        @Suppress("UNCHECKED_CAST")
         val transactions = args[1] as List<TransactionEntity>
         val collectionFilter = args[2] as String?
         val timeFilter = args[3] as String

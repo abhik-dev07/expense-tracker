@@ -1,6 +1,7 @@
-package com.abhik.paisatrack.ui.components
+package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.data.model.TransactionEntity
+import com.abhik.paisatrack.ui.components.dashboard.DetailItemRow
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -36,7 +38,7 @@ fun TransactionDetailBottomSheet(
 ) {
 
     val isIncome = transaction.type.uppercase() == "INCOME"
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
     val presets = remember { pulsar.getPresets() }

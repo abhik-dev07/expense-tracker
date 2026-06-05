@@ -1,4 +1,4 @@
-package com.abhik.paisatrack.ui.components
+package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

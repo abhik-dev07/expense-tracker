@@ -1,5 +1,6 @@
-package com.abhik.paisatrack.ui.components
+package com.abhik.paisatrack.ui.components.dashboard
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -34,8 +35,8 @@ import com.abhik.paisatrack.R
 import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
-import com.abhik.paisatrack.ui.screens.shimmerEffect
-import com.abhik.paisatrack.ui.screens.LoadingIndicator
+import com.abhik.paisatrack.ui.components.commonUi.shimmerEffect
+import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
 import com.airbnb.lottie.compose.*
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -44,7 +45,11 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
+import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
+import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
+import com.swmansion.pulsar.types.RealtimeComposerStrategy
+import kotlinx.coroutines.delay
 
 @Composable
 fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
@@ -139,7 +144,7 @@ fun TransactionListItem(
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
     val presets = remember { pulsar.getPresets() }
-    val realtime = remember { pulsar.getRealtimeComposer(com.swmansion.pulsar.types.RealtimeComposerStrategy.PRIMITIVE_TICK) }
+    val realtime = remember { pulsar.getRealtimeComposer(RealtimeComposerStrategy.PRIMITIVE_TICK) }
 
     var swipeOffsetX by remember { mutableStateOf(0f) }
     val animatedSwipeOffset by animateFloatAsState(
@@ -209,7 +214,7 @@ fun TransactionListItem(
                 ),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
             shadowElevation = 1.dp
         ) {
             Row(
@@ -459,7 +464,7 @@ fun TransactionsPanel(
                     val alpha = remember(tx.id) { Animatable(if (index >= animationStartLimit) 0f else 1f) }
                     LaunchedEffect(tx.id) {
                         if (index >= animationStartLimit) {
-                            kotlinx.coroutines.delay((index - animationStartLimit) * 25L)
+                            delay((index - animationStartLimit) * 25L)
                             alpha.animateTo(1f, tween(150))
                         }
                     }
@@ -473,7 +478,7 @@ fun TransactionsPanel(
                             dollarFormat = dollarFormat,
                             onDeleteClick = {
                                 viewModel.deleteTransaction(tx)
-                                android.widget.Toast.makeText(context, "Transaction deleted successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT).show()
                             },
                             onLongClick = {
                                 presets.bassDrop()
@@ -506,7 +511,7 @@ fun TransactionsPanel(
                                         presets.boulder()
                                         isLoadingMore = true
                                         scope.launch {
-                                            kotlinx.coroutines.delay(800)
+                                            delay(800)
                                             animationStartLimit = visibleLimit
                                             visibleLimit += 20
                                             isLoadingMore = false

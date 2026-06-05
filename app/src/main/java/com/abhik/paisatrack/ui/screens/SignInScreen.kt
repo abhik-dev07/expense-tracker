@@ -49,6 +49,7 @@ import com.mmk.kmpauth.google.GoogleAuthCredentials
 import com.mmk.kmpauth.google.GoogleAuthProvider
 import com.mmk.kmpauth.google.GoogleButtonUiContainer
 import com.abhik.paisatrack.BuildConfig
+import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
 import com.swmansion.pulsar.Pulsar
 
 enum class SignInButtonState {
@@ -431,6 +432,7 @@ fun SignInScreen(
                 }
 
                 Box(modifier = Modifier.weight(1f)) {
+                    @Suppress("DEPRECATION")
                     ClickableText(
                         text = annotatedText,
                         style = LocalTextStyle.current.copy(

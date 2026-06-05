@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,7 +94,7 @@ fun AddTransactionScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowLeft,
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp)
@@ -204,7 +205,7 @@ fun AddTransactionScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LinearProgressIndicator(
-                        progress = progressDesc,
+                        progress = { progressDesc },
                         modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                         color = if (isLimitDesc) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -269,7 +270,7 @@ fun AddTransactionScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LinearProgressIndicator(
-                        progress = progressAmount,
+                        progress = { progressAmount },
                         modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                         color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant

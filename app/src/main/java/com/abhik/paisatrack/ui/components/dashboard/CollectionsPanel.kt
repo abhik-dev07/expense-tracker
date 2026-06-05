@@ -1,4 +1,4 @@
-package com.abhik.paisatrack.ui.components
+package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -15,7 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -32,9 +34,13 @@ import com.abhik.paisatrack.R
 import com.abhik.paisatrack.ui.CollectionSummary
 import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
-import com.abhik.paisatrack.ui.screens.LoadingIndicator
+import com.abhik.paisatrack.ui.components.CollectionColors
+import com.abhik.paisatrack.ui.components.CollectionIcons
+import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
+import com.abhik.paisatrack.ui.components.getIconByName
 import com.airbnb.lottie.compose.*
 import com.swmansion.pulsar.Pulsar
+import kotlinx.coroutines.delay
 import java.text.DecimalFormat
 import kotlinx.coroutines.launch
 
@@ -45,7 +51,7 @@ fun CollectionsPanel(
     viewModel: FinanceViewModel,
     dollarFormat: DecimalFormat,
     onScrollProgressChanged: (Boolean) -> Unit,
-    onCollectionClick: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
+    onCollectionClick: (String, Rect?) -> Unit,
     onBackToTop: (suspend () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
@@ -117,7 +123,7 @@ fun CollectionsPanel(
         if (toReveal.isNotEmpty()) {
             toReveal.forEach { collectionId ->
                 revealedCollectionIds.add(collectionId)
-                kotlinx.coroutines.delay(16L)
+                delay(16L)
             }
         }
     }
@@ -257,7 +263,7 @@ fun CollectionsPanel(
                                             presets.flick()
                                             isLoadingMore = true
                                             scope.launch {
-                                                kotlinx.coroutines.delay(800)
+                                                delay(800)
                                                 animationStartLimit = visibleLimit
                                                 visibleLimit += 6
                                                 isLoadingMore = false
@@ -388,7 +394,7 @@ fun CollectionsPanel(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             LinearProgressIndicator(
-                                progress = progressEditName,
+                                progress = { progressEditName },
                                 modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
                                 color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
@@ -447,7 +453,8 @@ fun CollectionsPanel(
                     ) {
                         CollectionIcons.forEachIndexed { i, pair ->
                             val selected = selectedIconIdx == i
-                            val iconThemeColor = Color(android.graphics.Color.parseColor(CollectionColors[selectedColorIdx].first))
+                            val iconThemeColor = Color(android.graphics.Color.parseColor(
+                                CollectionColors[selectedColorIdx].first))
 
                             Box(
                                 modifier = Modifier
@@ -714,7 +721,7 @@ fun CollectionGridCard(
     summary: CollectionSummary,
     dollarFormat: DecimalFormat,
     onEditClick: () -> Unit,
-    onClick: (androidx.compose.ui.geometry.Rect?) -> Unit
+    onClick: (Rect?) -> Unit
 ) {
     val colColor = remember(summary.collection.hexColor) {
         Color(android.graphics.Color.parseColor(summary.collection.hexColor))
@@ -723,7 +730,7 @@ fun CollectionGridCard(
     val pulsar = remember { Pulsar(context) }
     val presets = remember { pulsar.getPresets() }
 
-    var coordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+    var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
     Card(
         modifier = Modifier

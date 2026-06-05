@@ -55,6 +55,16 @@ import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceViewModel
 import java.text.DecimalFormat
 import com.abhik.paisatrack.ui.components.*
+import com.abhik.paisatrack.ui.components.commonUi.AddCollectionDialog
+import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
+import com.abhik.paisatrack.ui.components.commonUi.PlusMenuDialog
+import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
+import com.abhik.paisatrack.ui.components.dashboard.CollectionsPanel
+import com.abhik.paisatrack.ui.components.dashboard.DashboardHeader
+import com.abhik.paisatrack.ui.components.dashboard.InsightsPanel
+import com.abhik.paisatrack.ui.components.dashboard.SettingsBottomSheet
+import com.abhik.paisatrack.ui.components.dashboard.TransactionsPanel
+import com.abhik.paisatrack.ui.components.dashboard.VisualSummaryHeader
 import com.swmansion.pulsar.Pulsar
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -112,6 +122,7 @@ fun DashboardScreen(
 
     val isDark = isSystemInDarkTheme()
     val view = LocalView.current
+    @Suppress("DEPRECATION")
     DisposableEffect(isDark) {
         val activity = context as? android.app.Activity
         val window = activity?.window
@@ -130,7 +141,7 @@ fun DashboardScreen(
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (isScrollingToTop) return Offset.Zero
                 val delta = available.y
-                if (source == NestedScrollSource.Drag) {
+                if (source == NestedScrollSource.UserInput) {
                     if (delta < -12f) {
                         isScrolling = true
                     } else if (delta > 12f) {
@@ -551,7 +562,8 @@ fun DashboardScreen(
                 viewModel.deleteAccountData {
                     coroutineScope.launch {
                         AuthManager.signOut(context)
-                        Toast.makeText(context, "Account deleted successfully", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Account deleted successfully", Toast.LENGTH_SHORT)
+                            .show()
                         onLogout()
                     }
                 }
@@ -568,7 +580,8 @@ fun DashboardScreen(
             onDismiss = { txToDelete = null },
             onConfirm = {
                 viewModel.deleteTransaction(tx)
-                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT)
+                    .show()
                 txToDelete = null
             }
         )

@@ -1,4 +1,4 @@
-package com.abhik.paisatrack.ui.components
+package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -191,14 +191,6 @@ fun InsightsPanel(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                        }
-                        if (expenseSummaries.size > 5) {
-                            Text(
-                                text = "+ ${expenseSummaries.size - 5} other categories",
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(start = 20.dp)
-                            )
                         }
                     }
                 }

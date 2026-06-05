@@ -1,4 +1,4 @@
-package com.abhik.paisatrack.ui.components
+package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
