@@ -41,12 +41,32 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.content.IntentSender
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.play.core.appupdate.AppUpdateManager
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.UpdateAvailability
 
 class MainActivity : ComponentActivity() {
+  private lateinit var appUpdateManager: AppUpdateManager
+
+  private val updateLauncher = registerForActivityResult(
+    ActivityResultContracts.StartIntentSenderForResult()
+  ) { result ->
+    if (result.resultCode != android.app.Activity.RESULT_OK) {
+      android.util.Log.e("MainActivity", "Update flow failed or was cancelled by user.")
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     installSplashScreen()
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    
+    appUpdateManager = AppUpdateManagerFactory.create(this)
+    checkForUpdates()
     
     // Initialize Google Auth Provider to ensure sign-out works even when bypassing SignInScreen
     try {
@@ -343,6 +363,43 @@ class MainActivity : ComponentActivity() {
         setSound(soundUri, audioAttributes)
       }
       notificationManager.createNotificationChannel(channel)
+    }
+  }
+
+  private fun checkForUpdates() {
+    appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
+      if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+        && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)
+      ) {
+        try {
+          appUpdateManager.startUpdateFlowForResult(
+            appUpdateInfo,
+            updateLauncher,
+            AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+          )
+        } catch (e: IntentSender.SendIntentException) {
+          e.printStackTrace()
+        }
+      }
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    if (::appUpdateManager.isInitialized) {
+      appUpdateManager.appUpdateInfo.addOnSuccessListener { appUpdateInfo ->
+        if (appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+          try {
+            appUpdateManager.startUpdateFlowForResult(
+              appUpdateInfo,
+              updateLauncher,
+              AppUpdateOptions.newBuilder(AppUpdateType.IMMEDIATE).build()
+            )
+          } catch (e: IntentSender.SendIntentException) {
+            e.printStackTrace()
+          }
+        }
+      }
     }
   }
 }
