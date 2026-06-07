@@ -31,7 +31,8 @@ data class NetworkCollection(
     val amount: Double,
     val color: String?,
     val icon: String?,
-    val createdAt: Long
+    val createdAt: Long,
+    val isPrebuilt: Boolean? = false
 )
 
 data class NetworkTransaction(

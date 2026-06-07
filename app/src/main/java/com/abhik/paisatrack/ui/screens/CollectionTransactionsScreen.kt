@@ -1369,6 +1369,7 @@ fun CollectionTransactionsScreen(
                                                         presets.systemNotificationSuccess()
                                                         delay(800)
                                                         viewModel.deleteCollection(collection)
+                                                        Toast.makeText(context, "Collection deleted successfully", Toast.LENGTH_SHORT).show()
                                                         showDeleteConfirm = false
                                                         showEditCollectionModal = false
                                                         onBack()

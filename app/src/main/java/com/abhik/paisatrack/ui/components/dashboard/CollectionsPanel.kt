@@ -201,7 +201,7 @@ fun CollectionsPanel(
                                 )
                                 Text(
                                     text = if (activeColTab == "Owned") "Create custom collections with categories to analyze your spending efficiently."
-                                           else "No collections found.",
+                                           else "No collections found. You deleted all prebuild collections.",
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
@@ -622,6 +622,7 @@ fun CollectionsPanel(
                                                         delay(800)
                                                         editingCollectionSummary?.collection?.let {
                                                             viewModel.deleteCollection(it)
+                                                            Toast.makeText(context, "Collection deleted successfully", Toast.LENGTH_SHORT).show()
                                                         }
                                                         showDeleteConfirm = false
                                                         editingCollectionSummary = null

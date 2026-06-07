@@ -162,14 +162,7 @@ class FinanceRepository(
                             iconName = rc.icon ?: "category",
                             monthlyBudget = if (rc.amount > 0.0) rc.amount else null,
                             createdTimestamp = rc.createdAt,
-                            isPrebuilt = listOf(
-                                "General",
-                                "Food & Dining",
-                                "Transport & Logistics",
-                                "Entertainment & Leisure",
-                                "Salary & Income",
-                                "Heaths & Care"
-                            ).any { it.equals(rc.title, ignoreCase = true) }
+                            isPrebuilt = rc.isPrebuilt ?: false
                         )
                     )
                 }
