@@ -1,5 +1,6 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
+import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -34,8 +35,26 @@ import com.abhik.paisatrack.ui.components.CollectionIcons
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalDensity
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class DialogSubmitState {
+    Idle,
+    Loading,
+    Success
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AddTransactionDialog(
     collections: List<CollectionEntity>,
@@ -508,13 +527,40 @@ fun AddTransactionDialog(
                         )
                     }
 
+                    val addScope = rememberCoroutineScope()
+                    var addSubmitState by remember { mutableStateOf(DialogSubmitState.Idle) }
+                    val addBgColor by animateColorAsState(
+                        targetValue = when (addSubmitState) {
+                            DialogSubmitState.Idle -> Color(0xFFB7DAAE)
+                            DialogSubmitState.Loading, DialogSubmitState.Success -> Color.White
+                        },
+                        animationSpec = tween(400), label = "addBg"
+                    )
+                    val addContentColor by animateColorAsState(
+                        targetValue = when (addSubmitState) {
+                            DialogSubmitState.Idle -> Color(0xFF1E2541)
+                            DialogSubmitState.Loading, DialogSubmitState.Success -> Color(0xFF10B981)
+                        },
+                        animationSpec = tween(400), label = "addContent"
+                    )
+                    val addBorderWidth by animateDpAsState(
+                        targetValue = if (addSubmitState == DialogSubmitState.Idle) 0.dp else 1.dp,
+                        animationSpec = tween(400), label = "addBorder"
+                    )
+                    val addBorderColor by animateColorAsState(
+                        targetValue = if (addSubmitState == DialogSubmitState.Idle) Color.Transparent else Color(0xFFB7DAAE).copy(alpha = 0.5f),
+                        animationSpec = tween(400), label = "addBorderColor"
+                    )
+
                     // Confirm action button
                     Box(
                         modifier = Modifier
                             .weight(1f)
+                            .height(52.dp)
                             .clip(RoundedCornerShape(100))
-                            .background(Color(0xFFB7DAAE))
-                            .clickable {
+                            .border(addBorderWidth, addBorderColor, RoundedCornerShape(100))
+                            .background(addBgColor)
+                            .clickable(enabled = addSubmitState == DialogSubmitState.Idle) {
                                 val amt = amountString.toDoubleOrNull()
                                 val desc = if (description.trim().isEmpty()) {
                                     val currentSelection = collections.find { it.id == selectedCollectionId }
@@ -529,19 +575,60 @@ fun AddTransactionDialog(
                                 } else if (collections.isEmpty()) {
                                     errorText = "Create a collection before adding a record!"
                                 } else {
-                                    presets.bassDrop()
-                                    onConfirm(desc, amt, transactionType, selectedCollectionId)
+                                    presets.ping()
+                                    addScope.launch {
+                                        addSubmitState = DialogSubmitState.Loading
+                                        delay(1500)
+                                        addSubmitState = DialogSubmitState.Success
+                                        presets.systemNotificationSuccess()
+                                        delay(800)
+                                        onConfirm(desc, amt, transactionType, selectedCollectionId)
+                                    }
                                 }
-                            }
-                            .padding(vertical = 14.dp),
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Add",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E2541)
-                        )
+                        AnimatedContent(
+                            targetState = addSubmitState,
+                            transitionSpec = {
+                                (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                    .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                            },
+                            label = "addContent"
+                        ) { state ->
+                            when (state) {
+                                DialogSubmitState.Idle -> {
+                                    Text(
+                                        text = "Add",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = addContentColor
+                                    )
+                                }
+                                DialogSubmitState.Loading -> {
+                                    val density = LocalDensity.current
+                                    val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                    val amplitudePx = with(density) { 4.dp.toPx() }
+                                    CircularWavyProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = Color(0xFF10B981),
+                                        trackColor = Color(0xFF10B981).copy(alpha = 0.15f),
+                                        stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        amplitude = amplitudePx,
+                                        wavelength = 6.dp
+                                    )
+                                }
+                                DialogSubmitState.Success -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Success",
+                                        tint = addContentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -732,31 +819,93 @@ fun AddCollectionDialog(
                         )
                     }
 
-                    Button(
-                        onClick = {
-                            if (name.trim().isEmpty()) {
-                                errorText = "Collection name is required!"
-                                presets.boulder()
-                            } else {
-                                presets.bassDrop()
-                                onConfirm(
-                                    name.trim(),
-                                    CollectionColors[selectedColorIdx].first,
-                                    CollectionIcons[selectedIconIdx].first,
-                                    null
-                                )
-                            }
+                    val createScope = rememberCoroutineScope()
+                    var createSubmitState by remember { mutableStateOf(DialogSubmitState.Idle) }
+                    val createBgColor by animateColorAsState(
+                        targetValue = when (createSubmitState) {
+                            DialogSubmitState.Idle -> MaterialTheme.colorScheme.primary
+                            DialogSubmitState.Loading, DialogSubmitState.Success -> MaterialTheme.colorScheme.surface
                         },
+                        animationSpec = tween(400), label = "createBg"
+                    )
+                    val createContentColor by animateColorAsState(
+                        targetValue = when (createSubmitState) {
+                            DialogSubmitState.Idle -> MaterialTheme.colorScheme.onPrimary
+                            DialogSubmitState.Loading, DialogSubmitState.Success -> MaterialTheme.colorScheme.primary
+                        },
+                        animationSpec = tween(400), label = "createContent"
+                    )
+                    val createBorderWidth by animateDpAsState(
+                        targetValue = if (createSubmitState == DialogSubmitState.Idle) 0.dp else 1.dp,
+                        animationSpec = tween(400), label = "createBorder"
+                    )
+                    val createBorderColor by animateColorAsState(
+                        targetValue = if (createSubmitState == DialogSubmitState.Idle) Color.Transparent else MaterialTheme.colorScheme.outline,
+                        animationSpec = tween(400), label = "createBorderColor"
+                    )
+
+                    Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(52.dp),
-                        shape = CircleShape
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .border(createBorderWidth, createBorderColor, CircleShape)
+                            .background(createBgColor)
+                            .clickable(enabled = createSubmitState == DialogSubmitState.Idle) {
+                                if (name.trim().isEmpty()) {
+                                    errorText = "Collection name is required!"
+                                    presets.boulder()
+                                } else {
+                                    presets.ping()
+                                    createScope.launch {
+                                        createSubmitState = DialogSubmitState.Loading
+                                        delay(1500)
+                                        createSubmitState = DialogSubmitState.Success
+                                        presets.systemNotificationSuccess()
+                                        delay(800)
+                                        Toast.makeText(context, "Collection created successfully", Toast.LENGTH_SHORT).show()
+                                        onConfirm(
+                                            name.trim(),
+                                            CollectionColors[selectedColorIdx].first,
+                                            CollectionIcons[selectedIconIdx].first,
+                                            null
+                                        )
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Create",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
+                        AnimatedContent(
+                            targetState = createSubmitState,
+                            transitionSpec = {
+                                (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                    .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                            },
+                            label = "createContent"
+                        ) { state ->
+                            when (state) {
+                                DialogSubmitState.Idle -> {
+                                    Text(text = "Create", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = createContentColor)
+                                }
+                                DialogSubmitState.Loading -> {
+                                    val density = LocalDensity.current
+                                    val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                    val amplitudePx = with(density) { 4.dp.toPx() }
+                                    CircularWavyProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                        stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        amplitude = amplitudePx,
+                                        wavelength = 6.dp
+                                    )
+                                }
+                                DialogSubmitState.Success -> {
+                                    Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = createContentColor, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -977,6 +1126,7 @@ fun PlusMenuDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DeleteTransactionConfirmDialog(
     transaction: TransactionEntity,
@@ -1045,19 +1195,82 @@ fun DeleteTransactionConfirmDialog(
                         Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
-                    Button(
-                        onClick = {
-                            presets.bassDrop()
-                            onConfirm()
+                    val deleteScope = rememberCoroutineScope()
+                    var deleteSubmitState by remember { mutableStateOf(DialogSubmitState.Idle) }
+                    val deleteBgColor by animateColorAsState(
+                        targetValue = when (deleteSubmitState) {
+                            DialogSubmitState.Idle -> MaterialTheme.colorScheme.error
+                            DialogSubmitState.Loading, DialogSubmitState.Success -> MaterialTheme.colorScheme.surface
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        ),
-                        modifier = Modifier.weight(1f).height(52.dp),
-                        shape = CircleShape
+                        animationSpec = tween(400), label = "deleteBg"
+                    )
+                    val deleteContentColor by animateColorAsState(
+                        targetValue = when (deleteSubmitState) {
+                            DialogSubmitState.Idle -> MaterialTheme.colorScheme.onError
+                            DialogSubmitState.Loading, DialogSubmitState.Success -> MaterialTheme.colorScheme.error
+                        },
+                        animationSpec = tween(400), label = "deleteContent"
+                    )
+                    val deleteBorderWidth by animateDpAsState(
+                        targetValue = if (deleteSubmitState == DialogSubmitState.Idle) 0.dp else 1.dp,
+                        animationSpec = tween(400), label = "deleteBorder"
+                    )
+                    val deleteBorderColor by animateColorAsState(
+                        targetValue = if (deleteSubmitState == DialogSubmitState.Idle) Color.Transparent else MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                        animationSpec = tween(400), label = "deleteBorderColor"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .border(deleteBorderWidth, deleteBorderColor, CircleShape)
+                            .background(deleteBgColor)
+                            .clickable(enabled = deleteSubmitState == DialogSubmitState.Idle) {
+                                presets.ping()
+                                deleteScope.launch {
+                                    deleteSubmitState = DialogSubmitState.Loading
+                                    delay(1500)
+                                    deleteSubmitState = DialogSubmitState.Success
+                                    presets.systemNotificationSuccess()
+                                    delay(800)
+                                    onConfirm()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("Delete", fontWeight = FontWeight.Bold)
+                        AnimatedContent(
+                            targetState = deleteSubmitState,
+                            transitionSpec = {
+                                (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                    .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                            },
+                            label = "deleteContent"
+                        ) { state ->
+                            when (state) {
+                                DialogSubmitState.Idle -> {
+                                    Text("Delete", fontWeight = FontWeight.Bold, color = deleteContentColor)
+                                }
+                                DialogSubmitState.Loading -> {
+                                    val density = LocalDensity.current
+                                    val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                    val amplitudePx = with(density) { 4.dp.toPx() }
+                                    CircularWavyProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = MaterialTheme.colorScheme.error,
+                                        trackColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                        stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        amplitude = amplitudePx,
+                                        wavelength = 6.dp
+                                    )
+                                }
+                                DialogSubmitState.Success -> {
+                                    Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = deleteContentColor, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }

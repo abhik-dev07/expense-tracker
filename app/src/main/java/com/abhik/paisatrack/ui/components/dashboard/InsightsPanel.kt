@@ -33,7 +33,6 @@ import com.abhik.paisatrack.ui.FinanceUiState
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -502,7 +501,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
             // Weekly Income
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Total In",
+                    text = "Total Cash In",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -518,7 +517,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
             // Weekly Expense
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Total Out",
+                    text = "Total Cash Out",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

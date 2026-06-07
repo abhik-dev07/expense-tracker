@@ -2,10 +2,7 @@ package com.abhik.paisatrack.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +13,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -77,6 +75,12 @@ import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
 import com.swmansion.pulsar.Pulsar
+
+private enum class CollectionSubmitState {
+    Idle,
+    Loading,
+    Success
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -819,7 +823,7 @@ fun CollectionTransactionsScreen(
                                 ) {
                                     if (isLoadingMore) {
                                         ContainedLoadingIndicator(
-                                            modifier = Modifier.size(32.dp)
+                                            modifier = Modifier.size(48.dp)
                                         )
                                     } else {
                                         FilledTonalButton(
@@ -1261,8 +1265,6 @@ fun CollectionTransactionsScreen(
                         ),
                         shape = CircleShape
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text("Save Changes", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -1326,23 +1328,86 @@ fun CollectionTransactionsScreen(
                                         Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
 
-                                    Button(
-                                        onClick = {
-                                            viewModel.deleteCollection(collection)
-                                            showDeleteConfirm = false
-                                            showEditCollectionModal = false
-                                            onBack()
-                                            presets.bassDrop()
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.error,
-                                            contentColor = MaterialTheme.colorScheme.onError
-                                        ),
-                                        modifier = Modifier.weight(1f).height(52.dp),
-                                        shape = CircleShape
-                                    ) {
-                                        Text("Delete", fontWeight = FontWeight.Bold)
-                                    }
+                                        val delScope = rememberCoroutineScope()
+                                        var delSubmitState by remember { mutableStateOf(CollectionSubmitState.Idle) }
+                                        val delBgColor by animateColorAsState(
+                                            targetValue = when (delSubmitState) {
+                                                CollectionSubmitState.Idle -> MaterialTheme.colorScheme.error
+                                                CollectionSubmitState.Loading, CollectionSubmitState.Success -> MaterialTheme.colorScheme.surface
+                                            },
+                                            animationSpec = tween(400), label = "delBg"
+                                        )
+                                        val delContentColor by animateColorAsState(
+                                            targetValue = when (delSubmitState) {
+                                                CollectionSubmitState.Idle -> MaterialTheme.colorScheme.onError
+                                                CollectionSubmitState.Loading, CollectionSubmitState.Success -> MaterialTheme.colorScheme.error
+                                            },
+                                            animationSpec = tween(400), label = "delContent"
+                                        )
+                                        val delBorderWidth by animateDpAsState(
+                                            targetValue = if (delSubmitState == CollectionSubmitState.Idle) 0.dp else 1.dp,
+                                            animationSpec = tween(400), label = "delBorder"
+                                        )
+                                        val delBorderColor by animateColorAsState(
+                                            targetValue = if (delSubmitState == CollectionSubmitState.Idle) Color.Transparent else MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                                            animationSpec = tween(400), label = "delBorderColor"
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(52.dp)
+                                                .clip(CircleShape)
+                                                .border(delBorderWidth, delBorderColor, CircleShape)
+                                                .background(delBgColor)
+                                                .clickable(enabled = delSubmitState == CollectionSubmitState.Idle) {
+                                                    presets.ping()
+                                                    delScope.launch {
+                                                        delSubmitState = CollectionSubmitState.Loading
+                                                        delay(1500)
+                                                        delSubmitState = CollectionSubmitState.Success
+                                                        presets.systemNotificationSuccess()
+                                                        delay(800)
+                                                        viewModel.deleteCollection(collection)
+                                                        showDeleteConfirm = false
+                                                        showEditCollectionModal = false
+                                                        onBack()
+                                                    }
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            AnimatedContent(
+                                                targetState = delSubmitState,
+                                                transitionSpec = {
+                                                    (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                                        .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                                                },
+                                                label = "delContent"
+                                            ) { state ->
+                                                when (state) {
+                                                    CollectionSubmitState.Idle -> {
+                                                        Text("Delete", fontWeight = FontWeight.Bold, color = delContentColor)
+                                                    }
+                                                    CollectionSubmitState.Loading -> {
+                                                        val density = androidx.compose.ui.platform.LocalDensity.current
+                                                        val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                                        val amplitudePx = with(density) { 4.dp.toPx() }
+                                                        CircularWavyProgressIndicator(
+                                                            modifier = Modifier.size(24.dp),
+                                                            color = MaterialTheme.colorScheme.error,
+                                                            trackColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                                            stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                                            trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                                            amplitude = amplitudePx,
+                                                            wavelength = 6.dp
+                                                        )
+                                                    }
+                                                    CollectionSubmitState.Success -> {
+                                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = delContentColor, modifier = Modifier.size(24.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
                                 }
                             }
                         }
@@ -1414,26 +1479,90 @@ fun CollectionTransactionsScreen(
                                         Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
 
-                                    Button(
-                                        onClick = {
-                                            val updatedCol = collection.copy(
-                                                name = editName.trim(),
-                                                hexColor = LocalCollectionColors[selectedColorIdx].first,
-                                                iconName = LocalCollectionIcons[selectedIconIdx].first
-                                            )
-                                            viewModel.updateCollection(updatedCol)
-                                            showSaveConfirm = false
-                                            showEditCollectionModal = false
-                                            presets.boulder()
+                                    val saveScope = rememberCoroutineScope()
+                                    var saveSubmitState by remember { mutableStateOf(CollectionSubmitState.Idle) }
+                                    val saveBgColor by animateColorAsState(
+                                        targetValue = when (saveSubmitState) {
+                                            CollectionSubmitState.Idle -> MaterialTheme.colorScheme.primary
+                                            CollectionSubmitState.Loading, CollectionSubmitState.Success -> MaterialTheme.colorScheme.surface
                                         },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
-                                        ),
-                                        modifier = Modifier.weight(1f).height(52.dp),
-                                        shape = CircleShape
+                                        animationSpec = tween(400), label = "saveBg"
+                                    )
+                                    val saveContentColor by animateColorAsState(
+                                        targetValue = when (saveSubmitState) {
+                                            CollectionSubmitState.Idle -> MaterialTheme.colorScheme.onPrimary
+                                            CollectionSubmitState.Loading, CollectionSubmitState.Success -> MaterialTheme.colorScheme.primary
+                                        },
+                                        animationSpec = tween(400), label = "saveContent"
+                                    )
+                                    val saveBorderWidth by animateDpAsState(
+                                        targetValue = if (saveSubmitState == CollectionSubmitState.Idle) 0.dp else 1.dp,
+                                        animationSpec = tween(400), label = "saveBorder"
+                                    )
+                                    val saveBorderColor by animateColorAsState(
+                                        targetValue = if (saveSubmitState == CollectionSubmitState.Idle) Color.Transparent else MaterialTheme.colorScheme.outline,
+                                        animationSpec = tween(400), label = "saveBorderColor"
+                                    )
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(52.dp)
+                                            .clip(CircleShape)
+                                            .border(saveBorderWidth, saveBorderColor, CircleShape)
+                                            .background(saveBgColor)
+                                            .clickable(enabled = saveSubmitState == CollectionSubmitState.Idle) {
+                                                presets.ping()
+                                                saveScope.launch {
+                                                    saveSubmitState = CollectionSubmitState.Loading
+                                                    delay(1500)
+                                                    saveSubmitState = CollectionSubmitState.Success
+                                                    presets.systemNotificationSuccess()
+                                                    delay(800)
+                                                    val updatedCol = collection.copy(
+                                                        name = editName.trim(),
+                                                        hexColor = LocalCollectionColors[selectedColorIdx].first,
+                                                        iconName = LocalCollectionIcons[selectedIconIdx].first
+                                                    )
+                                                    viewModel.updateCollection(updatedCol)
+                                                    Toast.makeText(context, "Collection updated successfully", Toast.LENGTH_SHORT).show()
+                                                    showSaveConfirm = false
+                                                    showEditCollectionModal = false
+                                                }
+                                            },
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Text("Save", fontWeight = FontWeight.Bold)
+                                        AnimatedContent(
+                                            targetState = saveSubmitState,
+                                            transitionSpec = {
+                                                (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                                    .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                                            },
+                                            label = "saveContent"
+                                        ) { state ->
+                                            when (state) {
+                                                CollectionSubmitState.Idle -> {
+                                                    Text("Save", fontWeight = FontWeight.Bold, color = saveContentColor)
+                                                }
+                                                CollectionSubmitState.Loading -> {
+                                                    val density = androidx.compose.ui.platform.LocalDensity.current
+                                                    val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                                    val amplitudePx = with(density) { 4.dp.toPx() }
+                                                    CircularWavyProgressIndicator(
+                                                        modifier = Modifier.size(24.dp),
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                                        stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                                        trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                                        amplitude = amplitudePx,
+                                                        wavelength = 6.dp
+                                                    )
+                                                }
+                                                CollectionSubmitState.Success -> {
+                                                    Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = saveContentColor, modifier = Modifier.size(24.dp))
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

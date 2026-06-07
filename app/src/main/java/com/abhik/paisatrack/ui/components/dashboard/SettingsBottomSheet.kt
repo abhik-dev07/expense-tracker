@@ -2,16 +2,22 @@ package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -22,8 +28,18 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class SettingsSubmitState {
+    Idle,
+    Loading,
+    Success
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsBottomSheet(
     sheetState: SheetState,
@@ -180,21 +196,84 @@ fun SettingsBottomSheet(
                             Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
-                        Button(
-                            onClick = {
-                                showLogoutConfirmDialog = false
-                                onDismiss()
-                                onSignOutClick()
-                                presets.ping()
+                        val logoutScope = rememberCoroutineScope()
+                        var logoutSubmitState by remember { mutableStateOf(SettingsSubmitState.Idle) }
+                        val logoutBgColor by animateColorAsState(
+                            targetValue = when (logoutSubmitState) {
+                                SettingsSubmitState.Idle -> MaterialTheme.colorScheme.error
+                                SettingsSubmitState.Loading, SettingsSubmitState.Success -> MaterialTheme.colorScheme.surface
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            ),
-                            modifier = Modifier.weight(1f).height(52.dp),
-                            shape = CircleShape
+                            animationSpec = tween(400), label = "logoutBg"
+                        )
+                        val logoutContentColor by animateColorAsState(
+                            targetValue = when (logoutSubmitState) {
+                                SettingsSubmitState.Idle -> MaterialTheme.colorScheme.onError
+                                SettingsSubmitState.Loading, SettingsSubmitState.Success -> MaterialTheme.colorScheme.error
+                            },
+                            animationSpec = tween(400), label = "logoutContent"
+                        )
+                        val logoutBorderWidth by animateDpAsState(
+                            targetValue = if (logoutSubmitState == SettingsSubmitState.Idle) 0.dp else 1.dp,
+                            animationSpec = tween(400), label = "logoutBorder"
+                        )
+                        val logoutBorderColor by animateColorAsState(
+                            targetValue = if (logoutSubmitState == SettingsSubmitState.Idle) Color.Transparent else MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                            animationSpec = tween(400), label = "logoutBorderColor"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                                .clip(CircleShape)
+                                .border(logoutBorderWidth, logoutBorderColor, CircleShape)
+                                .background(logoutBgColor)
+                                .clickable(enabled = logoutSubmitState == SettingsSubmitState.Idle) {
+                                    presets.ping()
+                                    logoutScope.launch {
+                                        logoutSubmitState = SettingsSubmitState.Loading
+                                        delay(1500)
+                                        logoutSubmitState = SettingsSubmitState.Success
+                                        presets.systemNotificationSuccess()
+                                        delay(800)
+                                        showLogoutConfirmDialog = false
+                                        onDismiss()
+                                        onSignOutClick()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Log Out", fontWeight = FontWeight.Bold)
+                            AnimatedContent(
+                                targetState = logoutSubmitState,
+                                transitionSpec = {
+                                    (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                        .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                                },
+                                label = "logoutContent"
+                            ) { state ->
+                                when (state) {
+                                    SettingsSubmitState.Idle -> {
+                                        Text("Log Out", fontWeight = FontWeight.Bold, color = logoutContentColor)
+                                    }
+                                    SettingsSubmitState.Loading -> {
+                                        val density = androidx.compose.ui.platform.LocalDensity.current
+                                        val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                        val amplitudePx = with(density) { 4.dp.toPx() }
+                                        CircularWavyProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = MaterialTheme.colorScheme.error,
+                                            trackColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                            stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                            trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                            amplitude = amplitudePx,
+                                            wavelength = 6.dp
+                                        )
+                                    }
+                                    SettingsSubmitState.Success -> {
+                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = logoutContentColor, modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -369,26 +448,94 @@ fun SettingsBottomSheet(
                             Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
-                        Button(
-                            onClick = {
-                                if (deleteVerificationText == "Delete") {
-                                    showDeleteAccountVerifyDialog = false
-                                    onDismiss()
-                                    onDeleteAccountClick()
-                                    presets.bassDrop()
-                                }
+                        val deleteScope = rememberCoroutineScope()
+                        var deleteSubmitState by remember { mutableStateOf(SettingsSubmitState.Idle) }
+                        val deleteBgColor by animateColorAsState(
+                            targetValue = when {
+                                deleteSubmitState == SettingsSubmitState.Loading || deleteSubmitState == SettingsSubmitState.Success -> MaterialTheme.colorScheme.surface
+                                deleteVerificationText == "Delete" -> MaterialTheme.colorScheme.error
+                                else -> Color.Transparent
                             },
-                            enabled = deleteVerificationText == "Delete",
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError,
-                                disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
-                                disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.5f)
-                            ),
-                            modifier = Modifier.weight(1f).height(52.dp),
-                            shape = CircleShape
+                            animationSpec = tween(400), label = "deleteBg"
+                        )
+                        val deleteContentColor by animateColorAsState(
+                            targetValue = when {
+                                deleteSubmitState == SettingsSubmitState.Loading || deleteSubmitState == SettingsSubmitState.Success -> MaterialTheme.colorScheme.error
+                                deleteVerificationText == "Delete" -> MaterialTheme.colorScheme.onError
+                                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            },
+                            animationSpec = tween(400), label = "deleteContent"
+                        )
+                        val deleteBorderWidth by animateDpAsState(
+                            targetValue = when {
+                                deleteSubmitState == SettingsSubmitState.Loading || deleteSubmitState == SettingsSubmitState.Success -> 1.dp
+                                deleteVerificationText == "Delete" -> 0.dp
+                                else -> 1.dp
+                            },
+                            animationSpec = tween(400), label = "deleteBorder"
+                        )
+                        val deleteBorderColor by animateColorAsState(
+                            targetValue = when {
+                                deleteSubmitState == SettingsSubmitState.Loading || deleteSubmitState == SettingsSubmitState.Success -> MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                                deleteVerificationText == "Delete" -> Color.Transparent
+                                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                            },
+                            animationSpec = tween(400), label = "deleteBorderColor"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                                .clip(CircleShape)
+                                .border(deleteBorderWidth, deleteBorderColor, CircleShape)
+                                .background(deleteBgColor)
+                                .clickable(enabled = deleteSubmitState == SettingsSubmitState.Idle && deleteVerificationText == "Delete") {
+                                    presets.ping()
+                                    deleteScope.launch {
+                                        deleteSubmitState = SettingsSubmitState.Loading
+                                        delay(1500)
+                                        deleteSubmitState = SettingsSubmitState.Success
+                                        presets.systemNotificationSuccess()
+                                        delay(800)
+                                        showDeleteAccountVerifyDialog = false
+                                        onDismiss()
+                                        onDeleteAccountClick()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Delete", fontWeight = FontWeight.Bold)
+                            AnimatedContent(
+                                targetState = deleteSubmitState,
+                                transitionSpec = {
+                                    (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                        .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                                },
+                                label = "deleteContent"
+                            ) { state ->
+                                when (state) {
+                                    SettingsSubmitState.Idle -> {
+                                        Text("Delete", fontWeight = FontWeight.Bold, color = deleteContentColor)
+                                    }
+                                    SettingsSubmitState.Loading -> {
+                                        val density = androidx.compose.ui.platform.LocalDensity.current
+                                        val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                        val amplitudePx = with(density) { 4.dp.toPx() }
+                                        CircularWavyProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = MaterialTheme.colorScheme.error,
+                                            trackColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                            stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                            trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                            amplitude = amplitudePx,
+                                            wavelength = 6.dp
+                                        )
+                                    }
+                                    SettingsSubmitState.Success -> {
+                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = deleteContentColor, modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
                         }
                     }
                 }

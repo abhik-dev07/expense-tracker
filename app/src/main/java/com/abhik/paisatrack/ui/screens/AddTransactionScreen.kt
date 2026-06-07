@@ -29,6 +29,23 @@ import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+
+private enum class SubmitState {
+    Idle,
+    Loading,
+    Success
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -44,6 +61,8 @@ fun AddTransactionScreen(
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val collections = uiState.collections
+    val scope = rememberCoroutineScope()
+    var submitState by remember { mutableStateOf(SubmitState.Idle) }
 
     var description by remember { mutableStateOf("") }
     var amountString by remember { mutableStateOf("") }
@@ -89,7 +108,7 @@ fun AddTransactionScreen(
                             ),
                             CircleShape
                         )
-                        .clickable {
+                        .clickable(enabled = submitState == SubmitState.Idle) {
                             onBack()
                         },
                     contentAlignment = Alignment.Center
@@ -129,7 +148,7 @@ fun AddTransactionScreen(
                         .weight(1f)
                         .clip(CircleShape)
                         .background(if (!isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
-                        .clickable {
+                        .clickable(enabled = submitState == SubmitState.Idle) {
                             presets.ping()
                             transactionType = "INCOME"
                         }
@@ -149,7 +168,7 @@ fun AddTransactionScreen(
                         .weight(1f)
                         .clip(CircleShape)
                         .background(if (isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
-                        .clickable {
+                        .clickable(enabled = submitState == SubmitState.Idle) {
                             presets.ping()
                             transactionType = "EXPENSE"
                         }
@@ -182,6 +201,7 @@ fun AddTransactionScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
+                    enabled = submitState == SubmitState.Idle,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = if (description.length == 40) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
@@ -236,6 +256,7 @@ fun AddTransactionScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true,
+                    enabled = submitState == SubmitState.Idle,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = if (amountString.length == 8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
@@ -295,7 +316,7 @@ fun AddTransactionScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f),
                                     shape = RoundedCornerShape(16.dp)
                                 )
-                                .clickable {
+                                .clickable(enabled = submitState == SubmitState.Idle) {
                                     presets.plunk()
                                     dropdownExpanded = true
                                 }
@@ -582,6 +603,7 @@ fun AddTransactionScreen(
                         presets.boulder()
                         onBack()
                     },
+                    enabled = submitState == SubmitState.Idle,
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),
@@ -594,39 +616,119 @@ fun AddTransactionScreen(
                     )
                 }
 
-                // Main Submit Transaction button
-                Button(
-                    onClick = {
-                        val amt = amountString.toDoubleOrNull()
-                        val desc = if (description.trim().isEmpty()) {
-                            val currentSelection = collections.find { it.id == selectedCollectionId }
-                            currentSelection?.name ?: "Expense"
-                        } else {
-                            description.trim()
-                        }
-
-                        if (amt == null || amt <= 0.0) {
-                            presets.systemNotificationError()
-                            errorText = "Enter a valid positive transaction amount!"
-                        } else if (collections.isEmpty()) {
-                            presets.systemNotificationError()
-                            errorText = "Create a category collection first!"
-                        } else {
-                            presets.ping()
-                            viewModel.addTransaction(desc, amt, transactionType, selectedCollectionId)
-                            onBack()
-                        }
+                // Main Submit Transaction button with animated state transitions
+                val buttonBgColor by animateColorAsState(
+                    targetValue = when (submitState) {
+                        SubmitState.Idle -> MaterialTheme.colorScheme.primary
+                        SubmitState.Loading, SubmitState.Success -> MaterialTheme.colorScheme.surface
                     },
+                    animationSpec = tween(400),
+                    label = "buttonBg"
+                )
+                val buttonContentColor by animateColorAsState(
+                    targetValue = when (submitState) {
+                        SubmitState.Idle -> MaterialTheme.colorScheme.onPrimary
+                        SubmitState.Loading, SubmitState.Success -> MaterialTheme.colorScheme.primary
+                    },
+                    animationSpec = tween(400),
+                    label = "buttonContent"
+                )
+                val buttonBorderWidth by animateDpAsState(
+                    targetValue = when (submitState) {
+                        SubmitState.Idle -> 0.dp
+                        SubmitState.Loading, SubmitState.Success -> 1.dp
+                    },
+                    animationSpec = tween(400),
+                    label = "buttonBorder"
+                )
+                val buttonBorderColor by animateColorAsState(
+                    targetValue = when (submitState) {
+                        SubmitState.Idle -> Color.Transparent
+                        SubmitState.Loading, SubmitState.Success -> MaterialTheme.colorScheme.outline
+                    },
+                    animationSpec = tween(400),
+                    label = "buttonBorderColor"
+                )
+
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(52.dp),
-                    shape = CircleShape
+                        .height(52.dp)
+                        .clip(CircleShape)
+                        .border(buttonBorderWidth, buttonBorderColor, CircleShape)
+                        .background(buttonBgColor)
+                        .clickable(enabled = submitState == SubmitState.Idle) {
+                            val amt = amountString.toDoubleOrNull()
+                            val desc = if (description.trim().isEmpty()) {
+                                val currentSelection = collections.find { it.id == selectedCollectionId }
+                                currentSelection?.name ?: "Expense"
+                            } else {
+                                description.trim()
+                            }
+
+                            if (amt == null || amt <= 0.0) {
+                                presets.systemNotificationError()
+                                errorText = "Enter a valid positive transaction amount!"
+                            } else if (collections.isEmpty()) {
+                                presets.systemNotificationError()
+                                errorText = "Create a category collection first!"
+                            } else {
+                                presets.ping()
+                                viewModel.addTransaction(desc, amt, transactionType, selectedCollectionId)
+                                scope.launch {
+                                    submitState = SubmitState.Loading
+                                    delay(1500)
+                                    submitState = SubmitState.Success
+                                    presets.systemNotificationSuccess()
+                                    delay(800)
+                                    android.widget.Toast.makeText(context, "Record created successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                    onBack()
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "Add",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    AnimatedContent(
+                        targetState = submitState,
+                        transitionSpec = {
+                            (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                        },
+                        label = "submitContent"
+                    ) { state ->
+                        when (state) {
+                            SubmitState.Idle -> {
+                                Text(
+                                    text = "Add",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = buttonContentColor
+                                )
+                            }
+                            SubmitState.Loading -> {
+                                val density = androidx.compose.ui.platform.LocalDensity.current
+                                val strokeWidthPx = with(density) { 2.dp.toPx() }
+                                val amplitudePx = with(density) { 4.dp.toPx() }
+                                CircularWavyProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                    trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                    amplitude = amplitudePx,
+                                    wavelength = 6.dp
+                                )
+                            }
+                            SubmitState.Success -> {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Success",
+                                    tint = buttonContentColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

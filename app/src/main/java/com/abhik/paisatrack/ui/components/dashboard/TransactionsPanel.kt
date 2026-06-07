@@ -502,7 +502,7 @@ fun TransactionsPanel(
                         ) {
                             if (isLoadingMore) {
                                 ContainedLoadingIndicator(
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(48.dp)
                                 )
                             } else {
                                 FilledTonalButton(
