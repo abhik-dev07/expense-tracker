@@ -35,6 +35,8 @@ fun SettingsBottomSheet(
     val scope = rememberCoroutineScope()
     var showLogoutConfirmDialog by remember { mutableStateOf(false) }
     var showDeleteAccountConfirmDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountVerifyDialog by remember { mutableStateOf(false) }
+    var deleteVerificationText by remember { mutableStateOf("") }
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
     val presets = remember { pulsar.getPresets() }
@@ -89,25 +91,25 @@ fun SettingsBottomSheet(
                             }
                         }
                     )
-//                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
-//                    ListItem(
-//                        headlineContent = { Text("Delete Account", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
-//                        supportingContent = { Text("Permanently erase all your data and collections", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) },
-//                        leadingContent = {
-//                            Icon(
-//                                imageVector = Icons.Default.Delete,
-//                                contentDescription = "Delete Account",
-//                                tint = MaterialTheme.colorScheme.error
-//                            )
-//                        },
-//                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-//                        modifier = Modifier.clickable {
-//                            scope.launch { sheetState.hide() }.invokeOnCompletion {
-//                                  presets.bassDrop()
-//                                showDeleteAccountConfirmDialog = true
-//                            }
-//                        }
-//                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+                    ListItem(
+                        headlineContent = { Text("Delete Account", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+                        supportingContent = { Text("Permanently erase all your data and collections", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Account",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable {
+                            scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                  presets.bassDrop()
+                                showDeleteAccountConfirmDialog = true
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -172,7 +174,7 @@ fun SettingsBottomSheet(
                                 showLogoutConfirmDialog = false
                                 onDismiss()
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).height(52.dp),
                             shape = CircleShape
                         ) {
                             Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -189,7 +191,7 @@ fun SettingsBottomSheet(
                                 containerColor = MaterialTheme.colorScheme.error,
                                 contentColor = MaterialTheme.colorScheme.onError
                             ),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).height(52.dp),
                             shape = CircleShape
                         ) {
                             Text("Log Out", fontWeight = FontWeight.Bold)
@@ -259,7 +261,7 @@ fun SettingsBottomSheet(
                                 showDeleteAccountConfirmDialog = false
                                 onDismiss()
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).height(52.dp),
                             shape = CircleShape
                         ) {
                             Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -268,15 +270,122 @@ fun SettingsBottomSheet(
                         Button(
                             onClick = {
                                 showDeleteAccountConfirmDialog = false
-                                onDismiss()
-                                onDeleteAccountClick()
-                                presets.bassDrop()
+                                deleteVerificationText = ""
+                                showDeleteAccountVerifyDialog = true
+                                presets.ping()
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
                                 contentColor = MaterialTheme.colorScheme.onError
                             ),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).height(52.dp),
+                            shape = CircleShape
+                        ) {
+                            Text("Delete", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDeleteAccountVerifyDialog) {
+        Dialog(
+            onDismissRequest = { 
+                showDeleteAccountVerifyDialog = false
+                onDismiss()
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(vertical = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Confirm Delete",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(48.dp)
+                    )
+
+                    Text(
+                        text = "Confirm Account Deletion",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Text(
+                        text = "To confirm deletion, please type \"Delete\" in the field below.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+
+                    OutlinedTextField(
+                        value = deleteVerificationText,
+                        onValueChange = { deleteVerificationText = it },
+                        placeholder = { Text("Delete", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedBorderColor = MaterialTheme.colorScheme.error,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                presets.boulder()
+                                showDeleteAccountVerifyDialog = false
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f).height(52.dp),
+                            shape = CircleShape
+                        ) {
+                            Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (deleteVerificationText == "Delete") {
+                                    showDeleteAccountVerifyDialog = false
+                                    onDismiss()
+                                    onDeleteAccountClick()
+                                    presets.bassDrop()
+                                }
+                            },
+                            enabled = deleteVerificationText == "Delete",
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                                disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                                disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.5f)
+                            ),
+                            modifier = Modifier.weight(1f).height(52.dp),
                             shape = CircleShape
                         ) {
                             Text("Delete", fontWeight = FontWeight.Bold)

@@ -24,6 +24,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.swmansion.pulsar.Pulsar
+import androidx.compose.ui.platform.LocalLocale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,9 +44,9 @@ fun TransactionDetailBottomSheet(
     val pulsar = remember { Pulsar(context) }
     val presets = remember { pulsar.getPresets() }
     // Match exact date & time logic from the mockup
-    val todayStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())
-    val yesterdayStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(System.currentTimeMillis() - 86400000L))
-    val txDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(transaction.timestamp))
+    val todayStr = SimpleDateFormat("dd MMM yyyy", LocalLocale.current.platformLocale).format(Date())
+    val yesterdayStr = SimpleDateFormat("dd MMM yyyy", LocalLocale.current.platformLocale).format(Date(System.currentTimeMillis() - 86400000L))
+    val txDateStr = SimpleDateFormat("dd MMM yyyy", LocalLocale.current.platformLocale).format(Date(transaction.timestamp))
     val displayDate = when (txDateStr) {
         todayStr -> "Today"
         yesterdayStr -> "Yesterday"
@@ -83,7 +84,7 @@ fun TransactionDetailBottomSheet(
 
             // Title centered matching mockup style
             Text(
-                text = "Transaction Details",
+                text = "Record Details",
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -139,7 +140,7 @@ fun TransactionDetailBottomSheet(
             ) {
                 DetailItemRow(
                     label = "Type",
-                    value = transaction.type.lowercase().replaceFirstChar { it.uppercase() }
+                    value = if (isIncome) "Cash In" else "Cash Out"
                 )
                 DetailItemRow(
                     label = "Collection Name",
@@ -158,19 +159,15 @@ fun TransactionDetailBottomSheet(
             Spacer(modifier = Modifier.height(20.dp))
 
             // Standard pill shape Rounded Close Button with Haptic
-            Button(
+            FilledTonalButton(
                 onClick = {
                     presets.boulder()
                     onDismiss()
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isDark) MaterialTheme.colorScheme.primaryContainer else Color(0xFFE4F6E6),
-                    contentColor = if (isDark) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF1C2C1D)
-                )
+                    .height(52.dp),
+                shape = CircleShape
             ) {
                 Text(
                     text = "Close",

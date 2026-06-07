@@ -36,15 +36,15 @@ import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.CollectionColors
 import com.abhik.paisatrack.ui.components.CollectionIcons
-import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.airbnb.lottie.compose.*
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.delay
 import java.text.DecimalFormat
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CollectionsPanel(
     uiState: FinanceUiState,
@@ -129,47 +129,34 @@ fun CollectionsPanel(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Sticky Filtration Pills Row placed outside LazyVerticalGrid
-        Row(
+        // Sticky Filtration Pills Segmented Button Row placed outside LazyVerticalGrid
+        SingleChoiceSegmentedButtonRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 12.dp)
         ) {
-            listOf("All", "Prebuild", "Owned").forEach { option ->
+            val options = listOf("All", "Prebuild", "Owned")
+            options.forEachIndexed { index, option ->
                 val selected = activeColTab == option
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.primary 
-                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = if (selected) MaterialTheme.colorScheme.primary 
-                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            shape = CircleShape
-                        )
-                        .clickable {
-                            val now = System.currentTimeMillis()
-                            if (selected || now - lastFilterTapAt < 180L) return@clickable
+                SegmentedButton(
+                    selected = selected,
+                    onClick = {
+                        val now = System.currentTimeMillis()
+                        if (!selected && now - lastFilterTapAt >= 180L) {
                             lastFilterTapAt = now
                             presets.boulder()
                             viewModel.setActiveCollectionTab(option)
                         }
-                        .padding(horizontal = 16.dp, vertical = 6.dp), // Sleeker, smaller height
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = option,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (selected) MaterialTheme.colorScheme.onPrimary 
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                    },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                    label = {
+                        Text(
+                            text = option,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                )
             }
         }
 
@@ -192,7 +179,6 @@ fun CollectionsPanel(
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 LottieAnimation(
                                     composition = composition,
@@ -207,7 +193,7 @@ fun CollectionsPanel(
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                                 Text(
-                                    text = if (activeColTab == "Owned") "Create custom collections with categories to analyze your financial health efficiently."
+                                    text = if (activeColTab == "Owned") "Create custom collections with categories to analyze your spending efficiently."
                                            else "No collections found.",
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -253,12 +239,11 @@ fun CollectionsPanel(
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (isLoadingMore) {
-                                    LoadingIndicator(
-                                        color = MaterialTheme.colorScheme.primary,
+                                    ContainedLoadingIndicator(
                                         modifier = Modifier.size(32.dp)
                                     )
                                 } else {
-                                    Button(
+                                    FilledTonalButton(
                                         onClick = {
                                             presets.flick()
                                             isLoadingMore = true
@@ -269,15 +254,11 @@ fun CollectionsPanel(
                                                 isLoadingMore = false
                                             }
                                         },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        ),
-                                        shape = RoundedCornerShape(50),
+                                        shape = CircleShape,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 24.dp)
-                                            .height(48.dp)
+                                            .height(52.dp)
                                     ) {
                                         Text(
                                             text = "Load More (${filteredSummaries.size - visibleLimit} remaining)",
@@ -300,7 +281,7 @@ fun CollectionsPanel(
                     .align(Alignment.TopCenter)
                     .padding(top = 20.dp)
             ) {
-                Button(
+                FilledTonalButton(
                     onClick = {
                         presets.ping()
                         onBackToTop {
@@ -310,11 +291,7 @@ fun CollectionsPanel(
                             gridState.animateScrollToItem(0)
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                    elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
                     shape = CircleShape,
                     modifier = Modifier
                         .height(40.dp)
@@ -373,9 +350,9 @@ fun CollectionsPanel(
                         OutlinedTextField(
                             value = editName,
                             onValueChange = { 
-                                if (it.length <= 20) {
+                                if (it.length <= 25) {
                                     editName = it
-                                    if (it.length == 20) {
+                                    if (it.length == 25) {
                                         focusManager.clearFocus()
                                     }
                                 }
@@ -385,25 +362,25 @@ fun CollectionsPanel(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = if (editName.length == 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                focusedBorderColor = if (editName.length == 25) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                             )
                         )
                         // Char limit indicator + Progress
-                        val progressEditName = editName.length / 20f
-                        val isLimitEditName = editName.length == 20
+                        val progressEditName = editName.length / 25f
+                        val isLimitEditName = editName.length == 25
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp, end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            LinearProgressIndicator(
+                            LinearWavyProgressIndicator(
                                 progress = { progressEditName },
-                                modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
+                                modifier = Modifier.weight(1f).height(10.dp),
                                 color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                             Text(
-                                text = "${editName.length}/20",
+                                text = "${editName.length}/25",
                                 fontSize = 11.sp,
                                 color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 fontWeight = if (isLimitEditName) FontWeight.Bold else FontWeight.Normal
@@ -452,7 +429,7 @@ fun CollectionsPanel(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         CollectionIcons.forEachIndexed { i, pair ->
                             val selected = selectedIconIdx == i
@@ -504,7 +481,7 @@ fun CollectionsPanel(
                                 showDeleteConfirm = true
                                 presets.bassDrop()
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).height(52.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color(0xFFEF4444)
                             ),
@@ -526,7 +503,7 @@ fun CollectionsPanel(
                                 }
                                 presets.ping()
                             },
-                            modifier = Modifier.weight(1.5f),
+                            modifier = Modifier.weight(1.5f).height(52.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -592,7 +569,7 @@ fun CollectionsPanel(
                                                 presets.boulder()
                                                 showDeleteConfirm = false
                                             },
-                                            modifier = Modifier.weight(1f),
+                                            modifier = Modifier.weight(1f).height(52.dp),
                                             shape = CircleShape
                                         ) {
                                             Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -611,7 +588,7 @@ fun CollectionsPanel(
                                                 containerColor = MaterialTheme.colorScheme.error,
                                                 contentColor = MaterialTheme.colorScheme.onError
                                             ),
-                                            modifier = Modifier.weight(1f),
+                                            modifier = Modifier.weight(1f).height(52.dp),
                                             shape = CircleShape
                                         ) {
                                             Text("Delete", fontWeight = FontWeight.Bold)
@@ -681,7 +658,7 @@ fun CollectionsPanel(
                                                 presets.boulder()
                                                 showSaveConfirm = false
                                             },
-                                            modifier = Modifier.weight(1f),
+                                            modifier = Modifier.weight(1f).height(52.dp),
                                             shape = CircleShape
                                         ) {
                                             Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -703,7 +680,7 @@ fun CollectionsPanel(
                                                 containerColor = MaterialTheme.colorScheme.primary,
                                                 contentColor = MaterialTheme.colorScheme.onPrimary,
                                             ),
-                                            modifier = Modifier.weight(1f),
+                                            modifier = Modifier.weight(1f).height(52.dp),
                                             shape = CircleShape
                                         ) {
                                             Text("Save", fontWeight = FontWeight.Bold)
@@ -801,7 +778,7 @@ fun CollectionGridCard(
             )
 
             Text(
-                text = "${summary.transactionCount} ledger events",
+                text = "${summary.transactionCount} records",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -812,7 +789,7 @@ fun CollectionGridCard(
 
             Column {
                 Text(
-                    text = "Balance",
+                    text = "Remaining",
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium

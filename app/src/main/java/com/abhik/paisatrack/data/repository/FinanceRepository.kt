@@ -338,9 +338,11 @@ class FinanceRepository(
                 // Check if a remote transaction with the same description, amount and approximate time already exists
                 val localAmount = if (localTx.type == "EXPENSE") -localTx.amount else localTx.amount
                 val isAlreadySynced = remoteTransactions.any { rt ->
-                    rt.title.equals(localTx.description, ignoreCase = true) &&
-                            Math.abs(rt.amount - localAmount) < 0.01 &&
-                            rt.collectionId == remoteColId
+                    rt.id == localTx.id || (
+                        rt.title.equals(localTx.description, ignoreCase = true) &&
+                                Math.abs(rt.amount - localAmount) < 0.01 &&
+                                rt.collectionId == remoteColId
+                    )
                 }
 
                 if (!isAlreadySynced) {

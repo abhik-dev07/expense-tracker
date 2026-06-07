@@ -36,7 +36,7 @@ import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.commonUi.shimmerEffect
-import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.airbnb.lottie.compose.*
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -290,7 +290,7 @@ fun TransactionListItem(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionsPanel(
     uiState: FinanceUiState,
@@ -369,7 +369,7 @@ fun TransactionsPanel(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Recent transactions",
+                            text = "Recent Activity",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
@@ -440,12 +440,12 @@ fun TransactionsPanel(
                                     .height(200.dp)
                             )
                             Text(
-                                text = "No Transactions Registered",
+                                text = "No Activity Yet",
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "Change filters or tap the '+' action button below to chronicle a dynamic transaction.",
+                                text = "Change filters or tap the “+” button below to add a new entry.",
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 textAlign = TextAlign.Center
@@ -478,7 +478,7 @@ fun TransactionsPanel(
                             dollarFormat = dollarFormat,
                             onDeleteClick = {
                                 viewModel.deleteTransaction(tx)
-                                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Record deleted successfully", Toast.LENGTH_SHORT).show()
                             },
                             onLongClick = {
                                 presets.bassDrop()
@@ -501,12 +501,11 @@ fun TransactionsPanel(
                             contentAlignment = Alignment.Center
                         ) {
                             if (isLoadingMore) {
-                                LoadingIndicator(
-                                    color = MaterialTheme.colorScheme.primary,
+                                ContainedLoadingIndicator(
                                     modifier = Modifier.size(32.dp)
                                 )
                             } else {
-                                Button(
+                                FilledTonalButton(
                                     onClick = {
                                         presets.boulder()
                                         isLoadingMore = true
@@ -517,15 +516,11 @@ fun TransactionsPanel(
                                             isLoadingMore = false
                                         }
                                     },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    ),
-                                    shape = RoundedCornerShape(50),
+                                    shape = CircleShape,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 24.dp)
-                                        .height(48.dp)
+                                        .height(52.dp)
                                 ) {
                                     Text(
                                         text = "Load More (${uiState.filteredTransactions.size - visibleLimit} remaining)",
@@ -548,7 +543,7 @@ fun TransactionsPanel(
                 .align(Alignment.TopCenter)
                 .padding(top = 70.dp)
         ) {
-            Button(
+            FilledTonalButton(
                 onClick = {
                     presets.ping()
                     onBackToTop {
@@ -558,11 +553,7 @@ fun TransactionsPanel(
                         listState.animateScrollToItem(0)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
                 shape = CircleShape,
                 modifier = Modifier.height(40.dp)
             ) {

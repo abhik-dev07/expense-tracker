@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,7 +98,7 @@ fun AddTransactionDialog(
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Text(
-                        text = "Add transaction",
+                        text = "Add Record",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E2541),
@@ -128,7 +129,7 @@ fun AddTransactionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Expense",
+                            text = "Cash Out",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isExpense) Color(0xFF1E2541) else Color(0xFF9CA3AF)
@@ -148,7 +149,7 @@ fun AddTransactionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Income",
+                            text = "Cash In",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (!isExpense) Color(0xFF1E2541) else Color(0xFF9CA3AF)
@@ -175,7 +176,7 @@ fun AddTransactionDialog(
                                 }
                             }
                         },
-                        placeholder = { Text("e.g. Starbucks Coffee, Office Rent", color = Color(0xFF9CA3AF)) },
+                        placeholder = { Text("e.g. Coffee, Office Rent, Salary", color = Color(0xFF9CA3AF)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -523,10 +524,10 @@ fun AddTransactionDialog(
                                 }
 
                                 if (amt == null || amt <= 0.0) {
-                                    errorText = "Enter a valid positive transaction amount!"
+                                    errorText = "Enter a valid positive amount!"
                                     presets.boulder()
                                 } else if (collections.isEmpty()) {
-                                    errorText = "Create a collection before adding transaction!"
+                                    errorText = "Create a collection before adding a record!"
                                 } else {
                                     presets.bassDrop()
                                     onConfirm(desc, amt, transactionType, selectedCollectionId)
@@ -548,7 +549,7 @@ fun AddTransactionDialog(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AddCollectionDialog(
     onDismiss: () -> Unit,
@@ -596,9 +597,9 @@ fun AddCollectionDialog(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { 
-                            if (it.length <= 20) {
+                            if (it.length <= 25) {
                                 name = it
-                                if (it.length == 20) {
+                                if (it.length == 25) {
                                     focusManager.clearFocus()
                                 }
                             }
@@ -608,25 +609,25 @@ fun AddCollectionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = if (name.length == 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            focusedBorderColor = if (name.length == 25) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
                     )
                     // Char limit indicator + Progress
-                    val progressName = name.length / 20f
-                    val isLimitName = name.length == 20
+                    val progressName = name.length / 25f
+                    val isLimitName = name.length == 25
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        LinearProgressIndicator(
+                        LinearWavyProgressIndicator(
                             progress = { progressName },
-                            modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
+                            modifier = Modifier.weight(1f).height(10.dp),
                             color = if (isLimitName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                         Text(
-                            text = "${name.length}/20",
+                            text = "${name.length}/25",
                             fontSize = 11.sp,
                             color = if (isLimitName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontWeight = if (isLimitName) FontWeight.Bold else FontWeight.Normal
@@ -675,7 +676,7 @@ fun AddCollectionDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     CollectionIcons.forEachIndexed { i, pair ->
                         val selected = selectedIconIdx == i
@@ -714,21 +715,20 @@ fun AddCollectionDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Cancel Text Button
-                    TextButton(
+                    OutlinedButton(
                         onClick = {
                             presets.boulder()
                             onDismiss()
                         },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = CircleShape
                     ) {
                         Text(
                             text = "Cancel",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
                         )
                     }
 
@@ -747,9 +747,16 @@ fun AddCollectionDialog(
                                 )
                             }
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        shape = CircleShape
                     ) {
-                        Text("Create")
+                        Text(
+                            text = "Create",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
                     }
                 }
             }
@@ -812,7 +819,7 @@ fun PlusMenuDialog(
                 )
 
                 Text(
-                    text = "Choose whether you'd like to structure a new wallet group or draft a ledger record.",
+                    text = "Create a new collection or add a spending entry.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center,
@@ -863,13 +870,13 @@ fun PlusMenuDialog(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Transaction Record",
+                                text = "Spending Record",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Record incoming funds or outgoing bills",
+                                text = "Add incoming or outgoing entries",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
@@ -932,7 +939,7 @@ fun PlusMenuDialog(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Organize transactions into custom groups",
+                                text = "Organize entries into custom groups",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
@@ -1009,7 +1016,7 @@ fun DeleteTransactionConfirmDialog(
                 )
 
                 Text(
-                    text = "Delete Transaction?",
+                    text = "Delete Record?",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1032,7 +1039,7 @@ fun DeleteTransactionConfirmDialog(
                             presets.boulder()
                             onDismiss()
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(52.dp),
                         shape = CircleShape
                     ) {
                         Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1047,7 +1054,7 @@ fun DeleteTransactionConfirmDialog(
                             containerColor = MaterialTheme.colorScheme.error,
                             contentColor = MaterialTheme.colorScheme.onError
                         ),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(52.dp),
                         shape = CircleShape
                     ) {
                         Text("Delete", fontWeight = FontWeight.Bold)

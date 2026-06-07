@@ -552,8 +552,7 @@ fun DashboardScreen(
             sheetState = sheetState,
             onDismiss = { showSettingsBottomSheet = false },
             onSignOutClick = {
-                coroutineScope.launch {
-                    AuthManager.signOut(context)
+                viewModel.signOut(context) {
                     Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
                     onLogout()
                 }
@@ -580,7 +579,7 @@ fun DashboardScreen(
             onDismiss = { txToDelete = null },
             onConfirm = {
                 viewModel.deleteTransaction(tx)
-                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT)
+                Toast.makeText(context, "Record deleted successfully", Toast.LENGTH_SHORT)
                     .show()
                 txToDelete = null
             }

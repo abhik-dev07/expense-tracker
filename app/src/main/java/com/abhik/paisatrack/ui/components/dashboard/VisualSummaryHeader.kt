@@ -155,7 +155,7 @@ fun VisualSummaryHeader(
         ) {
             // "Total Balance" Label
             Text(
-                text = "Total Balance",
+                text = "Overview",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 fontWeight = FontWeight.Medium,
@@ -213,7 +213,7 @@ fun VisualSummaryHeader(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowDownward,
-                                contentDescription = "Income icon",
+                                contentDescription = "Cash In icon",
                                 tint = if (isDark) Color(0xFFB7DAAE) else Color(0xFF1F4D20),
                                 modifier = Modifier
                                     .size(18.dp)
@@ -223,7 +223,7 @@ fun VisualSummaryHeader(
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Income",
+                                text = "Cash In",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 fontWeight = FontWeight.Medium
@@ -271,7 +271,7 @@ fun VisualSummaryHeader(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ArrowUpward,
-                                contentDescription = "Expense icon",
+                                contentDescription = "Cash Out icon",
                                 tint = if (isDark) Color(0xFFFFB8A9) else Color(0xFF6E261A),
                                 modifier = Modifier
                                     .size(18.dp)
@@ -281,7 +281,7 @@ fun VisualSummaryHeader(
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Expense",
+                                text = "Cash Out",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 fontWeight = FontWeight.Medium
@@ -326,7 +326,7 @@ fun VisualSummaryHeader(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Balance Summary",
+                        text = "Summary",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -334,13 +334,13 @@ fun VisualSummaryHeader(
                     
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f))
 
-                    // Detail Row 1: Total Net Balance
+                    // Detail Row 1: Net Overview
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Net Balance",
+                            text = "Net Amount",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -356,14 +356,14 @@ fun VisualSummaryHeader(
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f))
 
-                    // Detail Row 2: Total Income
+                    // Detail Row 2: Total Cash In
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Total Income",
+                            text = "Total Cash In",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -376,14 +376,14 @@ fun VisualSummaryHeader(
                         )
                     }
 
-                    // Detail Row 3: Total Expense
+                    // Detail Row 3: Total Cash Out
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Total Expense",
+                            text = "Total Cash Out",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -398,22 +398,20 @@ fun VisualSummaryHeader(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Button(
+                    FilledTonalButton(
                         onClick = {
                             presets.boulder()
                             showDetailDialog = false
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
                         shape = CircleShape,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
                     ) {
                         Text(
                             text = "Got it",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            fontSize = 15.sp
                         )
                     }
                 }

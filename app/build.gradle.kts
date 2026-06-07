@@ -89,6 +89,7 @@ dependencies {
   implementation("com.google.firebase:firebase-analytics")
   implementation("com.google.android.play:app-update:2.1.0")
   implementation("com.google.android.play:app-update-ktx:2.1.0")
+  implementation("androidx.compose.material3:material3:1.5.0-alpha17")
   implementation(libs.firebase.messaging)
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.fragment.ktx)

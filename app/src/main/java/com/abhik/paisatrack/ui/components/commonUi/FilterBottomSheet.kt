@@ -1,13 +1,9 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Tune
@@ -16,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,8 +44,9 @@ fun FilterBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .navigationBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Header of Filters with close (cross) button
             Row(
@@ -102,105 +98,105 @@ fun FilterBottomSheet(
 
             // Sort By Filters block (First)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Sort By",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val sortOrders = listOf("Newest", "Oldest")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    sortOrders.forEach { order ->
-                        val selected = activeSortOrder == order
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(50))
-                                .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable {
-                                    presets.flick()
-                                    onSortOrderChange(order)
-                                }
-                                .border(
-                                    width = 1.dp,
-                                    color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-                                    shape = RoundedCornerShape(50)
-                                )
-                                .padding(vertical = 6.dp),
-                            contentAlignment = Alignment.Center
+                    Text(
+                        text = "Sort By",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val isAnyFilterActive = activeSortOrder != "Newest" || activeTypeFilter != "All" || activeTimeFilter != "All"
+                    if (isAnyFilterActive) {
+                        TextButton(
+                            onClick = {
+                                presets.boulder()
+                                onSortOrderChange("Newest")
+                                onTypeFilterChange("All")
+                                onTimeFilterChange("All")
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
                         ) {
                             Text(
-                                text = order,
+                                text = "Clear",
                                 fontSize = 12.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
                 }
+                val sortOrders = listOf("Newest", "Oldest")
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    sortOrders.forEachIndexed { index, order ->
+                        val selected = activeSortOrder == order
+                        SegmentedButton(
+                            selected = selected,
+                            onClick = {
+                                presets.boulder()
+                                onSortOrderChange(order)
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = sortOrders.size),
+                            label = {
+                                Text(
+                                    text = order,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        )
+                    }
+                }
             }
-
+ 
             // Transaction Direction Filters block (Middle)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    text = "Transaction Type",
+                    text = "Record Type",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                val types = listOf("All", "Income", "Expense")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                val types = listOf("All", "Cash In", "Cash Out")
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    types.forEach { type ->
-                        val selected = activeTypeFilter.uppercase() == type.uppercase() ||
-                                (type == "All" && activeTypeFilter == "All")
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(50))
-                                .background(
-                                    if (selected) {
-                                        if (type == "Income") Color(0xFFE4F6E6)
-                                        else if (type == "Expense") Color(0xFFFEE2E2)
-                                        else MaterialTheme.colorScheme.surfaceVariant
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                )
-                                .clickable {
-                                    presets.flick()
-                                    onTypeFilterChange(if (type == "All") "All" else type.uppercase())
-                                }
-                                .border(
-                                    width = 1.dp,
-                                    color = if (selected) Color.Transparent else MaterialTheme.colorScheme.outline,
-                                    shape = RoundedCornerShape(50)
-                                )
-                                .padding(vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = type,
-                                fontSize = 12.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) {
-                                    if (type == "Income") Color(0xFF1FB47B)
-                                    else if (type == "Expense") Color(0xFFEF4444)
-                                    else MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            )
+                    types.forEachIndexed { index, type ->
+                        val selected = when (type) {
+                            "Cash In" -> activeTypeFilter.uppercase() == "INCOME"
+                            "Cash Out" -> activeTypeFilter.uppercase() == "EXPENSE"
+                            else -> activeTypeFilter.uppercase() == "ALL"
                         }
+                        SegmentedButton(
+                            selected = selected,
+                            onClick = {
+                                presets.boulder()
+                                val mappedValue = when (type) {
+                                    "Cash In" -> "INCOME"
+                                    "Cash Out" -> "EXPENSE"
+                                    else -> "All"
+                                }
+                                onTypeFilterChange(mappedValue)
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = types.size),
+                            label = {
+                                Text(
+                                    text = type,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                        )
                     }
                 }
             }
-
+ 
             // Time Period Filters block (Last)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
@@ -210,49 +206,37 @@ fun FilterBottomSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 val times = listOf("All", "Daily", "Weekly", "Monthly")
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    times.forEach { time ->
+                    times.forEachIndexed { index, time ->
                         val selected = when (time) {
                             "Daily" -> activeTimeFilter == "Today"
                             "Weekly" -> activeTimeFilter == "This Week"
                             "Monthly" -> activeTimeFilter == "This Month"
                             else -> activeTimeFilter == "All"
                         }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(50))
-                                .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable {
-                                    presets.flick()
-                                    val actualFilter = when (time) {
-                                        "Daily" -> "Today"
-                                        "Weekly" -> "This Week"
-                                        "Monthly" -> "This Month"
-                                        else -> "All"
-                                    }
-                                    onTimeFilterChange(actualFilter)
+                        SegmentedButton(
+                            selected = selected,
+                            onClick = {
+                                presets.boulder()
+                                val actualFilter = when (time) {
+                                    "Daily" -> "Today"
+                                    "Weekly" -> "This Week"
+                                    "Monthly" -> "This Month"
+                                    else -> "All"
                                 }
-                                .border(
-                                    width = 1.dp,
-                                    color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-                                    shape = RoundedCornerShape(50)
+                                onTimeFilterChange(actualFilter)
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = times.size),
+                            label = {
+                                Text(
+                                    text = time,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                                 )
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = time,
-                                fontSize = 12.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                            }
+                        )
                     }
                 }
             }

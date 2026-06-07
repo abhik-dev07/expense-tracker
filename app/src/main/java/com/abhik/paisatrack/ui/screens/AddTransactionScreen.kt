@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +30,7 @@ import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AddTransactionScreen(
     viewModel: FinanceViewModel,
@@ -104,7 +105,7 @@ fun AddTransactionScreen(
                 Spacer(modifier = Modifier.width(16.dp))
 
                 Text(
-                    text = "Add transaction",
+                    text = "Add Record",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -166,13 +167,6 @@ fun AddTransactionScreen(
 
             // 3. Description field
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Description",
-                    color = Color(0xFF9CA3AF),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = description,
                     onValueChange = { 
@@ -183,17 +177,13 @@ fun AddTransactionScreen(
                             }
                         }
                     },
-                    placeholder = { Text("e.g. Starbucks Coffee, Office Rent", color = Color(0xFF9CA3AF)) },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
+                    label = { Text("Description") },
+                    placeholder = { Text("e.g. Starbucks Coffee, Office Rent") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedBorderColor = if (description.length == 40) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color.Transparent
+                        focusedBorderColor = if (description.length == 40) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
                 )
                 // Char limit indicator + Progress
@@ -204,9 +194,9 @@ fun AddTransactionScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    LinearProgressIndicator(
+                    LinearWavyProgressIndicator(
                         progress = { progressDesc },
-                        modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
+                        modifier = Modifier.weight(1f).height(10.dp),
                         color = if (isLimitDesc) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
@@ -221,13 +211,6 @@ fun AddTransactionScreen(
 
             // 4. Amount Box
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Amount",
-                    color = Color(0xFF9CA3AF),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = amountString,
                     onValueChange = {
@@ -238,7 +221,8 @@ fun AddTransactionScreen(
                             }
                         }
                     },
-                    placeholder = { Text("0.00", color = Color(0xFF9CA3AF)) },
+                    label = { Text("Amount") },
+                    placeholder = { Text("0.00") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     leadingIcon = {
                         Text(
@@ -249,16 +233,11 @@ fun AddTransactionScreen(
                             modifier = Modifier.padding(start = 12.dp, end = 2.dp)
                         )
                     },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedBorderColor = if (amountString.length == 8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color.Transparent
+                        focusedBorderColor = if (amountString.length == 8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
                 )
                 // Char limit indicator + Progress
@@ -269,9 +248,9 @@ fun AddTransactionScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    LinearProgressIndicator(
+                    LinearWavyProgressIndicator(
                         progress = { progressAmount },
-                        modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
+                        modifier = Modifier.weight(1f).height(10.dp),
                         color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
@@ -369,51 +348,30 @@ fun AddTransactionScreen(
                                 .fillMaxWidth(0.9f)
                                 .background(MaterialTheme.colorScheme.surface)
                         ) {
-                            // Fixed top filter pills
-                            Row(
+                            // Fixed top filter segmented button row
+                            SingleChoiceSegmentedButtonRow(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 val filters = listOf("All", "Prebuild", "Owned")
-                                filters.forEach { filter ->
+                                filters.forEachIndexed { index, filter ->
                                     val isSelected = categoryFilter == filter
-                                    val containerColor = if (isSelected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    }
-                                    val contentColor = if (isSelected) {
-                                        MaterialTheme.colorScheme.onPrimary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                    
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(CircleShape)
-                                            .background(containerColor)
-                                            .border(
-                                                width = 1.dp,
-                                                color = if (isSelected) Color.Transparent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
-                                                shape = CircleShape
+                                    SegmentedButton(
+                                        selected = isSelected,
+                                        onClick = {
+                                            presets.plunk()
+                                            categoryFilter = filter
+                                        },
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
+                                        label = {
+                                            Text(
+                                                text = filter,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
-                                            .clickable {
-                                                presets.plunk()
-                                                categoryFilter = filter
-                                            }
-                                            .padding(vertical = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = filter,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = contentColor
-                                        )
-                                    }
+                                        }
+                                    )
                                 }
                             }
 
@@ -619,61 +577,55 @@ fun AddTransactionScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Draft cancellation / exit button
-                Box(
+                OutlinedButton(
+                    onClick = {
+                        presets.boulder()
+                        onBack()
+                    },
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(100))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(100))
-                        .clickable {
-                            presets.boulder()
-                            onBack()
-                        }
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
+                        .height(52.dp),
+                    shape = CircleShape
                 ) {
                     Text(
                         text = "Cancel",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
                 // Main Submit Transaction button
-                Box(
+                Button(
+                    onClick = {
+                        val amt = amountString.toDoubleOrNull()
+                        val desc = if (description.trim().isEmpty()) {
+                            val currentSelection = collections.find { it.id == selectedCollectionId }
+                            currentSelection?.name ?: "Expense"
+                        } else {
+                            description.trim()
+                        }
+
+                        if (amt == null || amt <= 0.0) {
+                            presets.systemNotificationError()
+                            errorText = "Enter a valid positive transaction amount!"
+                        } else if (collections.isEmpty()) {
+                            presets.systemNotificationError()
+                            errorText = "Create a category collection first!"
+                        } else {
+                            presets.ping()
+                            viewModel.addTransaction(desc, amt, transactionType, selectedCollectionId)
+                            onBack()
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(100))
-                        .background(MaterialTheme.colorScheme.primary)
-                        .clickable {
-                            val amt = amountString.toDoubleOrNull()
-                            val desc = if (description.trim().isEmpty()) {
-                                val currentSelection = collections.find { it.id == selectedCollectionId }
-                                currentSelection?.name ?: "Expense"
-                            } else {
-                                description.trim()
-                            }
-
-                            if (amt == null || amt <= 0.0) {
-                                presets.systemNotificationError()
-                                errorText = "Enter a valid positive transaction amount!"
-                            } else if (collections.isEmpty()) {
-                                presets.systemNotificationError()
-                                errorText = "Create a category collection first!"
-                            } else {
-                                presets.ping()
-                                viewModel.addTransaction(desc, amt, transactionType, selectedCollectionId)
-                                onBack()
-                            }
-                        }
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
+                        .height(52.dp),
+                    shape = CircleShape
                 ) {
                     Text(
                         text = "Add",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }

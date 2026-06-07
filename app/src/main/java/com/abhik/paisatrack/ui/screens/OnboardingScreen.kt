@@ -52,23 +52,23 @@ fun OnboardingScreen(
     val steps = remember {
         listOf(
             OnboardingStep(
-                title = "Track Your Expenses",
-                description = "Easily log your daily spending and keep your finances in check.",
+                title = "Record Daily Spending",
+                description = "Easily log your daily spending and organize your spending habits.",
                 rawResId = R.raw.onboarding_1
             ),
             OnboardingStep(
                 title = "Smart Categories",
-                description = "Organize your transactions into collections and categories for better insights.",
+                description = "Sort your spending into categories for easy viewing.",
                 rawResId = R.raw.onboarding_2
             ),
             OnboardingStep(
-                title = "Budget Insights",
+                title = "Spending Insights",
                 description = "Get a clear view of your spending habits with intuitive charts.",
                 rawResId = R.raw.onboarding_3
             ),
             OnboardingStep(
                 title = "You're All Set!",
-                description = "Let's create your first collection and start tracking your wealth.",
+                description = "Let's create your first collection and start tracking your spending.",
                 rawResId = R.raw.onboarding_4
             )
         )

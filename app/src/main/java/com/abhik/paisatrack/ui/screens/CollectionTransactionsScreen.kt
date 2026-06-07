@@ -74,11 +74,11 @@ import java.util.Date
 import java.util.Locale
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
-import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
 import com.swmansion.pulsar.Pulsar
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CollectionTransactionsScreen(
     viewModel: FinanceViewModel,
@@ -390,7 +390,7 @@ fun CollectionTransactionsScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${transactions.size} ledger records registered",
+                            text = "${transactions.size} records registered",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             textAlign = TextAlign.Center
@@ -527,7 +527,7 @@ fun CollectionTransactionsScreen(
                             ) {
                                 // "Total Balance" Label
                                 Text(
-                                    text = "Collection Balance",
+                                    text = "Collection Overview",
                                     fontSize = 13.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                     fontWeight = FontWeight.Medium,
@@ -595,7 +595,7 @@ fun CollectionTransactionsScreen(
 
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    text = "Income",
+                                                    text = "Cash In",
                                                     fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                     fontWeight = FontWeight.Medium
@@ -653,7 +653,7 @@ fun CollectionTransactionsScreen(
 
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    text = "Expense",
+                                                    text = "Cash Out",
                                                     fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                                     fontWeight = FontWeight.Medium
@@ -701,7 +701,7 @@ fun CollectionTransactionsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Recent transactions",
+                                    text = "Recent Activity",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onBackground
@@ -765,12 +765,12 @@ fun CollectionTransactionsScreen(
                                             .height(200.dp)
                                     )
                                     Text(
-                                        text = "No Transactions Formed",
+                                        text = "No Records Formed",
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
                                     Text(
-                                        text = "Any transaction registered with this specific collection category will show up here nicely.",
+                                        text = "Any records registered with this specific collection will show up here nicely.",
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                         textAlign = TextAlign.Center
@@ -795,7 +795,7 @@ fun CollectionTransactionsScreen(
                                     dollarFormat = dollarFormat,
                                     onDeleteClick = {
                                         viewModel.deleteTransaction(tx)
-                                        android.widget.Toast.makeText(context, "Transaction deleted successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.Toast.makeText(context, "Record deleted successfully", android.widget.Toast.LENGTH_SHORT).show()
                                     },
                                     onLongClick = {
                                         presets.bassDrop()
@@ -818,12 +818,11 @@ fun CollectionTransactionsScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (isLoadingMore) {
-                                        LoadingIndicator(
-                                            color = MaterialTheme.colorScheme.primary,
+                                        ContainedLoadingIndicator(
                                             modifier = Modifier.size(32.dp)
                                         )
                                     } else {
-                                        Button(
+                                        FilledTonalButton(
                                             onClick = {
                                                 presets.boulder()
                                                 isLoadingMore = true
@@ -834,15 +833,11 @@ fun CollectionTransactionsScreen(
                                                     isLoadingMore = false
                                                 }
                                             },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                            ),
-                                            shape = RoundedCornerShape(50),
+                                            shape = CircleShape,
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(horizontal = 24.dp)
-                                                .height(48.dp)
+                                                .height(52.dp)
                                         ) {
                                             Text(
                                                 text = "Load More (${transactions.size - visibleLimit} remaining)",
@@ -865,7 +860,7 @@ fun CollectionTransactionsScreen(
                         .align(Alignment.TopCenter)
                         .padding(top = 70.dp)
                 ) {
-                    Button(
+                    FilledTonalButton(
                         onClick = {
                             presets.ping()
                             scope.launch {
@@ -881,11 +876,7 @@ fun CollectionTransactionsScreen(
                                 }
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                        elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
                         shape = CircleShape,
                         modifier = Modifier
                             .height(40.dp)
@@ -933,7 +924,7 @@ fun CollectionTransactionsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "$colName Balance Summary",
+                        text = "$colName Overview",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -948,7 +939,7 @@ fun CollectionTransactionsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Net Balance",
+                            text = "Net Amount",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -971,7 +962,7 @@ fun CollectionTransactionsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Total Income",
+                            text = "Total Cash In",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -991,7 +982,7 @@ fun CollectionTransactionsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Total Expense",
+                            text = "Total Cash Out",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1006,22 +997,18 @@ fun CollectionTransactionsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Button(
+                    FilledTonalButton(
                         onClick = {
                             presets.boulder()
                             showDetailDialog = false
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
                         shape = CircleShape,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
                     ) {
                         Text(
                             text = "Got it",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            fontSize = 15.sp
                         )
                     }
                 }
@@ -1038,7 +1025,7 @@ fun CollectionTransactionsScreen(
             onDismiss = { txToDelete = null },
             onConfirm = {
                 viewModel.deleteTransaction(tx)
-                Toast.makeText(context, "Transaction deleted successfully", Toast.LENGTH_SHORT)
+                Toast.makeText(context, "Record deleted successfully", Toast.LENGTH_SHORT)
                     .show()
                 txToDelete = null
             }
@@ -1115,9 +1102,9 @@ fun CollectionTransactionsScreen(
                     OutlinedTextField(
                         value = editName,
                         onValueChange = { 
-                            if (it.length <= 20) {
+                            if (it.length <= 25) {
                                 editName = it
-                                if (it.length == 20) {
+                                if (it.length == 25) {
                                     focusManager.clearFocus()
                                 }
                             }
@@ -1127,25 +1114,25 @@ fun CollectionTransactionsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = if (editName.length == 20) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            focusedBorderColor = if (editName.length == 25) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
                     )
                     // Char limit indicator + Progress
-                    val progressEditName = editName.length / 20f
-                    val isLimitEditName = editName.length == 20
+                    val progressEditName = editName.length / 25f
+                    val isLimitEditName = editName.length == 25
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp, end = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        LinearProgressIndicator(
+                        LinearWavyProgressIndicator(
                             progress = { progressEditName },
-                            modifier = Modifier.weight(1f).height(4.dp).clip(CircleShape),
+                            modifier = Modifier.weight(1f).height(10.dp),
                             color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                         Text(
-                            text = "${editName.length}/20",
+                            text = "${editName.length}/25",
                             fontSize = 11.sp,
                             color = if (isLimitEditName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontWeight = if (isLimitEditName) FontWeight.Bold else FontWeight.Normal
@@ -1171,6 +1158,7 @@ fun CollectionTransactionsScreen(
                                 .clickable {
                                     selectedColorIdx = i
                                     focusManager.clearFocus()
+                                    presets.boulder()
                                 }
                                 .padding(2.dp),
                             contentAlignment = Alignment.Center
@@ -1193,7 +1181,7 @@ fun CollectionTransactionsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LocalCollectionIcons.forEachIndexed { i, pair ->
                         val selected = selectedIconIdx == i
@@ -1207,6 +1195,7 @@ fun CollectionTransactionsScreen(
                                 .clickable {
                                     selectedIconIdx = i
                                     focusManager.clearFocus()
+                                    presets.boulder()
                                 }
                                 .padding(6.dp),
                             contentAlignment = Alignment.Center
@@ -1243,7 +1232,7 @@ fun CollectionTransactionsScreen(
                             showDeleteConfirm = true
                             presets.bassDrop()
                         },
-                        modifier = Modifier.weight(1.5f),
+                        modifier = Modifier.weight(1.5f).height(52.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = Color(0xFFEF4444)
                         ),
@@ -1265,7 +1254,7 @@ fun CollectionTransactionsScreen(
                                 presets.ping()
                             }
                         },
-                        modifier = Modifier.weight(2f),
+                        modifier = Modifier.weight(2f).height(52.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -1331,9 +1320,9 @@ fun CollectionTransactionsScreen(
                                             presets.boulder()
                                             showDeleteConfirm = false
                                         },
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f).height(52.dp),
                                         shape = CircleShape
-                                        ) {
+                                    ) {
                                         Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
 
@@ -1349,7 +1338,7 @@ fun CollectionTransactionsScreen(
                                             containerColor = MaterialTheme.colorScheme.error,
                                             contentColor = MaterialTheme.colorScheme.onError
                                         ),
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f).height(52.dp),
                                         shape = CircleShape
                                     ) {
                                         Text("Delete", fontWeight = FontWeight.Bold)
@@ -1419,7 +1408,7 @@ fun CollectionTransactionsScreen(
                                             presets.ping()
                                             showSaveConfirm = false
                                         },
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f).height(52.dp),
                                         shape = CircleShape
                                     ) {
                                         Text("Cancel", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1441,7 +1430,7 @@ fun CollectionTransactionsScreen(
                                             containerColor = MaterialTheme.colorScheme.primary,
                                             contentColor = MaterialTheme.colorScheme.onPrimary
                                         ),
-                                        modifier = Modifier.weight(1f),
+                                        modifier = Modifier.weight(1f).height(52.dp),
                                         shape = CircleShape
                                     ) {
                                         Text("Save", fontWeight = FontWeight.Bold)

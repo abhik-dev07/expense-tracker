@@ -36,78 +36,9 @@ fun LoadingIndicator(
     modifier: Modifier = Modifier,
     color: Color = Color(0xFF1FB47B)
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "ExpressiveLoader")
-
-    // Rotation animation
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "Rotation"
-    )
-
-    // Morphing corner radius animation (morphs between a square-ish shape and a circle)
-    val morphRatio by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = keyframes {
-                durationMillis = 1600
-                0.0f at 0 using FastOutSlowInEasing
-                0.5f at 400 using FastOutSlowInEasing
-                1.0f at 800 using FastOutSlowInEasing
-                0.5f at 1200 using FastOutSlowInEasing
-                0.0f at 1600
-            },
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "MorphRatio"
-    )
-
-    // Pulsing scale animation
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = keyframes {
-                durationMillis = 800
-                0.85f at 0 using FastOutSlowInEasing
-                1.15f at 400 using FastOutSlowInEasing
-                0.85f at 800
-            },
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "Scale"
-    )
-
     Box(
-        modifier = modifier
-            .scale(scale)
-            .rotate(rotation),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val sizePx = size.minDimension
-            val rectSize = sizePx * 0.75f
-            val left = (size.width - rectSize) / 2
-            val top = (size.height - rectSize) / 2
-
-            // Calculate morphing corner radius
-            val maxRadius = rectSize / 2f
-            val minRadius = rectSize * 0.15f
-            val currentRadius = minRadius + (maxRadius - minRadius) * morphRatio
-
-            drawRoundRect(
-                color = color,
-                topLeft = Offset(left, top),
-                size = Size(rectSize, rectSize),
-                cornerRadius = CornerRadius(currentRadius, currentRadius)
-            )
-        }
-    }
+        modifier = modifier.shimmerEffect()
+    )
 }
 
 fun Modifier.shimmerEffect(): Modifier = composed {

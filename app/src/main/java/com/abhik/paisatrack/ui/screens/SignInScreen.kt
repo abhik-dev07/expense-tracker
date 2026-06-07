@@ -49,7 +49,7 @@ import com.mmk.kmpauth.google.GoogleAuthCredentials
 import com.mmk.kmpauth.google.GoogleAuthProvider
 import com.mmk.kmpauth.google.GoogleButtonUiContainer
 import com.abhik.paisatrack.BuildConfig
-import com.abhik.paisatrack.ui.components.commonUi.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.swmansion.pulsar.Pulsar
 
 enum class SignInButtonState {
@@ -58,6 +58,7 @@ enum class SignInButtonState {
     SigningIn
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SignInScreen(
     viewModel: FinanceViewModel,
@@ -133,7 +134,7 @@ fun SignInScreen(
 
             // Subtitle
             Text(
-                text = "Manage your expenses efficiently with just a single tap.",
+                text = "Manage your spending efficiently with just a single tap.",
                 fontSize = 15.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

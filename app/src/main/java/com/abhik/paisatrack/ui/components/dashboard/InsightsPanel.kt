@@ -1,11 +1,18 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -22,7 +30,12 @@ import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.ui.CollectionSummary
 import com.abhik.paisatrack.ui.DailySum
 import com.abhik.paisatrack.ui.FinanceUiState
+import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun InsightsPanel(
@@ -54,7 +67,7 @@ fun InsightsPanel(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         
-        // 1. Double Rounded Bar Chart
+        // 1. Double Rounded Bar Chart with detailed info
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
@@ -62,20 +75,29 @@ fun InsightsPanel(
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Weekly Cash Flow Activity",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Synchronized income vs expenditure logs (7-Day window)",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(20.dp))
+                // Header row with title + legend
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Weekly Spending Activity",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Tap any bar to see details",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Render Bar Chart
+                // Render Enhanced Bar Chart
                 DailyBarChart(dailySums = uiState.dailyTransactionSums)
             }
         }
@@ -91,13 +113,13 @@ fun InsightsPanel(
                 .padding(vertical = 8.dp)
         ) {
             Text(
-                text = "Expense Allocation Breakdown",
+                text = "Spending Overview",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Proportional spending index of collections",
+                text = "Spending by Category",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -135,7 +157,7 @@ fun InsightsPanel(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Register expenses with collection values to draw allocation graphs.",
+                        text = "Add spending records to view category charts.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -248,68 +270,279 @@ fun DailyBarChart(dailySums: List<DailySum>) {
         animTrigger = true
     }
 
+    // Track which day index is selected for tooltip
+    var selectedDayIndex by remember { mutableStateOf(-1) }
+
+    val context = LocalContext.current
+    val pulsar = remember { Pulsar(context) }
+    val presets = remember { pulsar.getPresets() }
+
     val maxAmount = remember(dailySums) {
         val maxInc = dailySums.maxOfOrNull { it.totalIncome } ?: 0.0
         val maxExp = dailySums.maxOfOrNull { it.totalExpense } ?: 0.0
-        maxOf(maxInc, maxExp, 100.0) // fallback base max is 100
+        maxOf(maxInc, maxExp, 100.0)
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
-    ) {
-        dailySums.forEach { item ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                // Dual column containers
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        // Income Bar (Green)
-                        val incomeHeightFraction = ((item.totalIncome / maxAmount) * animProgress).toFloat().coerceIn(0.01f, 1f)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(incomeHeightFraction)
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(Color(0xFF10B981))
-                        )
+    // Determine today's day key for highlighting
+    val todayKey = remember {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        sdf.format(Date())
+    }
 
-                        // Expense Bar (Red)
-                        val expenseHeightFraction = ((item.totalExpense / maxAmount) * animProgress).toFloat().coerceIn(0.01f, 1f)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(expenseHeightFraction)
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(Color(0xFFFFB8A9))
-                        )
+    // Weekly totals
+    val weeklyIncome = remember(dailySums) { dailySums.sumOf { it.totalIncome } }
+    val weeklyExpense = remember(dailySums) { dailySums.sumOf { it.totalExpense } }
+    val weeklyNet = weeklyIncome - weeklyExpense
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // Tooltip card for selected day
+        AnimatedVisibility(
+            visible = selectedDayIndex in dailySums.indices,
+            enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it / 2 },
+            exit = fadeOut(tween(150)) + slideOutVertically(tween(150)) { -it / 2 }
+        ) {
+            if (selectedDayIndex in dailySums.indices) {
+                val selected = dailySums[selectedDayIndex]
+                val dayFullFormat = remember(selected.timestamp) {
+                    SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(Date(selected.timestamp))
+                }
+                val net = selected.totalIncome - selected.totalExpense
+                val compactFormat = remember { DecimalFormat("₹#,##0.00") }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = dayFullFormat,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            // Circle Close Icon (matching FilterBottomSheet style)
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable {
+                                        presets.boulder()
+                                        selectedDayIndex = -1
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Close details",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            // Income detail
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF10B981)))
+                                    Text("Cash In", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(
+                                    text = compactFormat.format(selected.totalIncome),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF10B981)
+                                )
+                            }
+                            // Expense detail
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFEF4444)))
+                                    Text("Cash Out", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(
+                                    text = compactFormat.format(selected.totalExpense),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFEF4444)
+                                )
+                            }
+                        }
                     }
                 }
+            }
+        }
 
-                // X-Axis Text Label
+        // Bar chart
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            dailySums.forEachIndexed { index, item ->
+                val isSelected = index == selectedDayIndex
+                val isToday = remember(item.timestamp) {
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    sdf.format(Date(item.timestamp)) == todayKey
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f)
+                            else Color.Transparent
+                        )
+                        .clickable {
+                            presets.ping()
+                            selectedDayIndex = if (selectedDayIndex == index) -1 else index
+                        }
+                        .padding(horizontal = 2.dp)
+                ) {
+
+                    // Dual bar containers
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            // Income Bar (Green)
+                            val incomeHeightFraction = ((item.totalIncome / maxAmount) * animProgress).toFloat().coerceIn(0.01f, 1f)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(incomeHeightFraction)
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(
+                                        if (isSelected) Color(0xFF059669) else Color(0xFF10B981)
+                                    )
+                            )
+
+                            // Expense Bar (Red)
+                            val expenseHeightFraction = ((item.totalExpense / maxAmount) * animProgress).toFloat().coerceIn(0.01f, 1f)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(expenseHeightFraction)
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(
+                                        if (isSelected) Color(0xFFDC2626) else Color(0xFFEF4444)
+                                    )
+                            )
+                        }
+                    }
+
+                    // X-Axis day label
+                    Text(
+                        text = item.dateString,
+                        fontSize = 10.sp,
+                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isToday) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // "Today" badge
+                    if (isToday) {
+                        Box(
+                            modifier = Modifier
+                                .height(3.dp)
+                                .width(16.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(3.dp))
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Weekly summary row
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            thickness = 0.5.dp
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            val summaryFormat = remember { DecimalFormat("₹#,##0") }
+
+            // Weekly Income
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = item.dateString,
-                    fontSize = 11.sp,
+                    text = "Total In",
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Text(
+                    text = summaryFormat.format(weeklyIncome),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF10B981)
+                )
+            }
+
+            // Weekly Expense
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Total Out",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = summaryFormat.format(weeklyExpense),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFEF4444)
+                )
             }
         }
+    }
+}
+
+/**
+ * Formats an amount into a compact human-readable string.
+ * e.g. 1500 -> "₹1.5K", 250 -> "₹250", 0 -> "₹0"
+ */
+private fun formatCompactAmount(amount: Double): String {
+    return when {
+        amount >= 10_00_000 -> "₹${String.format("%.1f", amount / 10_00_000)}M"
+        amount >= 1_000 -> "₹${String.format("%.1f", amount / 1_000)}K"
+        amount > 0 -> "₹${amount.toInt()}"
+        else -> "₹0"
     }
 }

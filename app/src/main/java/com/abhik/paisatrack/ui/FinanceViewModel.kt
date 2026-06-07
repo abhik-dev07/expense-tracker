@@ -1,6 +1,7 @@
 package com.abhik.paisatrack.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.abhik.paisatrack.data.AuthManager
@@ -287,8 +288,9 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 userId = finalUserId
             )
 
-            // Migrate local anonymous data to backend first
-            repository.migrateLocalDataToBackend(finalUserId)
+            // Clear any stale local data left over from a different user
+            // before attempting migration to prevent duplicate-key conflicts
+            repository.clearAllLocalData()
 
             // Force clear and download database data for backward compatibility
             val result = repository.syncFromBackend(finalUserId)
@@ -576,14 +578,27 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         return sdf.format(Date(timestamp))
     }
 
+    fun signOut(context: Context, onCompleted: () -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.clearAllLocalData()
+            AuthManager.signOut(context)
+            viewModelScope.launch(Dispatchers.Main) {
+                onCompleted()
+            }
+        }
+    }
+
     fun deleteAccountData(onCompleted: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val userId = AuthManager.getUserId(getApplication())
             if (userId != null) {
                 repository.deleteUserRemote(userId)
             }
+            // Wipe all local Room tables
             val database = AppDatabase.getDatabase(getApplication())
             database.clearAllTables()
+            // Also clear auth state so stale userId doesn't trigger re-sync
+            AuthManager.signOut(getApplication())
             viewModelScope.launch(Dispatchers.Main) {
                 onCompleted()
             }
