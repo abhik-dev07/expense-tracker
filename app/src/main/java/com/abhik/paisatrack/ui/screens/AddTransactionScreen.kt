@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,6 +22,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -65,7 +68,7 @@ fun AddTransactionScreen(
     var submitState by remember { mutableStateOf(SubmitState.Idle) }
 
     var description by remember { mutableStateOf("") }
-    var amountString by remember { mutableStateOf("") }
+    var amountTextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
     var transactionType by remember { mutableStateOf("EXPENSE") } // "EXPENSE" or "INCOME"
     var selectedCollectionId by remember { mutableStateOf(if (initialCollectionId.isNotEmpty()) initialCollectionId else (collections.firstOrNull()?.id ?: "")) }
     var selectedPaymentType by remember { mutableStateOf("Cash") } // "Cash", "Credit/Debit Card", "Check"
@@ -232,12 +235,43 @@ fun AddTransactionScreen(
             // 4. Amount Box
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
-                    value = amountString,
-                    onValueChange = {
-                        if (it.length <= 8 && (it.isEmpty() || it.toDoubleOrNull() != null || it.last() == '.')) {
-                            amountString = it
-                            if (it.length == 8) {
-                                focusManager.clearFocus()
+                    value = amountTextFieldValue,
+                    onValueChange = { newValue ->
+                        if (newValue.text == amountTextFieldValue.text) {
+                            amountTextFieldValue = newValue
+                        } else {
+                            val cleanInput = newValue.text.replace(",", "")
+                            val digitCount = cleanInput.count { it != '.' }
+                            if (digitCount <= 8 && (cleanInput.isEmpty() || cleanInput.toDoubleOrNull() != null || cleanInput.last() == '.')) {
+                                val formattedText = formatAmountWithCommas(cleanInput)
+                                
+                                fun mapOffset(text: String, formattedText: String, offset: Int): Int {
+                                    val prefix = text.take(offset)
+                                    val digitsBeforeCursor = prefix.count { it != ',' }
+                                    var formattedSelectionIndex = 0
+                                    var digitsSeen = 0
+                                    while (formattedSelectionIndex < formattedText.length && digitsSeen < digitsBeforeCursor) {
+                                        if (formattedText[formattedSelectionIndex] != ',') {
+                                            digitsSeen++
+                                        }
+                                        formattedSelectionIndex++
+                                    }
+                                    while (formattedSelectionIndex < formattedText.length && formattedText[formattedSelectionIndex] == ',') {
+                                        formattedSelectionIndex++
+                                    }
+                                    return formattedSelectionIndex
+                                }
+
+                                val newStart = mapOffset(newValue.text, formattedText, newValue.selection.start)
+                                val newEnd = mapOffset(newValue.text, formattedText, newValue.selection.end)
+                                
+                                amountTextFieldValue = newValue.copy(
+                                    text = formattedText,
+                                    selection = TextRange(newStart, newEnd)
+                                )
+                                if (digitCount == 8) {
+                                    focusManager.clearFocus()
+                                }
                             }
                         }
                     },
@@ -258,12 +292,12 @@ fun AddTransactionScreen(
                     singleLine = true,
                     enabled = submitState == SubmitState.Idle,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (amountString.length == 8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        focusedBorderColor = if (amountTextFieldValue.text.count { it != ',' && it != '.' } == 8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
                 )
                 // Char limit indicator + Progress
-                val progressAmount = amountString.length / 8f
-                val isLimitAmount = amountString.length == 8
+                val progressAmount = amountTextFieldValue.text.count { it != ',' && it != '.' } / 8f
+                val isLimitAmount = amountTextFieldValue.text.count { it != ',' && it != '.' } == 8
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp, start = 4.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -276,11 +310,47 @@ fun AddTransactionScreen(
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                     Text(
-                        text = "${amountString.length}/8",
+                        text = "${amountTextFieldValue.text.count { it != ',' && it != '.' }}/8",
                         fontSize = 11.sp,
                         color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         fontWeight = if (isLimitAmount) FontWeight.Bold else FontWeight.Normal
                     )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf(100, 500, 1000, 5000).forEach { amountToAdd ->
+                        AssistChip(
+                            onClick = {
+                                presets.ping()
+                                val currentAmt = amountTextFieldValue.text.replace(",", "").toDoubleOrNull() ?: 0.0
+                                val targetAmt = currentAmt + amountToAdd
+                                val targetStr = if (targetAmt % 1.0 == 0.0) {
+                                    targetAmt.toLong().toString()
+                                } else {
+                                    String.format(java.util.Locale.US, "%.2f", targetAmt)
+                                }
+                                val digitCount = targetStr.count { it != '.' }
+                                if (digitCount <= 8) {
+                                    val formatted = formatAmountWithCommas(targetStr)
+                                    amountTextFieldValue = TextFieldValue(
+                                        text = formatted,
+                                        selection = TextRange(formatted.length)
+                                    )
+                                }
+                            },
+                            label = { Text("+₹$amountToAdd", fontWeight = FontWeight.SemiBold) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
                 }
             }
 
@@ -658,7 +728,7 @@ fun AddTransactionScreen(
                         .border(buttonBorderWidth, buttonBorderColor, CircleShape)
                         .background(buttonBgColor)
                         .clickable(enabled = submitState == SubmitState.Idle) {
-                            val amt = amountString.toDoubleOrNull()
+                            val amt = amountTextFieldValue.text.replace(",", "").toDoubleOrNull()
                             val desc = if (description.trim().isEmpty()) {
                                 val currentSelection = collections.find { it.id == selectedCollectionId }
                                 currentSelection?.name ?: "Expense"
@@ -732,5 +802,37 @@ fun AddTransactionScreen(
                 }
             }
         }
+    }
+}
+
+private fun formatAmountWithCommas(raw: String): String {
+    val clean = raw.replace(",", "")
+    if (clean.isEmpty()) return ""
+    val parts = clean.split(".")
+    val integerPart = parts[0]
+    
+    val formattedInt = if (integerPart.length > 3) {
+        val lastThree = integerPart.substring(integerPart.length - 3)
+        val rest = integerPart.substring(0, integerPart.length - 3)
+        val restFormatted = StringBuilder()
+        var count = 0
+        for (i in rest.length - 1 downTo 0) {
+            if (count > 0 && count % 2 == 0) {
+                restFormatted.append(",")
+            }
+            restFormatted.append(rest[i])
+            count++
+        }
+        restFormatted.reverse().toString() + "," + lastThree
+    } else {
+        integerPart
+    }
+
+    return if (parts.size > 1) {
+        formattedInt + "." + parts[1]
+    } else if (clean.contains(".")) {
+        "$formattedInt."
+    } else {
+        formattedInt
     }
 }
