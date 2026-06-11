@@ -164,11 +164,6 @@ class MainActivity : ComponentActivity() {
               viewModel.userDeletedEvent.collect {
                 val ctx = context
                 com.abhik.paisatrack.data.AuthManager.signOut(ctx)
-                android.widget.Toast.makeText(
-                  ctx,
-                  "Your account has been removed. Please sign in again.",
-                  android.widget.Toast.LENGTH_LONG
-                ).show()
                 navController.navigate("sign_in") {
                   popUpTo(0) { inclusive = true }
                 }

@@ -101,6 +101,7 @@ object AuthManager {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        setUserSignedIn(context, false)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
     }
 }
