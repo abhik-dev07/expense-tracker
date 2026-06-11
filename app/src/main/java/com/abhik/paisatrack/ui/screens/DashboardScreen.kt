@@ -59,6 +59,7 @@ import com.abhik.paisatrack.ui.components.commonUi.AddCollectionDialog
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.PlusMenuDialog
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
+import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.abhik.paisatrack.ui.components.dashboard.CollectionsPanel
 import com.abhik.paisatrack.ui.components.dashboard.DashboardHeader
 import com.abhik.paisatrack.ui.components.dashboard.InsightsPanel
@@ -87,6 +88,7 @@ fun DashboardScreen(
     var isScrolling by remember { mutableStateOf(false) }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var txDetailToShow by remember { mutableStateOf<TransactionEntity?>(null) }
+    var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var showSettingsBottomSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     LaunchedEffect(activeTab) {
@@ -600,7 +602,32 @@ fun DashboardScreen(
             collectionColor = colColor,
             collectionIcon = colIcon,
             dollarFormat = dollarFormat,
-            onDismiss = { txDetailToShow = null }
+            onDismiss = { txDetailToShow = null },
+            onEditClick = {
+                transactionToEdit = tx
+                txDetailToShow = null
+            }
+        )
+    }
+
+    if (transactionToEdit != null) {
+        val tx = transactionToEdit!!
+        EditTransactionBottomSheet(
+            transaction = tx,
+            collections = uiState.collections,
+            onDismiss = { transactionToEdit = null },
+            onSave = { desc, amount, type, collectionId ->
+                viewModel.updateTransaction(
+                    id = tx.id,
+                    description = desc,
+                    amount = amount,
+                    type = type,
+                    collectionId = collectionId,
+                    timestamp = tx.timestamp
+                )
+                transactionToEdit = null
+                Toast.makeText(context, "Record updated successfully", Toast.LENGTH_SHORT).show()
+            }
         )
     }
 }

@@ -25,6 +25,8 @@ import java.util.Date
 import java.util.Locale
 import com.swmansion.pulsar.Pulsar
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +37,7 @@ fun TransactionDetailBottomSheet(
     collectionIcon: ImageVector,
     dollarFormat: DecimalFormat,
     onDismiss: () -> Unit,
+    onEditClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
 
@@ -158,22 +161,51 @@ fun TransactionDetailBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Standard pill shape Rounded Close Button with Haptic
-            FilledTonalButton(
-                onClick = {
-                    presets.boulder()
-                    onDismiss()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = CircleShape
+            // Side-by-side Edit and Close Buttons with Haptics
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Close",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                OutlinedButton(
+                    onClick = {
+                        presets.ping()
+                        onEditClick()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Transaction",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Edit",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                FilledTonalButton(
+                    onClick = {
+                        presets.boulder()
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "Close",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

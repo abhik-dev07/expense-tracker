@@ -74,6 +74,7 @@ import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialo
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
+import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.swmansion.pulsar.Pulsar
 
 private enum class CollectionSubmitState {
@@ -167,6 +168,7 @@ fun CollectionTransactionsScreen(
     var showDetailDialog by remember { mutableStateOf(false) }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var txDetailToShow by remember { mutableStateOf<TransactionEntity?>(null) }
+    var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var showEditCollectionModal by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val listState = rememberLazyListState()
@@ -1048,7 +1050,11 @@ fun CollectionTransactionsScreen(
             collectionColor = colColor,
             collectionIcon = colIcon,
             dollarFormat = dollarFormat,
-            onDismiss = { txDetailToShow = null }
+            onDismiss = { txDetailToShow = null },
+            onEditClick = {
+                transactionToEdit = tx
+                txDetailToShow = null
+            }
         )
     }
 
@@ -1572,6 +1578,27 @@ fun CollectionTransactionsScreen(
                 }
             }
         }
+    }
+
+    if (transactionToEdit != null) {
+        val tx = transactionToEdit!!
+        EditTransactionBottomSheet(
+            transaction = tx,
+            collections = uiState.collections,
+            onDismiss = { transactionToEdit = null },
+            onSave = { desc, amount, type, collectionId ->
+                viewModel.updateTransaction(
+                    id = tx.id,
+                    description = desc,
+                    amount = amount,
+                    type = type,
+                    collectionId = collectionId,
+                    timestamp = tx.timestamp
+                )
+                transactionToEdit = null
+                Toast.makeText(context, "Record updated successfully", Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 }
 

@@ -73,6 +73,13 @@ data class CreateTransactionRequest(
     val time: String?
 )
 
+data class UpdateTransactionRequest(
+    val title: String,
+    val amount: Double,
+    val category: String,
+    val collectionId: String
+)
+
 data class UpdatePushTokenRequest(
     val userId: String,
     val pushToken: String
@@ -127,6 +134,12 @@ interface PaisaTrackApi {
 
     @POST("collection-transactions/create")
     suspend fun createTransaction(@Body body: CreateTransactionRequest): Response<NetworkTransaction>
+
+    @PUT("collection-transactions/{id}")
+    suspend fun updateTransaction(
+        @Path("id") id: String,
+        @Body body: UpdateTransactionRequest
+    ): Response<NetworkTransaction>
 
     @DELETE("collection-transactions/{id}")
     suspend fun deleteTransaction(

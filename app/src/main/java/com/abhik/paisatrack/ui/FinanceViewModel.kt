@@ -345,6 +345,29 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun updateTransaction(id: String, description: String, amount: Double, type: String, collectionId: String, timestamp: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val collections = repository.allCollections.first()
+            val collectionName = collections.find { it.id == collectionId }?.name ?: "General"
+            
+            val updatedTransaction = TransactionEntity(
+                id = id,
+                description = description,
+                amount = amount,
+                type = type.uppercase(),
+                collectionId = collectionId,
+                notes = collectionName,
+                timestamp = timestamp
+            )
+            repository.insertTransaction(updatedTransaction)
+
+            val userId = AuthManager.getUserId(getApplication())
+            if (userId != null) {
+                repository.updateTransactionRemote(userId, updatedTransaction)
+            }
+        }
+    }
+
     fun deleteTransaction(transaction: TransactionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.deleteTransaction(transaction)

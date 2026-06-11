@@ -240,6 +240,23 @@ class FinanceRepository(
         }
     }
 
+    suspend fun updateTransactionRemote(userId: String, transaction: TransactionEntity) {
+        try {
+            val localAmount = if (transaction.type == "EXPENSE") -transaction.amount else transaction.amount
+            ApiClient.api.updateTransaction(
+                transaction.id,
+                UpdateTransactionRequest(
+                    title = transaction.description,
+                    amount = localAmount,
+                    category = transaction.notes.ifEmpty { "General" },
+                    collectionId = transaction.collectionId
+                )
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     suspend fun deleteTransactionRemote(userId: String, transactionId: String) {
         try {
             ApiClient.api.deleteTransaction(transactionId, userId)
