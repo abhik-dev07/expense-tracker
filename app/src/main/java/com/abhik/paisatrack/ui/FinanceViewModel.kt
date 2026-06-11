@@ -15,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -603,6 +605,25 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun signOut(context: Context, onCompleted: () -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
+            val userId = AuthManager.getUserId(context)
+            if (userId != null) {
+                try {
+                    val token = suspendCancellableCoroutine<String> { continuation ->
+                        com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                            if (task.isSuccessful && task.result != null) {
+                                continuation.resume(task.result)
+                            } else {
+                                continuation.resume("")
+                            }
+                        }
+                    }
+                    if (token.isNotEmpty()) {
+                        repository.updatePushTokenRemote(userId, token, unregister = true)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
             repository.clearAllLocalData()
             AuthManager.signOut(context)
             viewModelScope.launch(Dispatchers.Main) {

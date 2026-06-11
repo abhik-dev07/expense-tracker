@@ -15,6 +15,7 @@ import com.abhik.paisatrack.R
 import com.abhik.paisatrack.data.AuthManager
 import com.abhik.paisatrack.data.network.ApiClient
 import com.abhik.paisatrack.data.network.UpdatePushTokenRequest
+import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -84,8 +85,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         // Reference the custom raw sound file
         val soundUri = Uri.parse("android.resource://" + packageName + "/" + R.raw.notification)
 
+        val notificationIcon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            R.drawable.ic_notification
+        } else {
+            R.mipmap.ic_launcher
+        }
+
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(notificationIcon)
+            .setColor(ContextCompat.getColor(this, R.color.splash_background))
             .setContentTitle(title)
             .setContentText(message)
             .setAutoCancel(true)

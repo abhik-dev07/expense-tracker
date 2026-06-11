@@ -82,7 +82,8 @@ data class UpdateTransactionRequest(
 
 data class UpdatePushTokenRequest(
     val userId: String,
-    val pushToken: String
+    val pushToken: String,
+    val unregister: Boolean = false
 )
 
 data class InsightsRequest(

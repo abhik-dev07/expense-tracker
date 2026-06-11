@@ -265,9 +265,9 @@ class FinanceRepository(
         }
     }
 
-    suspend fun updatePushTokenRemote(userId: String, token: String): Boolean {
+    suspend fun updatePushTokenRemote(userId: String, token: String, unregister: Boolean = false): Boolean {
         return try {
-            val response = ApiClient.api.updatePushToken(UpdatePushTokenRequest(userId, token))
+            val response = ApiClient.api.updatePushToken(UpdatePushTokenRequest(userId, token, unregister))
             response.isSuccessful
         } catch (e: Exception) {
             e.printStackTrace()
