@@ -43,10 +43,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
 
-        if (isAppInForeground()) {
-            return
-        }
-
         // Show notification either from the notification block or data payload
         val title = message.notification?.title ?: message.data["title"] ?: "Paisa-Track Alert"
         val body = message.notification?.body ?: message.data["body"] ?: "Check your latest budget transactions."
@@ -54,21 +50,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         showNotification(title, body)
     }
 
-    private fun isAppInForeground(): Boolean {
-        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val appProcesses = activityManager.runningAppProcesses ?: return false
-        val packageName = packageName
-        for (appProcess in appProcesses) {
-            if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND &&
-                appProcess.processName == packageName) {
-                return true
-            }
-        }
-        return false
-    }
-
     private fun showNotification(title: String, message: String) {
-        val channelId = "paisa_track_notifications"
+        val channelId = "paisa_track_alerts_v3"
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra("title", title)
             putExtra("body", message)
@@ -83,7 +66,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         )
 
         // Reference the custom raw sound file
-        val soundUri = Uri.parse("android.resource://" + packageName + "/" + R.raw.notification)
+        val soundUri = Uri.parse("android.resource://" + packageName + "/raw/notification")
 
         val notificationIcon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             R.drawable.ic_notification
@@ -98,6 +81,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText(message)
             .setAutoCancel(true)
             .setSound(soundUri)
+            .setVibrate(longArrayOf(0, 200, 0))
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
 
@@ -117,6 +101,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                     .build()
                 setSound(soundUri, audioAttributes)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 200, 0)
             }
 
             notificationManager.createNotificationChannel(channel)

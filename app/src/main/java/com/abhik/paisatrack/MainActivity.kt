@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
     
     appUpdateManager = AppUpdateManagerFactory.create(this)
     checkForUpdates()
-    
+
     // Initialize Google Auth Provider to ensure sign-out works even when bypassing SignInScreen
     try {
       val provider = com.mmk.kmpauth.google.GoogleAuthProvider.create(
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
     } catch (e: Exception) {
       e.printStackTrace()
     }
-    
+
     // Create the notification channel with custom sound
     createNotificationChannel()
 
@@ -337,13 +337,14 @@ class MainActivity : ComponentActivity() {
   }
 
   private fun createNotificationChannel() {
-    val channelId = "paisa_track_notifications"
-    val soundUri = Uri.parse("android.resource://" + packageName + "/" + R.raw.notification)
+    val channelId = "paisa_track_alerts_v3"
+    val soundUri = Uri.parse("android.resource://" + packageName + "/raw/notification")
     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      // Delete old channel first to force sound update
-      notificationManager.deleteNotificationChannel(channelId)
+      // Delete old channels
+      notificationManager.deleteNotificationChannel("paisa_track_notifications")
+      notificationManager.deleteNotificationChannel("paisa_track_alerts_v2")
 
       val channel = NotificationChannel(
         channelId,
@@ -356,6 +357,8 @@ class MainActivity : ComponentActivity() {
           .setUsage(AudioAttributes.USAGE_NOTIFICATION)
           .build()
         setSound(soundUri, audioAttributes)
+        enableVibration(true)
+        vibrationPattern = longArrayOf(0, 500, 200, 500)
       }
       notificationManager.createNotificationChannel(channel)
     }

@@ -25,7 +25,7 @@
             android:resource="@color/splash_background" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="paisa_track_notifications" />
+            android:value="paisa_track_alerts_v3" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
