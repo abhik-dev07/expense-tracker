@@ -63,7 +63,7 @@ fun AddTransactionDialog(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val focusManager = LocalFocusManager.current
     var description by remember { mutableStateOf("") }
     var amountString by remember { mutableStateOf("") }
@@ -644,7 +644,7 @@ fun AddCollectionDialog(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     var name by remember { mutableStateOf("") }
     var selectedColorIdx by remember { mutableStateOf(0) }
     var selectedIconIdx by remember { mutableStateOf(0) }
@@ -922,7 +922,7 @@ fun PlusMenuDialog(
     val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -1136,7 +1136,7 @@ fun DeleteTransactionConfirmDialog(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)

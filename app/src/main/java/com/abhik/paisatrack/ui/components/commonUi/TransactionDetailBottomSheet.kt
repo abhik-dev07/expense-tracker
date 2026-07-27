@@ -45,7 +45,7 @@ fun TransactionDetailBottomSheet(
     val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     // Match exact date & time logic from the mockup
     val todayStr = SimpleDateFormat("dd MMM yyyy", LocalLocale.current.platformLocale).format(Date())
     val yesterdayStr = SimpleDateFormat("dd MMM yyyy", LocalLocale.current.platformLocale).format(Date(System.currentTimeMillis() - 86400000L))

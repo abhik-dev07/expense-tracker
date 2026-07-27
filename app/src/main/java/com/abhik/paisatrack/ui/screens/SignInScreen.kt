@@ -66,7 +66,7 @@ fun SignInScreen(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
     val view = LocalView.current

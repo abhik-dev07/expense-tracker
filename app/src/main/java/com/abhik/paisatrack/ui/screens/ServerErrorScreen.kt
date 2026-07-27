@@ -29,7 +29,7 @@ fun ServerErrorScreen(
     )
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
 
     Column(
         modifier = Modifier

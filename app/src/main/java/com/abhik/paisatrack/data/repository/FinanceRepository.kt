@@ -43,6 +43,10 @@ class FinanceRepository(
         collectionDao.deleteCollectionById(id)
     }
 
+    suspend fun markTransactionsInCollectionPendingDelete(collectionId: String) {
+        transactionDao.markTransactionsInCollectionPendingDelete(collectionId, System.currentTimeMillis())
+    }
+
     suspend fun insertTransaction(transaction: TransactionEntity): Long {
         return transactionDao.insertTransaction(transaction)
     }
@@ -125,7 +129,69 @@ class FinanceRepository(
         }
     }
 
-    suspend fun syncFromBackend(userId: String, noCache: Boolean = false): SyncResult {
+    suspend fun flushPendingOfflineData(userId: String) {
+        try {
+            // 1. Flush pending collections
+            val pendingCols = collectionDao.getPendingCollections()
+            for (col in pendingCols) {
+                try {
+                    when (col.syncStatus) {
+                        com.abhik.paisatrack.data.model.SyncStatus.PENDING_INSERT.name -> {
+                            if (addCollectionRemote(userId, col)) {
+                                collectionDao.markCollectionSynced(col.id, System.currentTimeMillis())
+                            }
+                        }
+                        com.abhik.paisatrack.data.model.SyncStatus.PENDING_UPDATE.name -> {
+                            val res = ApiClient.api.updateCollection(
+                                col.id,
+                                UpdateCollectionRequest(title = col.name, color = col.hexColor, icon = col.iconName)
+                            )
+                            if (res.isSuccessful) {
+                                collectionDao.markCollectionSynced(col.id, System.currentTimeMillis())
+                            }
+                        }
+                        com.abhik.paisatrack.data.model.SyncStatus.PENDING_DELETE.name -> {
+                            if (deleteCollectionRemote(userId, col.id)) {
+                                collectionDao.deleteCollectionById(col.id)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            // 2. Flush pending transactions
+            val pendingTxns = transactionDao.getPendingTransactions()
+            for (tx in pendingTxns) {
+                try {
+                    when (tx.syncStatus) {
+                        com.abhik.paisatrack.data.model.SyncStatus.PENDING_INSERT.name -> {
+                            if (addTransactionRemote(userId, tx)) {
+                                transactionDao.markTransactionSynced(tx.id, System.currentTimeMillis())
+                            }
+                        }
+                        com.abhik.paisatrack.data.model.SyncStatus.PENDING_UPDATE.name -> {
+                            if (updateTransactionRemote(userId, tx)) {
+                                transactionDao.markTransactionSynced(tx.id, System.currentTimeMillis())
+                            }
+                        }
+                        com.abhik.paisatrack.data.model.SyncStatus.PENDING_DELETE.name -> {
+                            if (deleteTransactionRemote(userId, tx.id)) {
+                                transactionDao.deleteTransactionById(tx.id)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun syncFromBackend(userId: String, noCache: Boolean = false, since: Long? = null): SyncResult {
         try {
             // First, verify user still exists on the backend
             val userExists = checkUserExists(userId, noCache)
@@ -135,52 +201,99 @@ class FinanceRepository(
                 return SyncResult.USER_DELETED
             }
 
-            val collectionsResponse = ApiClient.api.getCollections(userId, noCache = if (noCache) "true" else "false")
-            val transactionsResponse = ApiClient.api.getTransactions(userId, noCache = if (noCache) "true" else "false")
+            // Flush any offline pending changes before pulling remote state
+            flushPendingOfflineData(userId)
+
+            val collectionsResponse = ApiClient.api.getCollections(
+                userId = userId,
+                noCache = if (noCache) "true" else "false",
+                since = since
+            )
+            val transactionsResponse = ApiClient.api.getTransactions(
+                userId = userId,
+                noCache = if (noCache) "true" else "false",
+                since = since
+            )
             
             if (collectionsResponse.isSuccessful && transactionsResponse.isSuccessful) {
                 val remoteCollections = collectionsResponse.body() ?: emptyList()
                 val remoteTransactions = transactionsResponse.body() ?: emptyList()
 
-                // Clear current local tables first to fetch fresh database data
-                val localCols = collectionDao.getAllCollections().first()
-                for (col in localCols) {
-                    collectionDao.deleteCollection(col)
-                }
-                val localTxns = transactionDao.getAllTransactions().first()
-                for (tx in localTxns) {
-                    transactionDao.deleteTransaction(tx)
-                }
+                val now = System.currentTimeMillis()
+                val localCols = collectionDao.getAllCollections().first().associateBy { it.id }
+                val localTxns = transactionDao.getAllTransactions().first().associateBy { it.id }
 
-                // Insert remote collections
+                // Merge remote collections using ConflictResolver (Server wins / timestamp merge)
                 remoteCollections.forEach { rc ->
-                    collectionDao.insertCollection(
-                        CollectionEntity(
-                            id = rc.id,
-                            name = rc.title,
-                            hexColor = rc.color ?: "#3F51B5",
-                            iconName = rc.icon ?: "category",
-                            monthlyBudget = if (rc.amount > 0.0) rc.amount else null,
-                            createdTimestamp = rc.createdAt,
-                            isPrebuilt = rc.isPrebuilt ?: false
+                    val localCol = localCols[rc.id]
+                    // Bug 2: Skip if local item is currently PENDING_DELETE
+                    if (localCol?.syncStatus == com.abhik.paisatrack.data.model.SyncStatus.PENDING_DELETE.name) {
+                        return@forEach
+                    }
+
+                    if (com.abhik.paisatrack.data.sync.ConflictResolver.resolveCollectionConflict(localCol, rc)) {
+                        collectionDao.insertCollection(
+                            CollectionEntity(
+                                id = rc.id,
+                                name = rc.title,
+                                hexColor = rc.color ?: "#3F51B5",
+                                iconName = rc.icon ?: "category",
+                                monthlyBudget = if (rc.amount > 0.0) rc.amount else null,
+                                createdTimestamp = rc.createdAt,
+                                isPrebuilt = rc.isPrebuilt ?: false,
+                                syncStatus = com.abhik.paisatrack.data.model.SyncStatus.SYNCED.name,
+                                lastSyncedAt = now
+                            )
                         )
-                    )
+                    }
                 }
 
-                // Insert remote transactions
+                // Merge remote transactions using ConflictResolver (Server wins / timestamp merge)
                 remoteTransactions.forEach { rt ->
-                    transactionDao.insertTransaction(
-                        TransactionEntity(
-                            id = rt.id,
-                            description = rt.title,
-                            amount = if (rt.amount < 0.0) -rt.amount else rt.amount,
-                            type = if (rt.amount < 0.0) "EXPENSE" else "INCOME",
-                            collectionId = rt.collectionId ?: "",
-                            notes = rt.category ?: "General",
-                            timestamp = rt.createdAt ?: System.currentTimeMillis()
+                    val localTx = localTxns[rt.id]
+                    // Bug 2: Skip if local item is currently PENDING_DELETE
+                    if (localTx?.syncStatus == com.abhik.paisatrack.data.model.SyncStatus.PENDING_DELETE.name) {
+                        return@forEach
+                    }
+
+                    if (com.abhik.paisatrack.data.sync.ConflictResolver.resolveTransactionConflict(localTx, rt)) {
+                        transactionDao.insertTransaction(
+                            TransactionEntity(
+                                id = rt.id,
+                                description = rt.title,
+                                amount = if (rt.amount < 0.0) -rt.amount else rt.amount,
+                                type = if (rt.amount < 0.0) "EXPENSE" else "INCOME",
+                                collectionId = rt.collectionId ?: "",
+                                notes = rt.category ?: "General",
+                                timestamp = rt.createdAt ?: now,
+                                syncStatus = com.abhik.paisatrack.data.model.SyncStatus.SYNCED.name,
+                                lastSyncedAt = now
+                            )
                         )
-                    )
+                    }
                 }
+
+                // Bug 3: Tombstone / Deletion Propagation across devices
+                // ONLY run tombstone-diffing on full syncs (since == null) because delta pulls omit unchanged records
+                if (since == null) {
+                    val remoteColIds = remoteCollections.map { it.id }.toSet()
+                    val remoteTxIds = remoteTransactions.map { it.id }.toSet()
+
+                    // Delete local collections that were deleted server-side (and are SYNCED locally, excluding prebuilt defaults)
+                    localCols.values.forEach { localCol ->
+                        if (!localCol.isPrebuilt && localCol.syncStatus == com.abhik.paisatrack.data.model.SyncStatus.SYNCED.name && !remoteColIds.contains(localCol.id)) {
+                            collectionDao.deleteCollectionById(localCol.id)
+                        }
+                    }
+
+                    // Delete local transactions that were deleted server-side (and are SYNCED locally)
+                    localTxns.values.forEach { localTx ->
+                        if (localTx.syncStatus == com.abhik.paisatrack.data.model.SyncStatus.SYNCED.name && !remoteTxIds.contains(localTx.id)) {
+                            transactionDao.deleteTransactionById(localTx.id)
+                        }
+                    }
+                }
+
                 return SyncResult.SUCCESS
             }
             return SyncResult.NETWORK_ERROR
@@ -190,11 +303,11 @@ class FinanceRepository(
         }
     }
 
-    suspend fun addCollectionRemote(userId: String, collection: CollectionEntity) {
+    suspend fun addCollectionRemote(userId: String, collection: CollectionEntity): Boolean {
         // Prebuilt collections are always seeded server-side on user creation — never upload them
-        if (collection.isPrebuilt) return
-        try {
-            ApiClient.api.createCollection(
+        if (collection.isPrebuilt) return true
+        return try {
+            val response = ApiClient.api.createCollection(
                 CreateCollectionRequest(
                     id = collection.id,
                     userId = userId,
@@ -203,27 +316,31 @@ class FinanceRepository(
                     icon = collection.iconName
                 )
             )
+            response.isSuccessful
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
-    suspend fun deleteCollectionRemote(userId: String, collectionId: String) {
-        try {
-            ApiClient.api.deleteCollection(collectionId, userId)
+    suspend fun deleteCollectionRemote(userId: String, collectionId: String): Boolean {
+        return try {
+            val response = ApiClient.api.deleteCollection(collectionId, userId)
+            response.isSuccessful || response.code() == 404
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
-    suspend fun addTransactionRemote(userId: String, transaction: TransactionEntity) {
-        try {
+    suspend fun addTransactionRemote(userId: String, transaction: TransactionEntity): Boolean {
+        return try {
             val sdfDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
             val sdfTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
             val dateStr = sdfDate.format(Date(transaction.timestamp))
             val timeStr = sdfTime.format(Date(transaction.timestamp))
             
-            ApiClient.api.createTransaction(
+            val response = ApiClient.api.createTransaction(
                 CreateTransactionRequest(
                     id = transaction.id,
                     userId = userId,
@@ -235,15 +352,17 @@ class FinanceRepository(
                     time = timeStr
                 )
             )
+            response.isSuccessful
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
-    suspend fun updateTransactionRemote(userId: String, transaction: TransactionEntity) {
-        try {
+    suspend fun updateTransactionRemote(userId: String, transaction: TransactionEntity): Boolean {
+        return try {
             val localAmount = if (transaction.type == "EXPENSE") -transaction.amount else transaction.amount
-            ApiClient.api.updateTransaction(
+            val response = ApiClient.api.updateTransaction(
                 transaction.id,
                 UpdateTransactionRequest(
                     title = transaction.description,
@@ -252,16 +371,20 @@ class FinanceRepository(
                     collectionId = transaction.collectionId
                 )
             )
+            response.isSuccessful
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
-    suspend fun deleteTransactionRemote(userId: String, transactionId: String) {
-        try {
-            ApiClient.api.deleteTransaction(transactionId, userId)
+    suspend fun deleteTransactionRemote(userId: String, transactionId: String): Boolean {
+        return try {
+            val response = ApiClient.api.deleteTransaction(transactionId, userId)
+            response.isSuccessful || response.code() == 404
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 

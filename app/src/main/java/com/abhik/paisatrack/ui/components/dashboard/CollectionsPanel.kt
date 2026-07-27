@@ -63,7 +63,7 @@ fun CollectionsPanel(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     
@@ -841,7 +841,7 @@ fun CollectionGridCard(
     }
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
 
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 

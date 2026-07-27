@@ -128,55 +128,47 @@ class MainActivity : ComponentActivity() {
             }
           }
 
-          if (!isOnline) {
-            NoInternetScreen(onRetry = {
-              val connectivityManager =
-                context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-              val activeNetwork = connectivityManager.activeNetwork
-              val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-              val connected =
-                capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-              if (connected) {
-                // The produceState value will update via the callback or manually if needed
-              }
-            })
-          } else {
-            val viewModel: FinanceViewModel = viewModel()
-            val uiState by viewModel.uiState.collectAsState()
-            val navController = rememberNavController()
+          val viewModel: FinanceViewModel = viewModel()
+          val uiState by viewModel.uiState.collectAsState()
+          val navController = rememberNavController()
 
-            // Sync data from backend when the app is resumed (comes to foreground)
-            val lifecycleOwner = LocalLifecycleOwner.current
-            DisposableEffect(lifecycleOwner) {
-              val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                  viewModel.refreshFromBackend()
-                }
-              }
-              lifecycleOwner.lifecycle.addObserver(observer)
-              onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
+          // Trigger sync automatically when network transitions back to online
+          LaunchedEffect(isOnline) {
+            if (isOnline) {
+              com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(context)
+            }
+          }
+
+          // Sync data from backend when the app is resumed (comes to foreground)
+          val lifecycleOwner = LocalLifecycleOwner.current
+          DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+              if (event == Lifecycle.Event.ON_RESUME && isOnline) {
+                viewModel.refreshFromBackend()
               }
             }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+              lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+          }
 
-            // Force logout when the backend reports this user was deleted
-            LaunchedEffect(Unit) {
-              viewModel.userDeletedEvent.collect {
-                val ctx = context
-                com.abhik.paisatrack.data.AuthManager.signOut(ctx)
-                navController.navigate("sign_in") {
-                  popUpTo(0) { inclusive = true }
-                }
+          // Force logout when the backend reports this user was deleted
+          LaunchedEffect(Unit) {
+            viewModel.userDeletedEvent.collect {
+              val ctx = context
+              com.abhik.paisatrack.data.AuthManager.signOut(ctx)
+              navController.navigate("sign_in") {
+                popUpTo(0) { inclusive = true }
               }
             }
+          }
 
-            if (uiState.isServerError) {
-              ServerErrorScreen(onRetry = {
-                viewModel.retrySync()
-              })
-            } else {
-              NavHost(navController = navController, startDestination = "loader") {
-                composable("loader") {
+          androidx.compose.foundation.layout.Column(
+            modifier = Modifier.fillMaxSize()
+          ) {
+            NavHost(navController = navController, startDestination = "loader") {
+              composable("loader") {
                   LoaderScreen(
                     onNavigateToDashboard = {
                       navController.navigate("dashboard") {
@@ -232,6 +224,7 @@ class MainActivity : ComponentActivity() {
                   DashboardScreen(
                     modifier = Modifier,
                     viewModel = viewModel,
+                    isOnline = isOnline,
                     onNavigateToAddTransaction = {
                       navController.navigate("add_transaction")
                     },
@@ -272,6 +265,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier,
                     viewModel = viewModel,
                     collectionId = collectionId,
+                    isOnline = isOnline,
                     onNavigateToAddTransaction = { colId ->
                       navController.navigate("add_transaction/$colId")
                     },
@@ -327,7 +321,6 @@ class MainActivity : ComponentActivity() {
                       navController.popBackStack()
                     }
                   )
-                }
               }
             }
           }

@@ -174,42 +174,81 @@ fun InsightsPanel(
                     // Center the circular donut chart on the screen
                     Box(
                         modifier = Modifier
-                            .size(170.dp),
+                            .size(190.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         ExpenseDonutChart(expenseSummaries = expenseSummaries)
+
+                        val totalExp = expenseSummaries.sumOf { it.totalExpense }
+                        val formattedCenter = if (totalExp >= 100000) {
+                            String.format(Locale.US, "%.1fK", totalExp / 1000.0)
+                        } else {
+                            dollarFormat.format(totalExp)
+                        }
+
+                        // Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        //     Text(
+                        //         text = formattedCenter,
+                        //         fontSize = 22.sp,
+                        //         fontWeight = FontWeight.ExtraBold,
+                        //         color = MaterialTheme.colorScheme.onBackground
+                        //     )
+                        //     Text(
+                        //         text = "Total Spent",
+                        //         fontSize = 11.sp,
+                        //         fontWeight = FontWeight.Medium,
+                        //         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        //     )
+                        // }
                     }
 
-                    // Separation gap between donut chart and list under it
+                    // Separation gap between donut chart and legend row
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Legend list of card collections below the chart
-                    Column(
+                    // Legend list matching screenshot showing ALL categories that have data
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        maxItemsInEachRow = 3
                     ) {
                         val totalSpentVal = expenseSummaries.sumOf { it.totalExpense }
-                        expenseSummaries.take(5).forEach { summary ->
+                        expenseSummaries.forEach { summary ->
                             val rgb = Color(android.graphics.Color.parseColor(summary.collection.hexColor))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            val pct = if (totalSpentVal > 0) ((summary.totalExpense / totalSpentVal) * 100).toInt() else 0
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(rgb)
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(rgb)
+                                    )
+                                    Text(
+                                        text = summary.collection.name,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "${summary.collection.name} (${String.format("%.0f%%", (summary.totalExpense / totalSpentVal) * 100)})",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    text = "$pct%",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         }
@@ -239,19 +278,24 @@ fun ExpenseDonutChart(expenseSummaries: List<CollectionSummary>) {
         val totalExp = expenseSummaries.sumOf { it.totalExpense }
         if (totalExp <= 0.0) return@Canvas
 
+        val gapDegrees = if (expenseSummaries.size > 1) 16f else 0f
         var startAngle = -90f
+
         expenseSummaries.forEach { summary ->
-            val angle = 360f * (summary.totalExpense / totalExp).toFloat()
+            val sweepAngle = (360f * (summary.totalExpense / totalExp)).toFloat()
             val col = Color(android.graphics.Color.parseColor(summary.collection.hexColor))
-            
+
+            val drawSweep = (sweepAngle - gapDegrees).coerceAtLeast(1f) * animProgress
+            val drawStart = startAngle + (gapDegrees / 2f)
+
             drawArc(
                 color = col,
-                startAngle = startAngle,
-                sweepAngle = angle * animProgress,
+                startAngle = drawStart,
+                sweepAngle = drawSweep,
                 useCenter = false,
-                style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Round)
+                style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round)
             )
-            startAngle += angle
+            startAngle += sweepAngle
         }
     }
 }
@@ -274,7 +318,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
 
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
 
     val maxAmount = remember(dailySums) {
         val maxInc = dailySums.maxOfOrNull { it.totalIncome } ?: 0.0
@@ -439,7 +483,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight(incomeHeightFraction)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .clip(CircleShape)
                                     .background(
                                         if (isSelected) Color(0xFF059669) else Color(0xFF10B981)
                                     )
@@ -451,7 +495,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight(expenseHeightFraction)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .clip(CircleShape)
                                     .background(
                                         if (isSelected) Color(0xFFDC2626) else Color(0xFFEF4444)
                                     )

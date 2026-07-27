@@ -74,6 +74,7 @@ import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialo
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
+import androidx.compose.ui.zIndex
 import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.swmansion.pulsar.Pulsar
 
@@ -90,7 +91,8 @@ fun CollectionTransactionsScreen(
     collectionId: String,
     onNavigateToAddTransaction: (String) -> Unit,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isOnline: Boolean = true
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var visibleLimit by rememberSaveable { mutableStateOf(20) }
@@ -269,7 +271,7 @@ fun CollectionTransactionsScreen(
     val view = LocalView.current
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     @Suppress("DEPRECATION")
     DisposableEffect(isDark) {
         val activity = context as? android.app.Activity
@@ -432,6 +434,14 @@ fun CollectionTransactionsScreen(
                 }
             }
 
+            // Floating Offline Banner placed below top title header row
+            com.abhik.paisatrack.ui.screens.OfflineBanner(
+                isVisible = !isOnline,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(10f)
+            )
+
             // Collapsible Balance Card container
             if (summary != null) {
                 val balanceCardHeightDp = with(LocalDensity.current) { (headerHeightPx + headerOffsetHeightPx).toDp() }
@@ -449,33 +459,46 @@ fun CollectionTransactionsScreen(
                         val netBalance = summary.totalIncome - summary.totalExpense
                         
                         var hasAnimated by rememberSaveable { mutableStateOf(false) }
-                        val animatedBalance = remember { Animatable(0f) }
-                        val animatedIncome = remember { Animatable(0f) }
-                        val animatedExpense = remember { Animatable(0f) }
+                        val animatedBalance = remember { Animatable(netBalance.toFloat()) }
+                        val animatedIncome = remember { Animatable(summary.totalIncome.toFloat()) }
+                        val animatedExpense = remember { Animatable(summary.totalExpense.toFloat()) }
+                        val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
 
                         LaunchedEffect(netBalance, summary.totalIncome, summary.totalExpense, uiState.isLoading) {
                             if (!uiState.isLoading) {
                                 if (!hasAnimated) {
+                                    // Start numbers near target (88%) to avoid traditional mechanical 0-to-target counter
+                                    animatedBalance.snapTo((netBalance * 0.88).toFloat())
+                                    animatedIncome.snapTo((summary.totalIncome * 0.88).toFloat())
+                                    animatedExpense.snapTo((summary.totalExpense * 0.88).toFloat())
+
+                                    launch {
+                                        alphaAnim.animateTo(
+                                            targetValue = 1f,
+                                            animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
+                                        )
+                                    }
                                     launch {
                                         animatedBalance.animateTo(
                                             targetValue = netBalance.toFloat(),
-                                            animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
                                         )
                                     }
                                     launch {
                                         animatedIncome.animateTo(
                                             targetValue = summary.totalIncome.toFloat(),
-                                            animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
                                         )
                                     }
                                     launch {
                                         animatedExpense.animateTo(
                                             targetValue = summary.totalExpense.toFloat(),
-                                            animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
                                         )
                                     }
                                     hasAnimated = true
                                 } else {
+                                    alphaAnim.snapTo(1f)
                                     launch {
                                         animatedBalance.animateTo(
                                             targetValue = netBalance.toFloat(),
@@ -498,9 +521,9 @@ fun CollectionTransactionsScreen(
                             }
                         }
 
-                        val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else 0.0
-                        val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else 0.0
-                        val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else 0.0
+                        val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else netBalance
+                        val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else summary.totalIncome
+                        val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else summary.totalExpense
 
                         val netStr = dollarFormat.format(displayBalance)
                         val incomeStr = dollarFormat.format(displayIncome)
@@ -528,7 +551,8 @@ fun CollectionTransactionsScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(20.dp),
+                                    .padding(20.dp)
+                                    .alpha(alphaAnim.value),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 // "Total Balance" Label
@@ -1648,8 +1672,8 @@ fun TransactionListItemDetailed(
 
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
-    val realtime = remember { pulsar.getRealtimeComposer(com.swmansion.pulsar.types.RealtimeComposerStrategy.PRIMITIVE_TICK) }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val realtime = remember { com.abhik.paisatrack.ui.utils.SafeRealtimeComposer(pulsar.getRealtimeComposer(com.swmansion.pulsar.types.RealtimeComposerStrategy.PRIMITIVE_TICK)) }
 
     var swipeOffsetX by remember { mutableStateOf(0f) }
     val animatedSwipeOffset by animateFloatAsState(

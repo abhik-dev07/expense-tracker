@@ -32,6 +32,7 @@ data class NetworkCollection(
     val color: String?,
     val icon: String?,
     val createdAt: Long,
+    val updatedAt: Long? = null,
     val isPrebuilt: Boolean? = false
 )
 
@@ -45,6 +46,7 @@ data class NetworkTransaction(
     val date: String?,
     val time: String?,
     val createdAt: Long?,
+    val updatedAt: Long? = null,
     val collectionName: String?
 )
 
@@ -115,7 +117,8 @@ interface PaisaTrackApi {
     @GET("collections/{userId}")
     suspend fun getCollections(
         @Path("userId") userId: String,
-        @Query("noCache") noCache: String = "false"
+        @Query("noCache") noCache: String = "false",
+        @Query("since") since: Long? = null
     ): Response<List<NetworkCollection>>
 
     @POST("collections/create")
@@ -153,7 +156,8 @@ interface PaisaTrackApi {
         @Path("userId") userId: String,
         @Query("limit") limit: Int = 1000,
         @Query("offset") offset: Int = 0,
-        @Query("noCache") noCache: String = "false"
+        @Query("noCache") noCache: String = "false",
+        @Query("since") since: Long? = null
     ): Response<List<NetworkTransaction>>
 
     @POST("insights")

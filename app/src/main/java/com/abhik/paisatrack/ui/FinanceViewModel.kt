@@ -336,13 +336,21 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 amount = amount,
                 type = type.uppercase(),
                 collectionId = collectionId,
-                timestamp = timestamp
+                timestamp = timestamp,
+                syncStatus = com.abhik.paisatrack.data.model.SyncStatus.PENDING_INSERT.name,
+                lastSyncedAt = System.currentTimeMillis()
             )
             repository.insertTransaction(transaction)
 
             val userId = AuthManager.getUserId(getApplication())
             if (userId != null) {
-                repository.addTransactionRemote(userId, transaction)
+                val success = repository.addTransactionRemote(userId, transaction)
+                if (success) {
+                    val db = AppDatabase.getDatabase(getApplication())
+                    db.transactionDao().markTransactionSynced(transaction.id, System.currentTimeMillis())
+                } else {
+                    com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(getApplication())
+                }
             }
         }
     }
@@ -359,24 +367,42 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 type = type.uppercase(),
                 collectionId = collectionId,
                 notes = collectionName,
-                timestamp = timestamp
+                timestamp = timestamp,
+                syncStatus = com.abhik.paisatrack.data.model.SyncStatus.PENDING_UPDATE.name,
+                lastSyncedAt = System.currentTimeMillis()
             )
             repository.insertTransaction(updatedTransaction)
 
             val userId = AuthManager.getUserId(getApplication())
             if (userId != null) {
-                repository.updateTransactionRemote(userId, updatedTransaction)
+                val success = repository.updateTransactionRemote(userId, updatedTransaction)
+                if (success) {
+                    val db = AppDatabase.getDatabase(getApplication())
+                    db.transactionDao().markTransactionSynced(updatedTransaction.id, System.currentTimeMillis())
+                } else {
+                    com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(getApplication())
+                }
             }
         }
     }
 
     fun deleteTransaction(transaction: TransactionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
-            repository.deleteTransaction(transaction)
-
             val userId = AuthManager.getUserId(getApplication())
             if (userId != null) {
-                repository.deleteTransactionRemote(userId, transaction.id)
+                val success = repository.deleteTransactionRemote(userId, transaction.id)
+                if (success) {
+                    repository.deleteTransaction(transaction)
+                } else {
+                    val pendingDelete = transaction.copy(
+                        syncStatus = com.abhik.paisatrack.data.model.SyncStatus.PENDING_DELETE.name,
+                        lastSyncedAt = System.currentTimeMillis()
+                    )
+                    repository.insertTransaction(pendingDelete)
+                    com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(getApplication())
+                }
+            } else {
+                repository.deleteTransaction(transaction)
             }
         }
     }
@@ -387,25 +413,36 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 name = name,
                 hexColor = hexColor,
                 iconName = iconName,
-                monthlyBudget = monthlyBudget
+                monthlyBudget = monthlyBudget,
+                syncStatus = com.abhik.paisatrack.data.model.SyncStatus.PENDING_INSERT.name,
+                lastSyncedAt = System.currentTimeMillis()
             )
             repository.insertCollection(collection)
 
             val userId = AuthManager.getUserId(getApplication())
             if (userId != null) {
-                repository.addCollectionRemote(userId, collection)
+                val success = repository.addCollectionRemote(userId, collection)
+                if (success) {
+                    val db = AppDatabase.getDatabase(getApplication())
+                    db.collectionDao().markCollectionSynced(collection.id, System.currentTimeMillis())
+                } else {
+                    com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(getApplication())
+                }
             }
         }
     }
 
     fun updateCollection(collection: CollectionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
-            repository.insertCollection(collection)
-            // Wait, does the backend support update? Yes, PUT /api/collections/{collectionId}
+            val updatedCol = collection.copy(
+                syncStatus = com.abhik.paisatrack.data.model.SyncStatus.PENDING_UPDATE.name,
+                lastSyncedAt = System.currentTimeMillis()
+            )
+            repository.insertCollection(updatedCol)
             val userId = AuthManager.getUserId(getApplication())
             if (userId != null) {
                 try {
-                    com.abhik.paisatrack.data.network.ApiClient.api.updateCollection(
+                    val res = com.abhik.paisatrack.data.network.ApiClient.api.updateCollection(
                         collection.id,
                         com.abhik.paisatrack.data.network.UpdateCollectionRequest(
                             title = collection.name,
@@ -413,8 +450,14 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                             icon = collection.iconName
                         )
                     )
+                    if (res.isSuccessful) {
+                        val db = AppDatabase.getDatabase(getApplication())
+                        db.collectionDao().markCollectionSynced(collection.id, System.currentTimeMillis())
+                    } else {
+                        com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(getApplication())
+                    }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(getApplication())
                 }
             }
         }
@@ -422,11 +465,22 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteCollection(collection: CollectionEntity) {
         viewModelScope.launch(Dispatchers.IO) {
-            repository.deleteCollection(collection)
-
             val userId = AuthManager.getUserId(getApplication())
             if (userId != null) {
-                repository.deleteCollectionRemote(userId, collection.id)
+                val success = repository.deleteCollectionRemote(userId, collection.id)
+                if (success) {
+                    repository.deleteCollection(collection)
+                } else {
+                    val pendingDelete = collection.copy(
+                        syncStatus = com.abhik.paisatrack.data.model.SyncStatus.PENDING_DELETE.name,
+                        lastSyncedAt = System.currentTimeMillis()
+                    )
+                    repository.insertCollection(pendingDelete)
+                    repository.markTransactionsInCollectionPendingDelete(collection.id)
+                    com.abhik.paisatrack.data.sync.SyncManager.triggerSyncNow(getApplication())
+                }
+            } else {
+                repository.deleteCollection(collection)
             }
 
             // Reset filter if we deleted the currently selected collection

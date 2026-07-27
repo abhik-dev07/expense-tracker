@@ -61,7 +61,7 @@ fun EditTransactionBottomSheet(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val isDark = isSystemInDarkTheme()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()

@@ -59,7 +59,7 @@ fun AddTransactionScreen(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val isDark = isSystemInDarkTheme()
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

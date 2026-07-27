@@ -11,5 +11,8 @@ data class CollectionEntity(
     val iconName: String, // Name matching a key in our icon lookup, e.g., "General", "Food", "Transport"
     val monthlyBudget: Double? = null,
     val createdTimestamp: Long = System.currentTimeMillis(),
-    val isPrebuilt: Boolean = false
+    val isPrebuilt: Boolean = false,
+    val syncStatus: String = SyncStatus.SYNCED.name,
+    val lastSyncedAt: Long = System.currentTimeMillis()
 )
+

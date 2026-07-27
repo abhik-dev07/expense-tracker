@@ -11,5 +11,8 @@ data class TransactionEntity(
     val type: String, // "INCOME" or "EXPENSE"
     val collectionId: String, // References CollectionEntity.id
     val notes: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val syncStatus: String = SyncStatus.SYNCED.name,
+    val lastSyncedAt: Long = System.currentTimeMillis()
 )
+

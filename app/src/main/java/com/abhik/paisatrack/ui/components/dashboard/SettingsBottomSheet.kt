@@ -55,7 +55,7 @@ fun SettingsBottomSheet(
     var deleteVerificationText by remember { mutableStateOf("") }
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

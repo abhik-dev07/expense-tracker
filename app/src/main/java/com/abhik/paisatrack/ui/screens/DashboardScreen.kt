@@ -32,6 +32,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -76,7 +77,8 @@ fun DashboardScreen(
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToCollectionTransactions: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     onLogout: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isOnline: Boolean = true
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
@@ -116,7 +118,7 @@ fun DashboardScreen(
 
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val userName = remember { AuthManager.getUserName(context) }
     val firstName = remember(userName) { userName.split(" ").firstOrNull() ?: userName }
     val profilePicUrl = remember { AuthManager.getProfilePicUrl(context) }
@@ -419,6 +421,14 @@ fun DashboardScreen(
                     firstName = firstName,
                     profilePicUrl = profilePicUrl,
                     onSettingsClick = { showSettingsBottomSheet = true }
+                )
+
+                // Floating Offline Banner below DashboardHeader and above VisualSummaryHeader
+                com.abhik.paisatrack.ui.screens.OfflineBanner(
+                    isVisible = !isOnline,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .zIndex(10f)
                 )
 
                 // Collapsible Balance Card container (for all tabs except Profile)

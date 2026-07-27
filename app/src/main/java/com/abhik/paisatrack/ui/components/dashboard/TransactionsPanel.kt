@@ -143,8 +143,8 @@ fun TransactionListItem(
 
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
-    val realtime = remember { pulsar.getRealtimeComposer(RealtimeComposerStrategy.PRIMITIVE_TICK) }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val realtime = remember { com.abhik.paisatrack.ui.utils.SafeRealtimeComposer(pulsar.getRealtimeComposer(RealtimeComposerStrategy.PRIMITIVE_TICK)) }
 
     var swipeOffsetX by remember { mutableStateOf(0f) }
     val animatedSwipeOffset by animateFloatAsState(
@@ -303,7 +303,7 @@ fun TransactionsPanel(
 ) {
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val listState = rememberLazyListState()
     var visibleLimit by rememberSaveable { mutableStateOf(20) }
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }

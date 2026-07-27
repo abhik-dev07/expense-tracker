@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CollectionDao {
-    @Query("SELECT * FROM collections ORDER BY createdTimestamp ASC")
+    @Query("SELECT * FROM collections WHERE syncStatus != 'PENDING_DELETE' ORDER BY createdTimestamp ASC")
     fun getAllCollections(): Flow<List<CollectionEntity>>
 
     @Query("SELECT * FROM collections WHERE id = :id LIMIT 1")
@@ -20,4 +20,13 @@ interface CollectionDao {
 
     @Query("DELETE FROM collections WHERE id = :id")
     suspend fun deleteCollectionById(id: String)
+
+    @Query("SELECT * FROM collections WHERE syncStatus != 'SYNCED'")
+    suspend fun getPendingCollections(): List<CollectionEntity>
+
+    @Query("UPDATE collections SET syncStatus = 'SYNCED', lastSyncedAt = :lastSyncedAt WHERE id = :id")
+    suspend fun markCollectionSynced(id: String, lastSyncedAt: Long)
+
+    @Query("UPDATE collections SET syncStatus = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: String, status: String)
 }

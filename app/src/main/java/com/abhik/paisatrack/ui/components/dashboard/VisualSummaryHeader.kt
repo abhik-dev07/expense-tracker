@@ -2,7 +2,9 @@ package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -69,36 +71,49 @@ fun VisualSummaryHeader(
     val netBalance = uiState.totalIncome - uiState.totalExpense
     
     var hasAnimated by rememberSaveable { mutableStateOf(false) }
-    val animatedBalance = remember { Animatable(0f) }
-    val animatedIncome = remember { Animatable(0f) }
-    val animatedExpense = remember { Animatable(0f) }
+    val animatedBalance = remember { Animatable(netBalance.toFloat()) }
+    val animatedIncome = remember { Animatable(uiState.totalIncome.toFloat()) }
+    val animatedExpense = remember { Animatable(uiState.totalExpense.toFloat()) }
+    val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }
-    val presets = remember { pulsar.getPresets() }
+    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
 
     LaunchedEffect(netBalance, uiState.totalIncome, uiState.totalExpense, uiState.isLoading) {
         if (!uiState.isLoading) {
             if (!hasAnimated) {
+                // Start numbers near target (88%) to avoid jarring 0-to-target roll
+                animatedBalance.snapTo((netBalance * 0.88).toFloat())
+                animatedIncome.snapTo((uiState.totalIncome * 0.88).toFloat())
+                animatedExpense.snapTo((uiState.totalExpense * 0.88).toFloat())
+
+                launch {
+                    alphaAnim.animateTo(
+                        targetValue = 1f,
+                        animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
+                    )
+                }
                 launch {
                     animatedBalance.animateTo(
                         targetValue = netBalance.toFloat(),
-                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
                     )
                 }
                 launch {
                     animatedIncome.animateTo(
                         targetValue = uiState.totalIncome.toFloat(),
-                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
                     )
                 }
                 launch {
                     animatedExpense.animateTo(
                         targetValue = uiState.totalExpense.toFloat(),
-                        animationSpec = tween(durationMillis = 1500, easing = FastOutSlowInEasing)
+                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
                     )
                 }
                 hasAnimated = true
             } else {
+                alphaAnim.snapTo(1f)
                 launch {
                     animatedBalance.animateTo(
                         targetValue = netBalance.toFloat(),
@@ -121,9 +136,9 @@ fun VisualSummaryHeader(
         }
     }
 
-    val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else 0.0
-    val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else 0.0
-    val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else 0.0
+    val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else netBalance
+    val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else uiState.totalIncome
+    val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else uiState.totalExpense
 
     val incomeStr = dollarFormat.format(displayIncome)
     val expenseStr = dollarFormat.format(displayExpense)
@@ -150,7 +165,8 @@ fun VisualSummaryHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(20.dp)
+                .alpha(alphaAnim.value),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // "Total Balance" Label
