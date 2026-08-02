@@ -34,12 +34,18 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -106,12 +112,12 @@ fun DashboardScreen(
     val density = LocalDensity.current
     val headerHeight = 220.dp
     val headerHeightPx = remember(density) { with(density) { headerHeight.toPx() } }
-    var headerOffsetHeightPx by rememberSaveable { mutableStateOf(0f) }
+    var scrollOffsetPx by rememberSaveable { mutableStateOf(0f) }
     var previousTab by rememberSaveable { mutableStateOf(activeTab) }
 
     LaunchedEffect(activeTab) {
         if (activeTab != previousTab) {
-            headerOffsetHeightPx = 0f
+            scrollOffsetPx = 0f
             previousTab = activeTab
         }
     }
@@ -137,13 +143,9 @@ fun DashboardScreen(
         onDispose {}
     }
 
-    var lockHeaderExpansionInCurrentGesture by remember { mutableStateOf(false) }
-    var isScrollingToTop by remember { mutableStateOf(false) }
-
     val nestedScrollConnection = remember(headerHeightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (isScrollingToTop) return Offset.Zero
                 val delta = available.y
                 if (source == NestedScrollSource.UserInput) {
                     if (delta < -12f) {
@@ -153,18 +155,13 @@ fun DashboardScreen(
                     }
                 }
                 
-                // Update header collapse offset ONLY when scrolling up
-                if (delta < 0) {
-                    val newOffset = headerOffsetHeightPx + delta
-                    headerOffsetHeightPx = newOffset.coerceIn(-headerHeightPx, 0f)
+                // When scrolling down the page (delta < 0) and header is not fully collapsed
+                if (delta < 0 && scrollOffsetPx > -headerHeightPx) {
+                    val newOffset = scrollOffsetPx + delta
+                    scrollOffsetPx = newOffset.coerceIn(-headerHeightPx, 0f)
+                    return Offset(0f, delta)
                 }
-                
-                // If scrolling up (delta < 0) and header is not fully collapsed, consume the scroll
-                return if (delta < 0 && headerOffsetHeightPx > -headerHeightPx) {
-                    Offset(0f, delta)
-                } else {
-                    Offset.Zero
-                }
+                return Offset.Zero
             }
 
             override fun onPostScroll(
@@ -172,28 +169,14 @@ fun DashboardScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                if (isScrollingToTop) return Offset.Zero
                 val delta = available.y
-                
-                // If the list consumed some scroll down delta, it means it was not at the top at start,
-                // so we lock header expansion for the rest of this gesture.
-                if (delta > 0 && consumed.y > 0.5f) {
-                    lockHeaderExpansionInCurrentGesture = true
-                }
-                
-                // If scrolling down (delta > 0), header is not fully expanded, and we are not locked, expand it
-                if (delta > 0 && headerOffsetHeightPx < 0f && !lockHeaderExpansionInCurrentGesture) {
-                    val newOffset = headerOffsetHeightPx + delta
-                    headerOffsetHeightPx = newOffset.coerceIn(-headerHeightPx, 0f)
+                // When scrolling up towards top (delta > 0) and header is collapsed
+                if (delta > 0 && scrollOffsetPx < 0f) {
+                    val newOffset = scrollOffsetPx + delta
+                    scrollOffsetPx = newOffset.coerceIn(-headerHeightPx, 0f)
                     return Offset(0f, delta)
                 }
                 return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-                // Reset gesture lock when the user lifts their finger (fling event starts)
-                lockHeaderExpansionInCurrentGesture = false
-                return androidx.compose.ui.unit.Velocity.Zero
             }
         }
     }
@@ -315,17 +298,23 @@ fun DashboardScreen(
 
                                 // Icon mapping
                                 when (tab.first) {
-                                    "Transactions" -> HomeIcon(
+                                    "Transactions" -> Icon(
+                                        imageVector = HomeIconVector,
+                                        contentDescription = "Transactions",
                                         tint = contentColor,
                                         modifier = Modifier.size(24.dp)
                                     )
 
-                                    "Insights" -> AnalysisIcon(
+                                    "Insights" -> Icon(
+                                        imageVector = EqualizerIconVector,
+                                        contentDescription = "Insights",
                                         tint = contentColor,
                                         modifier = Modifier.size(24.dp)
                                     )
 
-                                    "Collections" -> FolderIcon(
+                                    "Collections" -> Icon(
+                                        imageVector = FolderIconVector,
+                                        contentDescription = "Collections",
                                         tint = contentColor,
                                         modifier = Modifier.size(24.dp)
                                     )
@@ -386,7 +375,7 @@ fun DashboardScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = AddIconVector,
                         contentDescription = "Add Menu",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(28.dp)
@@ -415,13 +404,20 @@ fun DashboardScreen(
                         }
                     }
             ) {
-                DashboardHeader(
-                    activeTab = activeTab,
-                    userName = userName,
-                    firstName = firstName,
-                    profilePicUrl = profilePicUrl,
-                    onSettingsClick = { showSettingsBottomSheet = true }
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .zIndex(10f)
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    DashboardHeader(
+                        activeTab = activeTab,
+                        userName = userName,
+                        firstName = firstName,
+                        profilePicUrl = profilePicUrl,
+                        onSettingsClick = { showSettingsBottomSheet = true }
+                    )
+                }
 
                 // Floating Offline Banner below DashboardHeader and above VisualSummaryHeader
                 com.abhik.paisatrack.ui.screens.OfflineBanner(
@@ -431,25 +427,35 @@ fun DashboardScreen(
                         .zIndex(10f)
                 )
 
-                // Collapsible Balance Card container (for all tabs except Profile)
+                // Balance Card container with collapsing height + inner parallax translation
                 if (activeTab != "Profile") {
-                    val balanceCardHeightDp = with(LocalDensity.current) { (headerHeightPx + headerOffsetHeightPx).toDp() }
+                    val currentHeightDp = with(LocalDensity.current) {
+                        (headerHeightPx + scrollOffsetPx).coerceAtLeast(0f).toDp()
+                    }
+                    val progress = if (headerHeightPx > 0f) (-scrollOffsetPx / headerHeightPx).coerceIn(0f, 1f) else 0f
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(balanceCardHeightDp)
+                            .height(currentHeightDp)
                             .clipToBounds()
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .offset { IntOffset(0, headerOffsetHeightPx.roundToInt()) }
+                                .graphicsLayer {
+                                    // Parallax translation (moves at 0.45x speed)
+                                    translationY = scrollOffsetPx * 0.45f
+                                    val scale = 1f - (progress * 0.04f)
+                                    scaleX = scale
+                                    scaleY = scale
+                                    alpha = (1f - progress * 0.4f).coerceIn(0.2f, 1f)
+                                }
                         ) {
                             VisualSummaryHeader(uiState = uiState, dollarFormat = dollarFormat)
                         }
                     }
                 }
-
 
                 // Tab Switcher Content
                 AnimatedContent(
@@ -488,13 +494,8 @@ fun DashboardScreen(
                             onTransactionClick = { tx -> txDetailToShow = tx },
                             onBackToTop = { scrollAction ->
                                 coroutineScope.launch {
-                                    isScrollingToTop = true
-                                    headerOffsetHeightPx = -headerHeightPx
-                                    try {
-                                        scrollAction()
-                                    } finally {
-                                        isScrollingToTop = false
-                                    }
+                                    scrollOffsetPx = 0f
+                                    scrollAction()
                                 }
                             }
                         )
@@ -506,13 +507,8 @@ fun DashboardScreen(
                             onCollectionClick = onNavigateToCollectionTransactions,
                             onBackToTop = { scrollAction ->
                                 coroutineScope.launch {
-                                    isScrollingToTop = true
-                                    headerOffsetHeightPx = -headerHeightPx
-                                    try {
-                                        scrollAction()
-                                    } finally {
-                                        isScrollingToTop = false
-                                    }
+                                    scrollOffsetPx = 0f
+                                    scrollAction()
                                 }
                             }
                         )
@@ -642,87 +638,251 @@ fun DashboardScreen(
     }
 }
 
-@Composable
-private fun HomeIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        val path = androidx.compose.ui.graphics.Path().apply {
-            moveTo(5.dp.toPx(), 20.dp.toPx())
-            lineTo(5.dp.toPx(), 11.dp.toPx())
-            lineTo(12.dp.toPx(), 4.dp.toPx())
-            lineTo(19.dp.toPx(), 11.dp.toPx())
-            lineTo(19.dp.toPx(), 20.dp.toPx())
-            close()
-            
-            moveTo(10.dp.toPx(), 20.dp.toPx())
-            lineTo(10.dp.toPx(), 15.dp.toPx())
-            quadraticTo(10.dp.toPx(), 14.dp.toPx(), 11.dp.toPx(), 14.dp.toPx())
-            lineTo(13.dp.toPx(), 14.dp.toPx())
-            quadraticTo(14.dp.toPx(), 14.dp.toPx(), 14.dp.toPx(), 15.dp.toPx())
-            lineTo(14.dp.toPx(), 20.dp.toPx())
-        }
-        drawPath(
-            path = path,
-            color = tint,
-            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round, cap = StrokeCap.Round)
-        )
+private val AddIconVector: ImageVector
+    get() {
+        if (_addIconVector != null) return _addIconVector!!
+        _addIconVector = ImageVector.Builder(
+            name = "add",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.NonZero
+            ) {
+                moveTo(11f, 13f)
+                horizontalLineTo(6f)
+                quadTo(5.58f, 13f, 5.29f, 12.71f)
+                quadTo(5f, 12.43f, 5f, 12f)
+                reflectiveQuadTo(5.29f, 11.29f)
+                reflectiveQuadTo(6f, 11f)
+                horizontalLineToRelative(5f)
+                verticalLineTo(6f)
+                quadTo(11f, 5.57f, 11.29f, 5.29f)
+                reflectiveQuadTo(12f, 5f)
+                reflectiveQuadToRelative(0.71f, 0.29f)
+                reflectiveQuadTo(13f, 6f)
+                verticalLineToRelative(5f)
+                horizontalLineToRelative(5f)
+                quadToRelative(0.43f, 0f, 0.71f, 0.29f)
+                reflectiveQuadTo(19f, 12f)
+                reflectiveQuadToRelative(-0.29f, 0.71f)
+                reflectiveQuadTo(18f, 13f)
+                horizontalLineTo(13f)
+                verticalLineToRelative(5f)
+                quadToRelative(0f, 0.43f, -0.29f, 0.71f)
+                reflectiveQuadTo(12f, 19f)
+                reflectiveQuadTo(11.29f, 18.71f)
+                quadTo(11f, 18.43f, 11f, 18f)
+                verticalLineTo(13f)
+                close()
+            }
+        }.build()
+        return _addIconVector!!
     }
-}
 
-@Composable
-private fun AnalysisIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        
-        val path = androidx.compose.ui.graphics.Path().apply {
-            moveTo(4.dp.toPx(), 18.dp.toPx())
-            lineTo(9.dp.toPx(), 13.dp.toPx())
-            lineTo(14.dp.toPx(), 16.dp.toPx())
-            lineTo(20.dp.toPx(), 8.dp.toPx())
-        }
-        drawPath(
-            path = path,
-            color = tint,
-            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round, cap = StrokeCap.Round)
-        )
-        
-        val arrowPath = androidx.compose.ui.graphics.Path().apply {
-            moveTo(15.dp.toPx(), 8.dp.toPx())
-            lineTo(20.dp.toPx(), 8.dp.toPx())
-            lineTo(20.dp.toPx(), 13.dp.toPx())
-        }
-        drawPath(
-            path = arrowPath,
-            color = tint,
-            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round, cap = StrokeCap.Round)
-        )
-    }
-}
+private var _addIconVector: ImageVector? = null
 
-@Composable
-private fun FolderIcon(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        val path = androidx.compose.ui.graphics.Path().apply {
-            moveTo(2.dp.toPx(), 8.dp.toPx())
-            lineTo(2.dp.toPx(), 6.dp.toPx())
-            quadraticTo(2.dp.toPx(), 4.dp.toPx(), 4.dp.toPx(), 4.dp.toPx())
-            lineTo(8.dp.toPx(), 4.dp.toPx())
-            quadraticTo(9.5.dp.toPx(), 4.dp.toPx(), 10.5.dp.toPx(), 6.dp.toPx())
-            lineTo(11.5.dp.toPx(), 8.dp.toPx())
-            lineTo(20.dp.toPx(), 8.dp.toPx())
-            quadraticTo(22.dp.toPx(), 8.dp.toPx(), 22.dp.toPx(), 10.dp.toPx())
-            lineTo(22.dp.toPx(), 18.dp.toPx())
-            quadraticTo(22.dp.toPx(), 20.dp.toPx(), 20.dp.toPx(), 20.dp.toPx())
-            lineTo(4.dp.toPx(), 20.dp.toPx())
-            quadraticTo(2.dp.toPx(), 20.dp.toPx(), 2.dp.toPx(), 18.dp.toPx())
-            close()
-        }
-        drawPath(
-            path = path,
-            color = tint,
-            style = Stroke(width = strokeWidth, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-        )
+private val EqualizerIconVector: ImageVector
+    get() {
+        if (_equalizerIconVector != null) return _equalizerIconVector!!
+        _equalizerIconVector = ImageVector.Builder(
+            name = "equalizer",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.NonZero
+            ) {
+                moveTo(4.59f, 19.41f)
+                quadTo(4f, 18.83f, 4f, 18f)
+                verticalLineTo(14f)
+                quadTo(4f, 13.18f, 4.59f, 12.59f)
+                reflectiveQuadTo(6f, 12f)
+                quadToRelative(0.83f, 0f, 1.41f, 0.59f)
+                quadTo(8f, 13.18f, 8f, 14f)
+                verticalLineToRelative(4f)
+                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
+                reflectiveQuadTo(6f, 20f)
+                reflectiveQuadTo(4.59f, 19.41f)
+                close()
+                moveTo(12f, 20f)
+                quadToRelative(-0.82f, 0f, -1.41f, -0.59f)
+                reflectiveQuadTo(10f, 18f)
+                verticalLineTo(6f)
+                quadTo(10f, 5.18f, 10.59f, 4.59f)
+                reflectiveQuadTo(12f, 4f)
+                reflectiveQuadToRelative(1.41f, 0.59f)
+                quadTo(14f, 5.18f, 14f, 6f)
+                verticalLineTo(18f)
+                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
+                reflectiveQuadTo(12f, 20f)
+                close()
+                moveToRelative(4.59f, -0.59f)
+                quadTo(16f, 18.83f, 16f, 18f)
+                verticalLineTo(11f)
+                quadToRelative(0f, -0.83f, 0.59f, -1.41f)
+                reflectiveQuadTo(18f, 9f)
+                reflectiveQuadToRelative(1.41f, 0.59f)
+                reflectiveQuadTo(20f, 11f)
+                verticalLineToRelative(7f)
+                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
+                reflectiveQuadTo(18f, 20f)
+                reflectiveQuadTo(16.59f, 19.41f)
+                close()
+            }
+        }.build()
+        return _equalizerIconVector!!
     }
-}
+
+private var _equalizerIconVector: ImageVector? = null
+
+private val FolderIconVector: ImageVector
+    get() {
+        if (_folderIconVector != null) return _folderIconVector!!
+        _folderIconVector = ImageVector.Builder(
+            name = "folder",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.NonZero
+            ) {
+                moveTo(4f, 20f)
+                quadTo(3.18f, 20f, 2.59f, 19.41f)
+                reflectiveQuadTo(2f, 18f)
+                verticalLineTo(6f)
+                quadTo(2f, 5.18f, 2.59f, 4.59f)
+                reflectiveQuadTo(4f, 4f)
+                horizontalLineTo(9.18f)
+                quadToRelative(0.4f, 0f, 0.76f, 0.15f)
+                reflectiveQuadToRelative(0.64f, 0.43f)
+                lineTo(12f, 6f)
+                horizontalLineToRelative(8f)
+                quadToRelative(0.83f, 0f, 1.41f, 0.59f)
+                quadTo(22f, 7.18f, 22f, 8f)
+                verticalLineTo(18f)
+                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
+                reflectiveQuadTo(20f, 20f)
+                horizontalLineTo(4f)
+                close()
+                moveTo(4f, 18f)
+                horizontalLineTo(20f)
+                verticalLineTo(8f)
+                horizontalLineTo(11.18f)
+                lineToRelative(-2f, -2f)
+                horizontalLineTo(4f)
+                verticalLineTo(18f)
+                close()
+                moveToRelative(0f, 0f)
+                verticalLineTo(6f)
+                verticalLineTo(8f)
+                verticalLineTo(18f)
+                close()
+            }
+        }.build()
+        return _folderIconVector!!
+    }
+
+private var _folderIconVector: ImageVector? = null
+
+private val HomeIconVector: ImageVector
+    get() {
+        if (_homeIconVector != null) return _homeIconVector!!
+        _homeIconVector = ImageVector.Builder(
+            name = "home",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.NonZero
+            ) {
+                moveTo(6f, 19f)
+                horizontalLineTo(9f)
+                verticalLineTo(14f)
+                quadTo(9f, 13.58f, 9.29f, 13.29f)
+                quadTo(9.58f, 13f, 10f, 13f)
+                horizontalLineToRelative(4f)
+                quadToRelative(0.43f, 0f, 0.71f, 0.29f)
+                reflectiveQuadTo(15f, 14f)
+                verticalLineToRelative(5f)
+                horizontalLineToRelative(3f)
+                verticalLineTo(10f)
+                lineTo(12f, 5.5f)
+                lineTo(6f, 10f)
+                verticalLineToRelative(9f)
+                close()
+                moveTo(4f, 19f)
+                verticalLineTo(10f)
+                quadTo(4f, 9.52f, 4.21f, 9.1f)
+                quadTo(4.43f, 8.67f, 4.8f, 8.4f)
+                lineToRelative(6f, -4.5f)
+                quadTo(11.33f, 3.5f, 12f, 3.5f)
+                reflectiveQuadToRelative(1.2f, 0.4f)
+                lineToRelative(6f, 4.5f)
+                quadToRelative(0.38f, 0.28f, 0.59f, 0.7f)
+                quadTo(20f, 9.52f, 20f, 10f)
+                verticalLineToRelative(9f)
+                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
+                reflectiveQuadTo(18f, 21f)
+                horizontalLineTo(14f)
+                quadToRelative(-0.42f, 0f, -0.71f, -0.29f)
+                quadTo(13f, 20.43f, 13f, 20f)
+                verticalLineTo(15f)
+                horizontalLineTo(11f)
+                verticalLineToRelative(5f)
+                quadToRelative(0f, 0.43f, -0.29f, 0.71f)
+                reflectiveQuadTo(10f, 21f)
+                horizontalLineTo(6f)
+                quadTo(5.18f, 21f, 4.59f, 20.41f)
+                reflectiveQuadTo(4f, 19f)
+                close()
+                moveToRelative(8f, -6.75f)
+                close()
+            }
+        }.build()
+        return _homeIconVector!!
+    }
+
+private var _homeIconVector: ImageVector? = null
+
 

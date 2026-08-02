@@ -44,6 +44,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -183,12 +184,6 @@ fun CollectionTransactionsScreen(
     val scope = rememberCoroutineScope()
 
     var isScrolling by remember { mutableStateOf(false) }
-    val density = LocalDensity.current
-    val headerHeight = 220.dp
-    val headerHeightPx = remember(density) { with(density) { headerHeight.toPx() } }
-    var headerOffsetHeightPx by rememberSaveable { mutableStateOf(0f) }
-    var lockHeaderExpansionInCurrentGesture by remember { mutableStateOf(false) }
-    var isScrollingToTop by remember { mutableStateOf(false) }
 
     val showBackToTop by remember {
         derivedStateOf {
@@ -205,57 +200,6 @@ fun CollectionTransactionsScreen(
                     isScrolling = true
                 }
             }
-    }
-
-    val nestedScrollConnection = remember(headerHeightPx) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (isScrollingToTop) return Offset.Zero
-                val delta = available.y
-                
-                // Update header collapse offset ONLY when scrolling up
-                if (delta < 0) {
-                    val newOffset = headerOffsetHeightPx + delta
-                    headerOffsetHeightPx = newOffset.coerceIn(-headerHeightPx, 0f)
-                }
-
-                // If scrolling up (delta < 0) and header is not fully collapsed, consume the scroll
-                return if (delta < 0 && headerOffsetHeightPx > -headerHeightPx) {
-                    Offset(0f, delta)
-                } else {
-                    Offset.Zero
-                }
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                if (isScrollingToTop) return Offset.Zero
-                val delta = available.y
-
-                // If the list consumed some scroll down delta, it means it was not at the top at start,
-                // so we lock header expansion for the rest of this gesture.
-                if (delta > 0 && consumed.y > 0.5f) {
-                    lockHeaderExpansionInCurrentGesture = true
-                }
-
-                // If scrolling down (delta > 0), header is not fully expanded, and we are not locked, expand it
-                if (delta > 0 && headerOffsetHeightPx < 0f && !lockHeaderExpansionInCurrentGesture) {
-                    val newOffset = headerOffsetHeightPx + delta
-                    headerOffsetHeightPx = newOffset.coerceIn(-headerHeightPx, 0f)
-                    return Offset(0f, delta)
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-                // Reset gesture lock when the user lifts their finger (fling event starts)
-                lockHeaderExpansionInCurrentGesture = false
-                return androidx.compose.ui.unit.Velocity.Zero
-            }
-        }
     }
 
     val colColor = remember(collection?.hexColor) {
@@ -293,33 +237,42 @@ fun CollectionTransactionsScreen(
         }
     }
 
+    val isAtTop by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset <= 10
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             if (collection != null) {
-                AnimatedVisibility(
-                    visible = !isScrolling,
-                    enter = fadeIn() + scaleIn(),
-                    exit = fadeOut() + scaleOut()
-                ) {
-                    FloatingActionButton(
-                        onClick = {
-                            presets.plunk()
-                            onNavigateToAddTransaction(collection.id)
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        shape = CircleShape,
-                        modifier = Modifier.padding(bottom = 8.dp, end = 8.dp)
-                    ) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        presets.plunk()
+                        onNavigateToAddTransaction(collection.id)
+                    },
+                    icon = {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Add Transaction to Collection",
-                            modifier = Modifier.size(28.dp)
+                            contentDescription = "Add Transaction",
+                            modifier = Modifier.size(24.dp)
                         )
-                    }
-                }
+                    },
+                    text = {
+                        Text(
+                            text = "Add Record",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    },
+                    expanded = isAtTop,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.padding(bottom = 12.dp, end = 8.dp)
+                )
             }
         },
         floatingActionButtonPosition = FabPosition.End
@@ -328,12 +281,13 @@ fun CollectionTransactionsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = innerPadding.calculateBottomPadding())
-                .nestedScroll(nestedScrollConnection)
         ) {
             // 1. Fixed Visually Rich Header (Title Row)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .zIndex(10f)
+                    .background(MaterialTheme.colorScheme.background)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
@@ -442,261 +396,292 @@ fun CollectionTransactionsScreen(
                     .zIndex(10f)
             )
 
-            // Collapsible Balance Card container
-            if (summary != null) {
-                val balanceCardHeightDp = with(LocalDensity.current) { (headerHeightPx + headerOffsetHeightPx).toDp() }
-                Column(
+            // 2. Main Parallax Scrollable Content
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(balanceCardHeightDp)
-                        .clipToBounds()
+                        .fillMaxSize()
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(bottom = 32.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .offset { IntOffset(0, headerOffsetHeightPx.roundToInt()) }
-                    ) {
-                        val netBalance = summary.totalIncome - summary.totalExpense
-                        
-                        var hasAnimated by rememberSaveable { mutableStateOf(false) }
-                        val animatedBalance = remember { Animatable(netBalance.toFloat()) }
-                        val animatedIncome = remember { Animatable(summary.totalIncome.toFloat()) }
-                        val animatedExpense = remember { Animatable(summary.totalExpense.toFloat()) }
-                        val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
-
-                        LaunchedEffect(netBalance, summary.totalIncome, summary.totalExpense, uiState.isLoading) {
-                            if (!uiState.isLoading) {
-                                if (!hasAnimated) {
-                                    // Start numbers near target (88%) to avoid traditional mechanical 0-to-target counter
-                                    animatedBalance.snapTo((netBalance * 0.88).toFloat())
-                                    animatedIncome.snapTo((summary.totalIncome * 0.88).toFloat())
-                                    animatedExpense.snapTo((summary.totalExpense * 0.88).toFloat())
-
-                                    launch {
-                                        alphaAnim.animateTo(
-                                            targetValue = 1f,
-                                            animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedBalance.animateTo(
-                                            targetValue = netBalance.toFloat(),
-                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedIncome.animateTo(
-                                            targetValue = summary.totalIncome.toFloat(),
-                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedExpense.animateTo(
-                                            targetValue = summary.totalExpense.toFloat(),
-                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    hasAnimated = true
-                                } else {
-                                    alphaAnim.snapTo(1f)
-                                    launch {
-                                        animatedBalance.animateTo(
-                                            targetValue = netBalance.toFloat(),
-                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedIncome.animateTo(
-                                            targetValue = summary.totalIncome.toFloat(),
-                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedExpense.animateTo(
-                                            targetValue = summary.totalExpense.toFloat(),
-                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                                        )
-                                    }
+                    // Non-collapsing Fixed Balance Card with Parallax Translation
+                    if (summary != null) {
+                        item(key = "balance_card") {
+                            val parallaxTranslation = remember {
+                                derivedStateOf {
+                                    if (listState.firstVisibleItemIndex == 0) {
+                                        listState.firstVisibleItemScrollOffset * 0.45f
+                                    } else 0f
                                 }
                             }
-                        }
+                            val fadeAlpha = remember {
+                                derivedStateOf {
+                                    if (listState.firstVisibleItemIndex == 0) {
+                                        (1f - (listState.firstVisibleItemScrollOffset / 400f) * 0.45f).coerceIn(0.2f, 1f)
+                                    } else 0.55f
+                                }
+                            }
+                            val scale = remember {
+                                derivedStateOf {
+                                    if (listState.firstVisibleItemIndex == 0) {
+                                        (1f - (listState.firstVisibleItemScrollOffset / 400f) * 0.04f).coerceIn(0.96f, 1f)
+                                    } else 0.96f
+                                }
+                            }
 
-                        val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else netBalance
-                        val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else summary.totalIncome
-                        val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else summary.totalExpense
-
-                        val netStr = dollarFormat.format(displayBalance)
-                        val incomeStr = dollarFormat.format(displayIncome)
-                        val expenseStr = dollarFormat.format(displayExpense)
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 8.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .clickable {
-                                    presets.ping()
-                                    showDetailDialog = true
-                                },
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else Color.White
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = 1.dp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
-                            )
-                        ) {
-                            Column(
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(20.dp)
-                                    .alpha(alphaAnim.value),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                    .graphicsLayer {
+                                        translationY = parallaxTranslation.value
+                                        alpha = fadeAlpha.value
+                                        scaleX = scale.value
+                                        scaleY = scale.value
+                                    }
                             ) {
-                                // "Total Balance" Label
-                                Text(
-                                    text = "Collection Overview",
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                    fontWeight = FontWeight.Medium,
-                                    textAlign = TextAlign.Center
-                                )
+                                val netBalance = summary.totalIncome - summary.totalExpense
+                                
+                                var hasAnimated by rememberSaveable { mutableStateOf(false) }
+                                val animatedBalance = remember { Animatable(netBalance.toFloat()) }
+                                val animatedIncome = remember { Animatable(summary.totalIncome.toFloat()) }
+                                val animatedExpense = remember { Animatable(summary.totalExpense.toFloat()) }
+                                val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
 
-                                Spacer(modifier = Modifier.height(6.dp))
+                                LaunchedEffect(netBalance, summary.totalIncome, summary.totalExpense, uiState.isLoading) {
+                                    if (!uiState.isLoading) {
+                                        if (!hasAnimated) {
+                                            animatedBalance.snapTo((netBalance * 0.88).toFloat())
+                                            animatedIncome.snapTo((summary.totalIncome * 0.88).toFloat())
+                                            animatedExpense.snapTo((summary.totalExpense * 0.88).toFloat())
 
-                                // Giant Net Balance Center text
-                                Text(
-                                    text = netStr,
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
-                                )
-
-                                Spacer(modifier = Modifier.height(20.dp))
-
-                                // Side-by-side Sub cards inside row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    // Income Card Item (Left)
-                                    Card(
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
-                                        ),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
-                                        )
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            // Soft clean Green arrow circle using Hex #B7DAAE
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .clip(CircleShape)
-                                                    .background(if (isDark) Color(0xFFB7DAAE).copy(alpha = 0.2f) else Color(0xFFB7DAAE)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.ArrowDownward,
-                                                    contentDescription = "Income icon",
-                                                    tint = if (isDark) Color(0xFFB7DAAE) else Color(0xFF1F4D20),
-                                                    modifier = Modifier
-                                                        .size(18.dp)
-                                                        .rotate(45f)
+                                            launch {
+                                                alphaAnim.animateTo(
+                                                    targetValue = 1f,
+                                                    animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
                                                 )
                                             }
-
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = "Cash In",
-                                                    fontSize = 11.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                    fontWeight = FontWeight.Medium
+                                            launch {
+                                                animatedBalance.animateTo(
+                                                    targetValue = netBalance.toFloat(),
+                                                    animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
                                                 )
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = incomeStr,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onBackground,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
+                                            }
+                                            launch {
+                                                animatedIncome.animateTo(
+                                                    targetValue = summary.totalIncome.toFloat(),
+                                                    animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
+                                                )
+                                            }
+                                            launch {
+                                                animatedExpense.animateTo(
+                                                    targetValue = summary.totalExpense.toFloat(),
+                                                    animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
+                                                )
+                                            }
+                                            hasAnimated = true
+                                        } else {
+                                            alphaAnim.snapTo(1f)
+                                            launch {
+                                                animatedBalance.animateTo(
+                                                    targetValue = netBalance.toFloat(),
+                                                    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                                )
+                                            }
+                                            launch {
+                                                animatedIncome.animateTo(
+                                                    targetValue = summary.totalIncome.toFloat(),
+                                                    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                                )
+                                            }
+                                            launch {
+                                                animatedExpense.animateTo(
+                                                    targetValue = summary.totalExpense.toFloat(),
+                                                    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
                                                 )
                                             }
                                         }
                                     }
+                                }
 
-                                    // Expense Card Item (Right)
-                                    Card(
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
-                                        ),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                        border = androidx.compose.foundation.BorderStroke(
-                                            width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
-                                        )
+                                val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else netBalance
+                                val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else summary.totalIncome
+                                val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else summary.totalExpense
+
+                                val netStr = dollarFormat.format(displayBalance)
+                                val incomeStr = dollarFormat.format(displayIncome)
+                                val expenseStr = dollarFormat.format(displayExpense)
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .clickable {
+                                            presets.ping()
+                                            showDetailDialog = true
+                                        },
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else Color.White
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp)
+                                            .alpha(alphaAnim.value),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
+                                        // "Total Balance" Label
+                                        Text(
+                                            text = "Collection Overview",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                            fontWeight = FontWeight.Medium,
+                                            textAlign = TextAlign.Center
+                                        )
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        // Giant Net Balance Center text
+                                        Text(
+                                            text = netStr,
+                                            fontSize = 32.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onBackground,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(horizontal = 4.dp)
+                                        )
+
+                                        Spacer(modifier = Modifier.height(20.dp))
+
+                                        // Side-by-side Sub cards inside row
                                         Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            // Soft clean Red arrow circle using Hex #FFB8A9
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .clip(CircleShape)
-                                                    .background(if (isDark) Color(0xFFFFB8A9).copy(alpha = 0.2f) else Color(0xFFFFB8A9)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.ArrowUpward,
-                                                    contentDescription = "Expense icon",
-                                                    tint = if (isDark) Color(0xFFFFB8A9) else Color(0xFF6E261A),
-                                                    modifier = Modifier
-                                                        .size(18.dp)
-                                                        .rotate(45f)
+                                            // Income Card Item (Left)
+                                            Card(
+                                                modifier = Modifier.weight(1f),
+                                                shape = RoundedCornerShape(16.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                                                ),
+                                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    width = 1.dp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
                                                 )
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    // Soft clean Green arrow circle using Hex #B7DAAE
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(36.dp)
+                                                            .clip(CircleShape)
+                                                            .background(if (isDark) Color(0xFFB7DAAE).copy(alpha = 0.2f) else Color(0xFFB7DAAE)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.ArrowDownward,
+                                                            contentDescription = "Income icon",
+                                                            tint = if (isDark) Color(0xFFB7DAAE) else Color(0xFF1F4D20),
+                                                            modifier = Modifier
+                                                                .size(18.dp)
+                                                                .rotate(45f)
+                                                        )
+                                                    }
+
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = "Cash In",
+                                                            fontSize = 11.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                        Spacer(modifier = Modifier.height(2.dp))
+                                                        Text(
+                                                            text = incomeStr,
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onBackground,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
                                             }
 
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = "Cash Out",
-                                                    fontSize = 11.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                    fontWeight = FontWeight.Medium
+                                            // Expense Card Item (Right)
+                                            Card(
+                                                modifier = Modifier.weight(1f),
+                                                shape = RoundedCornerShape(16.dp),
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                                                ),
+                                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    width = 1.dp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
                                                 )
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = expenseStr,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onBackground,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    // Soft clean Red arrow circle using Hex #FFB8A9
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(36.dp)
+                                                            .clip(CircleShape)
+                                                            .background(if (isDark) Color(0xFFFFB8A9).copy(alpha = 0.2f) else Color(0xFFFFB8A9)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.ArrowUpward,
+                                                            contentDescription = "Expense icon",
+                                                            tint = if (isDark) Color(0xFFFFB8A9) else Color(0xFF6E261A),
+                                                            modifier = Modifier
+                                                                .size(18.dp)
+                                                                .rotate(45f)
+                                                        )
+                                                    }
+
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = "Cash Out",
+                                                            fontSize = 11.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                        Spacer(modifier = Modifier.height(2.dp))
+                                                        Text(
+                                                            text = expenseStr,
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onBackground,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -704,24 +689,19 @@ fun CollectionTransactionsScreen(
                             }
                         }
                     }
-                }
-            }
-
-            // 2. Scrollable content
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(bottom = 32.dp)
-                    ) {
 
                     // Sticky Header: Recent Transactions Title and Filter triggers
                     stickyHeader {
+                        val isStuck = remember {
+                            derivedStateOf {
+                                listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40
+                            }
+                        }
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.background
+                            color = MaterialTheme.colorScheme.background.copy(alpha = if (isStuck.value) 0.96f else 1f),
+                            tonalElevation = if (isStuck.value) 4.dp else 0.dp,
+                            shadowElevation = if (isStuck.value) 3.dp else 0.dp
                         ) {
                             Row(
                                 modifier = Modifier
@@ -818,7 +798,20 @@ fun CollectionTransactionsScreen(
                                 }
                             }
 
-                            Box(modifier = Modifier.alpha(alpha.value)) {
+                            val itemParallaxY = remember(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, index) {
+                                val itemOffset = index - listState.firstVisibleItemIndex
+                                if (itemOffset in 0..6) {
+                                    (listState.firstVisibleItemScrollOffset * 0.03f * (itemOffset + 1)).coerceIn(0f, 12f)
+                                } else 0f
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .alpha(alpha.value)
+                                    .graphicsLayer {
+                                        translationY = -itemParallaxY
+                                    }
+                            ) {
                                 TransactionListItemDetailed(
                                     transaction = tx,
                                     colColor = colColor,
@@ -894,16 +887,10 @@ fun CollectionTransactionsScreen(
                         onClick = {
                             presets.ping()
                             scope.launch {
-                                isScrollingToTop = true
-                                headerOffsetHeightPx = -headerHeightPx
-                                try {
-                                    if (listState.firstVisibleItemIndex > 2) {
-                                        listState.scrollToItem(2)
-                                    }
-                                    listState.animateScrollToItem(0)
-                                } finally {
-                                    isScrollingToTop = false
+                                if (listState.firstVisibleItemIndex > 2) {
+                                    listState.scrollToItem(2)
                                 }
+                                listState.animateScrollToItem(0)
                             }
                         },
                         elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),

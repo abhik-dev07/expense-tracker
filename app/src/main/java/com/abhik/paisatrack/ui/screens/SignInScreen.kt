@@ -62,6 +62,7 @@ enum class SignInButtonState {
 @Composable
 fun SignInScreen(
     viewModel: FinanceViewModel,
+    isOnline: Boolean = true,
     onNavigateToDashboard: () -> Unit
 ) {
     val context = LocalContext.current
@@ -113,6 +114,14 @@ fun SignInScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // Offline banner pill when internet is unavailable
+            OfflineBanner(
+                isVisible = !isOnline,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            )
+
             // Lottie illustration
             LottieAnimation(
                 composition = composition,
@@ -142,7 +151,7 @@ fun SignInScreen(
             )
 
             // Google sign in button
-            val buttonOpacity = if (!isAgreed) 0.5f else if (isLoading) 0.6f else 1f
+            val buttonOpacity = if (!isAgreed || !isOnline) 0.5f else if (isLoading) 0.6f else 1f
             if (authReady) {
                 GoogleButtonUiContainer(
                     onGoogleSignInResult = { googleUser ->
@@ -186,14 +195,17 @@ fun SignInScreen(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            if (!isAgreed) {
+                            if (!isOnline) {
+                                presets.catPaw()
+                                Toast.makeText(context, "You are currently offline", Toast.LENGTH_SHORT).show()
+                            } else if (!isAgreed) {
                                 presets.catPaw()
                                 Toast.makeText(
                                     context,
                                     "Please agree to our Terms & Conditions and Privacy Policy to continue",
                                     Toast.LENGTH_LONG
                                 ).show()
-                            } else if (!isLoading && authReady) {
+                            } else if (!isLoading && authReady && isOnline) {
                                 presets.ping()
                                 isLoading = true
                                 val triggerSignIn = { this.onClick() }
@@ -254,7 +266,7 @@ fun SignInScreen(
                         ),
                         border = BorderStroke(1.dp, buttonBorderColor),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                        enabled = !isLoading && authReady
+                        enabled = !isLoading && authReady && isOnline
                     ) {
                         Box(
                             modifier = Modifier

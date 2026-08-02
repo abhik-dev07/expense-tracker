@@ -199,6 +199,7 @@ class MainActivity : ComponentActivity() {
                 composable("sign_in") {
                   SignInScreen(
                     viewModel = viewModel,
+                    isOnline = isOnline,
                     onNavigateToDashboard = {
                       navController.navigate("dashboard") {
                         popUpTo("sign_in") { inclusive = true }
