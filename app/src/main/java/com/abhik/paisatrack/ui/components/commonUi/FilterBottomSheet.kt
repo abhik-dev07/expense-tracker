@@ -19,6 +19,14 @@ import androidx.compose.ui.unit.sp
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterBottomSheet(
@@ -35,101 +43,89 @@ fun FilterBottomSheet(
     val pulsar = remember { Pulsar(context) }
     val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
     val scope = rememberCoroutineScope()
+    val isAnyFilterActive = activeSortOrder != "Newest" || activeTypeFilter != "All" || activeTimeFilter != "All"
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header of Filters with close (cross) button
+            // Header of Filters: Close button when no filter active, replaced by Clear All when active
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = "Filters",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "Filter Transactions",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+                Text(
+                    text = "Filter Transactions",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
-                // Circle Close Icon (cross press)
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable {
-                            presets.plunk()
-                            scope.launch {
-                                sheetState.hide()
-                                onDismissRequest()
-                            }
+                if (isAnyFilterActive) {
+                    // Replace close button with Clear All when filter is active
+                    TextButton(
+                        onClick = {
+                            presets.boulder()
+                            onSortOrderChange("Newest")
+                            onTypeFilterChange("All")
+                            onTimeFilterChange("All")
                         },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close Filters",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(14.dp)
-                    )
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text(
+                            text = "Clear All",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else {
+                    // Show Close button when no filter is active
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable {
+                                presets.plunk()
+                                scope.launch {
+                                    sheetState.hide()
+                                    onDismissRequest()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = CloseIconVector,
+                            contentDescription = "Close Filters",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
 
             // Sort By Filters block (First)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Sort By",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val isAnyFilterActive = activeSortOrder != "Newest" || activeTypeFilter != "All" || activeTimeFilter != "All"
-                    if (isAnyFilterActive) {
-                        TextButton(
-                            onClick = {
-                                presets.boulder()
-                                onSortOrderChange("Newest")
-                                onTypeFilterChange("All")
-                                onTimeFilterChange("All")
-                            },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.height(28.dp)
-                        ) {
-                            Text(
-                                text = "Clear",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = "Sort By",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 val sortOrders = listOf("Newest", "Oldest")
                 SingleChoiceSegmentedButtonRow(
                     modifier = Modifier.fillMaxWidth()
@@ -143,6 +139,12 @@ fun FilterBottomSheet(
                                 onSortOrderChange(order)
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = sortOrders.size),
+                            icon = {
+                                AnimatedCheckIcon(
+                                    isSelected = selected,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            },
                             label = {
                                 Text(
                                     text = order,
@@ -154,7 +156,7 @@ fun FilterBottomSheet(
                     }
                 }
             }
- 
+
             // Transaction Direction Filters block (Middle)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
@@ -185,6 +187,12 @@ fun FilterBottomSheet(
                                 onTypeFilterChange(mappedValue)
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = types.size),
+                            icon = {
+                                AnimatedCheckIcon(
+                                    isSelected = selected,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            },
                             label = {
                                 Text(
                                     text = type,
@@ -196,7 +204,7 @@ fun FilterBottomSheet(
                     }
                 }
             }
- 
+
             // Time Period Filters block (Last)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
@@ -229,6 +237,12 @@ fun FilterBottomSheet(
                                 onTimeFilterChange(actualFilter)
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = times.size),
+                            icon = {
+                                AnimatedCheckIcon(
+                                    isSelected = selected,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            },
                             label = {
                                 Text(
                                     text = time,
@@ -243,3 +257,57 @@ fun FilterBottomSheet(
         }
     }
 }
+
+private val CloseIconVector: ImageVector
+    get() {
+        if (_closeIconVector != null) return _closeIconVector!!
+        _closeIconVector = ImageVector.Builder(
+            name = "close",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.NonZero
+            ) {
+                moveTo(12f, 13.4f)
+                lineTo(7.1f, 18.3f)
+                quadTo(6.83f, 18.58f, 6.4f, 18.58f)
+                reflectiveQuadTo(5.7f, 18.3f)
+                quadTo(5.43f, 18.02f, 5.43f, 17.6f)
+                reflectiveQuadTo(5.7f, 16.9f)
+                lineTo(10.6f, 12f)
+                lineTo(5.7f, 7.1f)
+                quadTo(5.43f, 6.82f, 5.43f, 6.4f)
+                reflectiveQuadTo(5.7f, 5.7f)
+                reflectiveQuadTo(6.4f, 5.43f)
+                reflectiveQuadTo(7.1f, 5.7f)
+                lineTo(12f, 10.6f)
+                lineTo(16.9f, 5.7f)
+                quadTo(17.18f, 5.43f, 17.6f, 5.43f)
+                reflectiveQuadTo(18.3f, 5.7f)
+                reflectiveQuadToRelative(0.27f, 0.7f)
+                reflectiveQuadTo(18.3f, 7.1f)
+                lineTo(13.4f, 12f)
+                lineToRelative(4.9f, 4.9f)
+                quadToRelative(0.27f, 0.28f, 0.27f, 0.7f)
+                quadToRelative(0f, 0.42f, -0.27f, 0.7f)
+                reflectiveQuadToRelative(-0.7f, 0.27f)
+                reflectiveQuadTo(16.9f, 18.3f)
+                lineTo(12f, 13.4f)
+                close()
+            }
+        }.build()
+        return _closeIconVector!!
+    }
+
+private var _closeIconVector: ImageVector? = null

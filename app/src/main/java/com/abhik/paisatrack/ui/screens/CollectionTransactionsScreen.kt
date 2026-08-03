@@ -72,12 +72,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
 import androidx.compose.ui.zIndex
 import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.swmansion.pulsar.Pulsar
+import com.abhik.paisatrack.ui.components.commonUi.ArrowBackIosNewIconVector
 
 private enum class CollectionSubmitState {
     Idle,
@@ -327,10 +329,10 @@ fun CollectionTransactionsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            imageVector = ArrowBackIosNewIconVector,
                             contentDescription = "Back to dashboard",
                             tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -732,9 +734,8 @@ fun CollectionTransactionsScreen(
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Tune,
-                                            contentDescription = "Show Filters",
+                                        AnimatedTuneIcon(
+                                            isActive = showFilters,
                                             tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
                                             modifier = Modifier.size(18.dp)
                                         )

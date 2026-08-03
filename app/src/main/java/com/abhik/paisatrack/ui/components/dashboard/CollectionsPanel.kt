@@ -41,9 +41,10 @@ import com.abhik.paisatrack.ui.components.getIconByName
 import com.airbnb.lottie.compose.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.swmansion.pulsar.Pulsar
-import kotlinx.coroutines.delay
 import java.text.DecimalFormat
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
 
 private enum class PanelSubmitState {
     Idle,
@@ -156,6 +157,12 @@ fun CollectionsPanel(
                         }
                     },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                    icon = {
+                        AnimatedCheckIcon(
+                            isSelected = selected,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    },
                     label = {
                         Text(
                             text = option,

@@ -45,6 +45,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
@@ -392,9 +393,8 @@ fun TransactionsPanel(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Tune,
-                                    contentDescription = "Show Filters",
+                                AnimatedTuneIcon(
+                                    isActive = showFilters,
                                     tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
                                     modifier = Modifier.size(18.dp)
                                 )

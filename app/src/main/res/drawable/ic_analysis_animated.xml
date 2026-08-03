@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Bar 1: short bar on the left -->
+    <path
+        android:name="bar1"
+        android:pathData="M 6,19 L 6,13"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:trimPathEnd="0" />
+    <!-- Bar 2: tall bar in middle -->
+    <path
+        android:name="bar2"
+        android:pathData="M 12,19 L 12,5"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:trimPathEnd="0" />
+    <!-- Bar 3: medium bar on the right -->
+    <path
+        android:name="bar3"
+        android:pathData="M 18,19 L 18,10"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:trimPathEnd="0" />
+</vector>

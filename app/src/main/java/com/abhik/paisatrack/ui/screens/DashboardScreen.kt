@@ -4,6 +4,11 @@ import android.annotation.SuppressLint
 import com.abhik.paisatrack.data.AuthManager
 import kotlinx.coroutines.launch
 import androidx.compose.animation.*
+import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import com.abhik.paisatrack.R
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
@@ -76,7 +81,7 @@ import com.abhik.paisatrack.ui.components.dashboard.VisualSummaryHeader
 import com.swmansion.pulsar.Pulsar
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationGraphicsApi::class)
 @Composable
 fun DashboardScreen(
     viewModel: FinanceViewModel,
@@ -230,6 +235,13 @@ fun DashboardScreen(
                     label = "TabIndicatorIndexAnimation"
                 )
 
+                val homeAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_home)
+                val analysisAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_analysis)
+                val collectionAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_collection)
+                val plusAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_plus)
+
+                val plusPainter = rememberAnimatedVectorPainter(plusAnimatedVector, atEnd = showPlusMenu)
+
                 BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
@@ -296,28 +308,118 @@ fun DashboardScreen(
                                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                 }
 
-                                // Icon mapping
+                                // Icon mapping: AnimatedVectorDrawable forward on select, reverse ("back effect") on deselect, then smooth Crossfade into predefined inactive icon
                                 when (tab.first) {
-                                    "Transactions" -> Icon(
-                                        imageVector = HomeIconVector,
-                                        contentDescription = "Transactions",
-                                        tint = contentColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    "Transactions" -> {
+                                        var showStatic by remember { mutableStateOf(!isSelected) }
+                                        var atEnd by remember { mutableStateOf(false) }
+                                        LaunchedEffect(isSelected) {
+                                            if (isSelected) {
+                                                showStatic = false
+                                                atEnd = true
+                                            } else if (!showStatic) {
+                                                atEnd = false
+                                                kotlinx.coroutines.delay(220)
+                                                showStatic = true
+                                            }
+                                        }
+                                        val homePainter = rememberAnimatedVectorPainter(homeAnimatedVector, atEnd = atEnd)
+                                        Crossfade(
+                                            targetState = showStatic,
+                                            animationSpec = tween(durationMillis = 200),
+                                            label = "HomeIconCrossfade"
+                                        ) { isStatic ->
+                                            if (isStatic) {
+                                                Icon(
+                                                    imageVector = HomeIconVector,
+                                                    contentDescription = "Transactions",
+                                                    tint = contentColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            } else {
+                                                Icon(
+                                                    painter = homePainter,
+                                                    contentDescription = "Transactions",
+                                                    tint = contentColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
+                                    }
 
-                                    "Insights" -> Icon(
-                                        imageVector = EqualizerIconVector,
-                                        contentDescription = "Insights",
-                                        tint = contentColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    "Insights" -> {
+                                        var showStatic by remember { mutableStateOf(!isSelected) }
+                                        var atEnd by remember { mutableStateOf(false) }
+                                        LaunchedEffect(isSelected) {
+                                            if (isSelected) {
+                                                showStatic = false
+                                                atEnd = true
+                                            } else if (!showStatic) {
+                                                atEnd = false
+                                                kotlinx.coroutines.delay(220)
+                                                showStatic = true
+                                            }
+                                        }
+                                        val analysisPainter = rememberAnimatedVectorPainter(analysisAnimatedVector, atEnd = atEnd)
+                                        Crossfade(
+                                            targetState = showStatic,
+                                            animationSpec = tween(durationMillis = 200),
+                                            label = "AnalysisIconCrossfade"
+                                        ) { isStatic ->
+                                            if (isStatic) {
+                                                Icon(
+                                                    imageVector = EqualizerIconVector,
+                                                    contentDescription = "Insights",
+                                                    tint = contentColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            } else {
+                                                Icon(
+                                                    painter = analysisPainter,
+                                                    contentDescription = "Insights",
+                                                    tint = contentColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
+                                    }
 
-                                    "Collections" -> Icon(
-                                        imageVector = FolderIconVector,
-                                        contentDescription = "Collections",
-                                        tint = contentColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    "Collections" -> {
+                                        var showStatic by remember { mutableStateOf(!isSelected) }
+                                        var atEnd by remember { mutableStateOf(false) }
+                                        LaunchedEffect(isSelected) {
+                                            if (isSelected) {
+                                                showStatic = false
+                                                atEnd = true
+                                            } else if (!showStatic) {
+                                                atEnd = false
+                                                kotlinx.coroutines.delay(220)
+                                                showStatic = true
+                                            }
+                                        }
+                                        val collectionPainter = rememberAnimatedVectorPainter(collectionAnimatedVector, atEnd = atEnd)
+                                        Crossfade(
+                                            targetState = showStatic,
+                                            animationSpec = tween(durationMillis = 200),
+                                            label = "CollectionIconCrossfade"
+                                        ) { isStatic ->
+                                            if (isStatic) {
+                                                Icon(
+                                                    imageVector = FolderIconVector,
+                                                    contentDescription = "Collections",
+                                                    tint = contentColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            } else {
+                                                Icon(
+                                                    painter = collectionPainter,
+                                                    contentDescription = "Collections",
+                                                    tint = contentColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -375,7 +477,7 @@ fun DashboardScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = AddIconVector,
+                        painter = plusPainter,
                         contentDescription = "Add Menu",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(28.dp)
@@ -415,7 +517,8 @@ fun DashboardScreen(
                         userName = userName,
                         firstName = firstName,
                         profilePicUrl = profilePicUrl,
-                        onSettingsClick = { showSettingsBottomSheet = true }
+                        onSettingsClick = { showSettingsBottomSheet = true },
+                        isSettingsOpen = showSettingsBottomSheet
                     )
                 }
 
@@ -703,52 +806,18 @@ private val EqualizerIconVector: ImageVector
             viewportHeight = 24f
         ).apply {
             path(
-                fill = SolidColor(Color.Black),
-                fillAlpha = 1f,
-                stroke = null,
-                strokeAlpha = 1f,
-                strokeLineWidth = 1f,
-                strokeLineCap = StrokeCap.Butt,
-                strokeLineJoin = StrokeJoin.Bevel,
-                strokeLineMiter = 1f,
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 3.5f,
+                strokeLineCap = StrokeCap.Round,
                 pathFillType = PathFillType.NonZero
             ) {
-                moveTo(4.59f, 19.41f)
-                quadTo(4f, 18.83f, 4f, 18f)
-                verticalLineTo(14f)
-                quadTo(4f, 13.18f, 4.59f, 12.59f)
-                reflectiveQuadTo(6f, 12f)
-                quadToRelative(0.83f, 0f, 1.41f, 0.59f)
-                quadTo(8f, 13.18f, 8f, 14f)
-                verticalLineToRelative(4f)
-                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
-                reflectiveQuadTo(6f, 20f)
-                reflectiveQuadTo(4.59f, 19.41f)
-                close()
-                moveTo(12f, 20f)
-                quadToRelative(-0.82f, 0f, -1.41f, -0.59f)
-                reflectiveQuadTo(10f, 18f)
-                verticalLineTo(6f)
-                quadTo(10f, 5.18f, 10.59f, 4.59f)
-                reflectiveQuadTo(12f, 4f)
-                reflectiveQuadToRelative(1.41f, 0.59f)
-                quadTo(14f, 5.18f, 14f, 6f)
-                verticalLineTo(18f)
-                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
-                reflectiveQuadTo(12f, 20f)
-                close()
-                moveToRelative(4.59f, -0.59f)
-                quadTo(16f, 18.83f, 16f, 18f)
-                verticalLineTo(11f)
-                quadToRelative(0f, -0.83f, 0.59f, -1.41f)
-                reflectiveQuadTo(18f, 9f)
-                reflectiveQuadToRelative(1.41f, 0.59f)
-                reflectiveQuadTo(20f, 11f)
-                verticalLineToRelative(7f)
-                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
-                reflectiveQuadTo(18f, 20f)
-                reflectiveQuadTo(16.59f, 19.41f)
-                close()
+                moveTo(6f, 19f)
+                lineTo(6f, 13f)
+                moveTo(12f, 19f)
+                lineTo(12f, 5f)
+                moveTo(18f, 19f)
+                lineTo(18f, 10f)
             }
         }.build()
         return _equalizerIconVector!!
@@ -767,46 +836,25 @@ private val FolderIconVector: ImageVector
             viewportHeight = 24f
         ).apply {
             path(
-                fill = SolidColor(Color.Black),
-                fillAlpha = 1f,
-                stroke = null,
-                strokeAlpha = 1f,
-                strokeLineWidth = 1f,
-                strokeLineCap = StrokeCap.Butt,
-                strokeLineJoin = StrokeJoin.Bevel,
-                strokeLineMiter = 1f,
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
                 pathFillType = PathFillType.NonZero
             ) {
-                moveTo(4f, 20f)
-                quadTo(3.18f, 20f, 2.59f, 19.41f)
-                reflectiveQuadTo(2f, 18f)
-                verticalLineTo(6f)
-                quadTo(2f, 5.18f, 2.59f, 4.59f)
-                reflectiveQuadTo(4f, 4f)
-                horizontalLineTo(9.18f)
-                quadToRelative(0.4f, 0f, 0.76f, 0.15f)
-                reflectiveQuadToRelative(0.64f, 0.43f)
+                moveTo(4f, 19.5f)
+                lineTo(20f, 19.5f)
+                quadTo(21.5f, 19.5f, 21.5f, 18f)
+                lineTo(21.5f, 7.5f)
+                quadTo(21.5f, 6f, 20f, 6f)
                 lineTo(12f, 6f)
-                horizontalLineToRelative(8f)
-                quadToRelative(0.83f, 0f, 1.41f, 0.59f)
-                quadTo(22f, 7.18f, 22f, 8f)
-                verticalLineTo(18f)
-                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
-                reflectiveQuadTo(20f, 20f)
-                horizontalLineTo(4f)
-                close()
-                moveTo(4f, 18f)
-                horizontalLineTo(20f)
-                verticalLineTo(8f)
-                horizontalLineTo(11.18f)
-                lineToRelative(-2f, -2f)
-                horizontalLineTo(4f)
-                verticalLineTo(18f)
-                close()
-                moveToRelative(0f, 0f)
-                verticalLineTo(6f)
-                verticalLineTo(8f)
-                verticalLineTo(18f)
+                lineTo(10.2f, 4.43f)
+                quadTo(9.58f, 4f, 9.18f, 4f)
+                lineTo(4f, 4f)
+                quadTo(2.5f, 4f, 2.5f, 5.5f)
+                lineTo(2.5f, 18f)
+                quadTo(2.5f, 19.5f, 4f, 19.5f)
                 close()
             }
         }.build()
@@ -826,57 +874,28 @@ private val HomeIconVector: ImageVector
             viewportHeight = 24f
         ).apply {
             path(
-                fill = SolidColor(Color.Black),
-                fillAlpha = 1f,
-                stroke = null,
-                strokeAlpha = 1f,
-                strokeLineWidth = 1f,
-                strokeLineCap = StrokeCap.Butt,
-                strokeLineJoin = StrokeJoin.Bevel,
-                strokeLineMiter = 1f,
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
                 pathFillType = PathFillType.NonZero
             ) {
-                moveTo(6f, 19f)
-                horizontalLineTo(9f)
-                verticalLineTo(14f)
-                quadTo(9f, 13.58f, 9.29f, 13.29f)
-                quadTo(9.58f, 13f, 10f, 13f)
-                horizontalLineToRelative(4f)
-                quadToRelative(0.43f, 0f, 0.71f, 0.29f)
-                reflectiveQuadTo(15f, 14f)
-                verticalLineToRelative(5f)
-                horizontalLineToRelative(3f)
-                verticalLineTo(10f)
-                lineTo(12f, 5.5f)
-                lineTo(6f, 10f)
-                verticalLineToRelative(9f)
-                close()
-                moveTo(4f, 19f)
-                verticalLineTo(10f)
-                quadTo(4f, 9.52f, 4.21f, 9.1f)
-                quadTo(4.43f, 8.67f, 4.8f, 8.4f)
-                lineToRelative(6f, -4.5f)
-                quadTo(11.33f, 3.5f, 12f, 3.5f)
-                reflectiveQuadToRelative(1.2f, 0.4f)
-                lineToRelative(6f, 4.5f)
-                quadToRelative(0.38f, 0.28f, 0.59f, 0.7f)
-                quadTo(20f, 9.52f, 20f, 10f)
-                verticalLineToRelative(9f)
-                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
-                reflectiveQuadTo(18f, 21f)
-                horizontalLineTo(14f)
-                quadToRelative(-0.42f, 0f, -0.71f, -0.29f)
-                quadTo(13f, 20.43f, 13f, 20f)
-                verticalLineTo(15f)
-                horizontalLineTo(11f)
-                verticalLineToRelative(5f)
-                quadToRelative(0f, 0.43f, -0.29f, 0.71f)
-                reflectiveQuadTo(10f, 21f)
-                horizontalLineTo(6f)
-                quadTo(5.18f, 21f, 4.59f, 20.41f)
-                reflectiveQuadTo(4f, 19f)
-                close()
-                moveToRelative(8f, -6.75f)
+                moveTo(12f, 3.5f)
+                lineTo(4.5f, 9.5f)
+                lineTo(4.5f, 20f)
+                quadTo(4.5f, 20.55f, 5.5f, 21f)
+                lineTo(9.5f, 21f)
+                quadTo(10.5f, 21f, 10.5f, 20f)
+                lineTo(10.5f, 14.5f)
+                quadTo(10.5f, 13.5f, 11.5f, 13.5f)
+                lineTo(12.5f, 13.5f)
+                quadTo(13.5f, 13.5f, 13.5f, 14.5f)
+                lineTo(13.5f, 20f)
+                quadTo(13.5f, 21f, 14.5f, 21f)
+                lineTo(18.5f, 21f)
+                quadTo(19.5f, 21f, 19.5f, 20f)
+                lineTo(19.5f, 9.5f)
                 close()
             }
         }.build()

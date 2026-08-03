@@ -37,12 +37,19 @@ import kotlinx.coroutines.delay
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
+import com.abhik.paisatrack.ui.components.commonUi.ArrowBackIosNewIconVector
+import com.airbnb.lottie.compose.*
+import com.abhik.paisatrack.R
+import androidx.compose.ui.text.style.TextAlign
 
 private enum class SubmitState {
     Idle,
@@ -66,6 +73,12 @@ fun AddTransactionScreen(
     val collections = uiState.collections
     val scope = rememberCoroutineScope()
     var submitState by remember { mutableStateOf(SubmitState.Idle) }
+
+    val lottieComposition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.nothing))
+    val lottieProgress by animateLottieCompositionAsState(
+        composition = lottieComposition,
+        iterations = LottieConstants.IterateForever
+    )
 
     var description by remember { mutableStateOf("") }
     var amountTextFieldValue by remember { mutableStateOf(TextFieldValue("")) }
@@ -117,10 +130,10 @@ fun AddTransactionScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        imageVector = ArrowBackIosNewIconVector,
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -134,56 +147,78 @@ fun AddTransactionScreen(
                 )
             }
 
-            // 2. Transaction Type Tab Selector
-            Row(
+            // 2. Transaction Type Tab Selector with smooth sliding animation
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .padding(4.dp)
             ) {
                 val isExpense = transactionType == "EXPENSE"
+                val itemWidth = maxWidth / 2f
+                val indicatorOffset by animateDpAsState(
+                    targetValue = if (isExpense) itemWidth else 0.dp,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "TypeIndicatorOffset"
+                )
 
-
+                // Smoothly sliding selection pill background
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .offset(x = indicatorOffset)
+                        .width(itemWidth)
+                        .height(44.dp)
                         .clip(CircleShape)
-                        .background(if (!isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
-                        .clickable(enabled = submitState == SubmitState.Idle) {
-                            presets.ping()
-                            transactionType = "INCOME"
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Cash In (+)",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
-                    )
-                }
+                        .background(MaterialTheme.colorScheme.surface)
+                )
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(CircleShape)
-                        .background(if (isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
-                        .clickable(enabled = submitState == SubmitState.Idle) {
-                            presets.ping()
-                            transactionType = "EXPENSE"
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
+                // Option labels row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Cash Out (-)",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = submitState == SubmitState.Idle) {
+                                presets.ping()
+                                transactionType = "INCOME"
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cash In (+)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = submitState == SubmitState.Idle) {
+                                presets.ping()
+                                transactionType = "EXPENSE"
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cash Out (-)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)
+                        )
+                    }
                 }
             }
 
@@ -455,6 +490,12 @@ fun AddTransactionScreen(
                                             categoryFilter = filter
                                         },
                                         shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
+                                        icon = {
+                                            AnimatedCheckIcon(
+                                                isSelected = isSelected,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        },
                                         label = {
                                             Text(
                                                 text = filter,
@@ -499,81 +540,103 @@ fun AddTransactionScreen(
                                 }
                             }
 
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 260.dp) // 5 items * 52.dp = 260.dp
-                                    .verticalScroll(rememberScrollState())
-                            ) {
-                                filteredCols.forEach { col ->
-                                    val isSelected = col.id == selectedCollectionId
-                                    val itemColor = try {
-                                        Color(android.graphics.Color.parseColor(col.hexColor))
-                                    } catch (e: Exception) {
-                                        MaterialTheme.colorScheme.primary
-                                    }
+                            if (filteredCols.isEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    LottieAnimation(
+                                        composition = lottieComposition,
+                                        progress = { lottieProgress },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "No custom collections",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 260.dp) // 5 items * 52.dp = 260.dp
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    filteredCols.forEach { col ->
+                                        val isSelected = col.id == selectedCollectionId
+                                        val itemColor = try {
+                                            Color(android.graphics.Color.parseColor(col.hexColor))
+                                        } catch (e: Exception) {
+                                            MaterialTheme.colorScheme.primary
+                                        }
 
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
+                                        DropdownMenuItem(
+                                            text = {
                                                 Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(vertical = 4.dp),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                    horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(32.dp)
-                                                            .clip(CircleShape)
-                                                            .background(
-                                                                if (isSelected) itemColor
-                                                                else itemColor.copy(alpha = 0.15f)
-                                                            ),
-                                                        contentAlignment = Alignment.Center
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                     ) {
-                                                        Icon(
-                                                            imageVector = getIconByName(col.iconName),
-                                                            contentDescription = null,
-                                                            tint = if (isSelected) Color.White else itemColor,
-                                                            modifier = Modifier.size(16.dp)
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(32.dp)
+                                                                .clip(CircleShape)
+                                                                .background(
+                                                                    if (isSelected) itemColor
+                                                                    else itemColor.copy(alpha = 0.15f)
+                                                                ),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = getIconByName(col.iconName),
+                                                                contentDescription = null,
+                                                                tint = if (isSelected) Color.White else itemColor,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = col.name,
+                                                            fontSize = 15.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                         )
                                                     }
-                                                    Text(
-                                                        text = col.name,
-                                                        fontSize = 15.sp,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                                    )
-                                                }
-                                                
-                                                if (isSelected) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = "Selected",
+                                                    
+                                                    AnimatedCheckIcon(
+                                                        isSelected = isSelected,
                                                         tint = itemColor,
                                                         modifier = Modifier.size(20.dp)
                                                     )
                                                 }
-                                            }
-                                        },
-                                        onClick = {
-                                            presets.ping()
-                                            selectedCollectionId = col.id
-                                            dropdownExpanded = false
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(52.dp)
-                                            .background(
-                                                if (isSelected) itemColor.copy(alpha = 0.08f)
-                                                else Color.Transparent
-                                            )
-                                    )
+                                            },
+                                            onClick = {
+                                                presets.ping()
+                                                selectedCollectionId = col.id
+                                                dropdownExpanded = false
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(52.dp)
+                                                .background(
+                                                    if (isSelected) itemColor.copy(alpha = 0.08f)
+                                                    else Color.Transparent
+                                                )
+                                        )
+                                    }
                                 }
                             }
                         }
