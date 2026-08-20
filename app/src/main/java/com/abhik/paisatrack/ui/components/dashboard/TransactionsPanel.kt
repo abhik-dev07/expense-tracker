@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import com.abhik.paisatrack.ui.components.getIconByName
+import com.abhik.paisatrack.ui.utils.safeParseColor
 import com.swmansion.pulsar.Pulsar
 import com.swmansion.pulsar.types.RealtimeComposerStrategy
 import kotlinx.coroutines.delay
@@ -457,9 +458,7 @@ fun TransactionsPanel(
                 itemsIndexed(paginatedTransactions, key = { _, tx -> tx.id }) { index, tx ->
                     // Find parent collection for styling information
                     val parentCollection = uiState.collections.find { it.id == tx.collectionId }
-                    val categoryColor = parentCollection?.hexColor?.let {
-                        Color(android.graphics.Color.parseColor(it))
-                    } ?: Color(0xFF9CA3AF)
+                    val categoryColor = safeParseColor(parentCollection?.hexColor)
 
                     val alpha = remember(tx.id) { Animatable(if (index >= animationStartLimit) 0f else 1f) }
                     LaunchedEffect(tx.id) {

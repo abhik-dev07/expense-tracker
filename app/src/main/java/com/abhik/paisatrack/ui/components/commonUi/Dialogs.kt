@@ -47,6 +47,7 @@ import androidx.compose.animation.togetherWith
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalDensity
+import com.abhik.paisatrack.ui.utils.safeParseColor
 
 private enum class DialogSubmitState {
     Idle,
@@ -307,7 +308,7 @@ fun AddTransactionDialog(
                 if (collections.isNotEmpty()) {
                     var dropdownExpanded by remember { mutableStateOf(false) }
                     val currentSelection = collections.find { it.id == selectedCollectionId } ?: collections.first()
-                    val colColor = Color(android.graphics.Color.parseColor(currentSelection.hexColor))
+                    val colColor = safeParseColor(currentSelection.hexColor)
 
                     // Determine background badge and icon color based on selection name
                     val (badgeBg, iconCol) = remember(currentSelection.name) {
@@ -396,7 +397,7 @@ fun AddTransactionDialog(
                                                 Icon(
                                                     imageVector = getIconByName(col.iconName),
                                                     contentDescription = null,
-                                                    tint = Color(android.graphics.Color.parseColor(col.hexColor)),
+                                                    tint = safeParseColor(col.hexColor),
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                                 Text(
@@ -731,7 +732,7 @@ fun AddCollectionDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     CollectionColors.forEachIndexed { i, pair ->
-                        val colorVal = Color(android.graphics.Color.parseColor(pair.first))
+                        val colorVal = safeParseColor(pair.first)
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -767,8 +768,7 @@ fun AddCollectionDialog(
                 ) {
                     CollectionIcons.forEachIndexed { i, pair ->
                         val selected = selectedIconIdx == i
-                        val iconThemeColor = Color(android.graphics.Color.parseColor(
-                            CollectionColors[selectedColorIdx].first))
+                        val iconThemeColor = safeParseColor(CollectionColors[selectedColorIdx].first)
                         
                         Box(
                             modifier = Modifier

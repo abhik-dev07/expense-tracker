@@ -80,6 +80,7 @@ import androidx.compose.ui.zIndex
 import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.swmansion.pulsar.Pulsar
 import com.abhik.paisatrack.ui.components.commonUi.ArrowBackIosNewIconVector
+import com.abhik.paisatrack.ui.utils.safeParseColor
 
 private enum class CollectionSubmitState {
     Idle,
@@ -205,13 +206,7 @@ fun CollectionTransactionsScreen(
     }
 
     val colColor = remember(collection?.hexColor) {
-        collection?.hexColor?.let {
-            try {
-                Color(android.graphics.Color.parseColor(it))
-            } catch (e: Exception) {
-                Color(0xFF3F51B5)
-            }
-        } ?: Color(0xFF3F51B5)
+        safeParseColor(collection?.hexColor, fallback = Color(0xFF3F51B5))
     }
 
     val view = LocalView.current
@@ -1171,7 +1166,7 @@ fun CollectionTransactionsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     LocalCollectionColors.forEachIndexed { i, pair ->
-                        val colorVal = Color(android.graphics.Color.parseColor(pair.first))
+                        val colorVal = safeParseColor(pair.first)
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
@@ -1207,7 +1202,7 @@ fun CollectionTransactionsScreen(
                 ) {
                     LocalCollectionIcons.forEachIndexed { i, pair ->
                         val selected = selectedIconIdx == i
-                        val iconThemeColor = Color(android.graphics.Color.parseColor(LocalCollectionColors[selectedColorIdx].first))
+                        val iconThemeColor = safeParseColor(LocalCollectionColors[selectedColorIdx].first)
 
                         Box(
                             modifier = Modifier

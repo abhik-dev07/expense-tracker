@@ -71,6 +71,7 @@ import com.abhik.paisatrack.ui.components.commonUi.AddCollectionDialog
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.PlusMenuDialog
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
+import com.abhik.paisatrack.ui.utils.safeParseColor
 import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.abhik.paisatrack.ui.components.dashboard.CollectionsPanel
 import com.abhik.paisatrack.ui.components.dashboard.DashboardHeader
@@ -702,7 +703,7 @@ fun DashboardScreen(
         val tx = txDetailToShow!!
         val parentCol = uiState.collections.find { it.id == tx.collectionId }
         val colName = parentCol?.name ?: "General"
-        val colColor = parentCol?.hexColor?.let { Color(android.graphics.Color.parseColor(it)) } ?: Color(0xFF9CA3AF)
+        val colColor = safeParseColor(parentCol?.hexColor)
         val colIcon = getIconByName(parentCol?.iconName ?: "category")
 
         TransactionDetailBottomSheet(

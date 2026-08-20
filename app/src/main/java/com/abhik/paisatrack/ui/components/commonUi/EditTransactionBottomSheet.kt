@@ -43,6 +43,7 @@ import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.abhik.paisatrack.ui.utils.safeParseColor
 
 private enum class SubmitState {
     Idle,
@@ -340,11 +341,7 @@ fun EditTransactionBottomSheet(
                 var dropdownExpanded by remember { mutableStateOf(false) }
                 var categoryFilter by remember { mutableStateOf("All") }
                 val currentSelection = collections.find { it.id == selectedCollectionId } ?: collections.first()
-                val colColor = try {
-                    Color(android.graphics.Color.parseColor(currentSelection.hexColor))
-                } catch (e: Exception) {
-                    MaterialTheme.colorScheme.primary
-                }
+                val colColor = safeParseColor(currentSelection.hexColor, fallback = MaterialTheme.colorScheme.primary)
 
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -484,11 +481,7 @@ fun EditTransactionBottomSheet(
                             ) {
                                 filteredCols.forEach { col ->
                                     val isSelected = col.id == selectedCollectionId
-                                    val itemColor = try {
-                                        Color(android.graphics.Color.parseColor(col.hexColor))
-                                    } catch (e: Exception) {
-                                        MaterialTheme.colorScheme.primary
-                                    }
+                                    val itemColor = safeParseColor(col.hexColor, fallback = MaterialTheme.colorScheme.primary)
 
                                     DropdownMenuItem(
                                         text = {

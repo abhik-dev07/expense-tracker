@@ -45,6 +45,7 @@ import java.text.DecimalFormat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
+import com.abhik.paisatrack.ui.utils.safeParseColor
 
 private enum class PanelSubmitState {
     Idle,
@@ -411,7 +412,7 @@ fun CollectionsPanel(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         CollectionColors.forEachIndexed { i, pair ->
-                            val colorVal = Color(android.graphics.Color.parseColor(pair.first))
+                            val colorVal = safeParseColor(pair.first)
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
@@ -447,8 +448,7 @@ fun CollectionsPanel(
                     ) {
                         CollectionIcons.forEachIndexed { i, pair ->
                             val selected = selectedIconIdx == i
-                            val iconThemeColor = Color(android.graphics.Color.parseColor(
-                                CollectionColors[selectedColorIdx].first))
+                            val iconThemeColor = safeParseColor(CollectionColors[selectedColorIdx].first)
 
                             Box(
                                 modifier = Modifier
@@ -844,7 +844,7 @@ fun CollectionGridCard(
     onClick: (Rect?) -> Unit
 ) {
     val colColor = remember(summary.collection.hexColor) {
-        Color(android.graphics.Color.parseColor(summary.collection.hexColor))
+        safeParseColor(summary.collection.hexColor)
     }
     val context = LocalContext.current
     val pulsar = remember { Pulsar(context) }

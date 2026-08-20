@@ -50,6 +50,7 @@ import com.abhik.paisatrack.ui.components.commonUi.ArrowBackIosNewIconVector
 import com.airbnb.lottie.compose.*
 import com.abhik.paisatrack.R
 import androidx.compose.ui.text.style.TextAlign
+import com.abhik.paisatrack.ui.utils.safeParseColor
 
 private enum class SubmitState {
     Idle,
@@ -394,11 +395,7 @@ fun AddTransactionScreen(
                 var dropdownExpanded by remember { mutableStateOf(false) }
                 var categoryFilter by remember { mutableStateOf("All") }
                 val currentSelection = collections.find { it.id == selectedCollectionId } ?: collections.first()
-                val colColor = try {
-                    Color(android.graphics.Color.parseColor(currentSelection.hexColor))
-                } catch (e: Exception) {
-                    MaterialTheme.colorScheme.primary
-                }
+                val colColor = safeParseColor(currentSelection.hexColor, fallback = MaterialTheme.colorScheme.primary)
 
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -572,11 +569,7 @@ fun AddTransactionScreen(
                                 ) {
                                     filteredCols.forEach { col ->
                                         val isSelected = col.id == selectedCollectionId
-                                        val itemColor = try {
-                                            Color(android.graphics.Color.parseColor(col.hexColor))
-                                        } catch (e: Exception) {
-                                            MaterialTheme.colorScheme.primary
-                                        }
+                                        val itemColor = safeParseColor(col.hexColor, fallback = MaterialTheme.colorScheme.primary)
 
                                         DropdownMenuItem(
                                             text = {

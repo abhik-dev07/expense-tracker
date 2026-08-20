@@ -35,6 +35,7 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.abhik.paisatrack.ui.utils.safeParseColor
 
 @Composable
 fun InsightsPanel(
@@ -217,7 +218,7 @@ fun InsightsPanel(
                     ) {
                         val totalSpentVal = expenseSummaries.sumOf { it.totalExpense }
                         expenseSummaries.forEach { summary ->
-                            val rgb = Color(android.graphics.Color.parseColor(summary.collection.hexColor))
+                            val rgb = safeParseColor(summary.collection.hexColor)
                             val pct = if (totalSpentVal > 0) ((summary.totalExpense / totalSpentVal) * 100).toInt() else 0
 
                             Column(
@@ -283,7 +284,7 @@ fun ExpenseDonutChart(expenseSummaries: List<CollectionSummary>) {
 
         expenseSummaries.forEach { summary ->
             val sweepAngle = (360f * (summary.totalExpense / totalExp)).toFloat()
-            val col = Color(android.graphics.Color.parseColor(summary.collection.hexColor))
+            val col = safeParseColor(summary.collection.hexColor)
 
             val drawSweep = (sweepAngle - gapDegrees).coerceAtLeast(1f) * animProgress
             val drawStart = startAngle + (gapDegrees / 2f)
