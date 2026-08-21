@@ -313,14 +313,14 @@ fun DashboardScreen(
                                 when (tab.first) {
                                     "Transactions" -> {
                                         var showStatic by remember { mutableStateOf(!isSelected) }
-                                        var atEnd by remember { mutableStateOf(false) }
+                                        var atEnd by remember { mutableStateOf(isSelected) }
                                         LaunchedEffect(isSelected) {
                                             if (isSelected) {
                                                 showStatic = false
                                                 atEnd = true
                                             } else if (!showStatic) {
                                                 atEnd = false
-                                                kotlinx.coroutines.delay(220)
+                                                kotlinx.coroutines.delay(450)
                                                 showStatic = true
                                             }
                                         }
@@ -350,14 +350,14 @@ fun DashboardScreen(
 
                                     "Insights" -> {
                                         var showStatic by remember { mutableStateOf(!isSelected) }
-                                        var atEnd by remember { mutableStateOf(false) }
+                                        var atEnd by remember { mutableStateOf(isSelected) }
                                         LaunchedEffect(isSelected) {
                                             if (isSelected) {
                                                 showStatic = false
                                                 atEnd = true
                                             } else if (!showStatic) {
                                                 atEnd = false
-                                                kotlinx.coroutines.delay(220)
+                                                kotlinx.coroutines.delay(450)
                                                 showStatic = true
                                             }
                                         }
@@ -387,14 +387,14 @@ fun DashboardScreen(
 
                                     "Collections" -> {
                                         var showStatic by remember { mutableStateOf(!isSelected) }
-                                        var atEnd by remember { mutableStateOf(false) }
+                                        var atEnd by remember { mutableStateOf(isSelected) }
                                         LaunchedEffect(isSelected) {
                                             if (isSelected) {
                                                 showStatic = false
                                                 atEnd = true
                                             } else if (!showStatic) {
                                                 atEnd = false
-                                                kotlinx.coroutines.delay(220)
+                                                kotlinx.coroutines.delay(450)
                                                 showStatic = true
                                             }
                                         }
@@ -904,5 +904,109 @@ private val HomeIconVector: ImageVector
     }
 
 private var _homeIconVector: ImageVector? = null
+
+private val HomeFilledIconVector: ImageVector
+    get() {
+        if (_homeFilledIconVector != null) return _homeFilledIconVector!!
+        _homeFilledIconVector = ImageVector.Builder(
+            name = "home_filled",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.NonZero
+            ) {
+                moveTo(4f, 19f)
+                verticalLineTo(10f)
+                quadTo(4f, 9.52f, 4.21f, 9.1f)
+                quadTo(4.43f, 8.67f, 4.8f, 8.4f)
+                lineToRelative(6f, -4.5f)
+                quadTo(11.33f, 3.5f, 12f, 3.5f)
+                reflectiveQuadToRelative(1.2f, 0.4f)
+                lineToRelative(6f, 4.5f)
+                quadToRelative(0.38f, 0.28f, 0.59f, 0.7f)
+                quadTo(20f, 9.52f, 20f, 10f)
+                verticalLineToRelative(9f)
+                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
+                reflectiveQuadTo(18f, 21f)
+                horizontalLineTo(15f)
+                quadToRelative(-0.42f, 0f, -0.71f, -0.29f)
+                quadTo(14f, 20.43f, 14f, 20f)
+                verticalLineTo(15f)
+                quadToRelative(0f, -0.43f, -0.29f, -0.71f)
+                reflectiveQuadTo(13f, 14f)
+                horizontalLineTo(11f)
+                quadToRelative(-0.42f, 0f, -0.71f, 0.29f)
+                reflectiveQuadTo(10f, 15f)
+                verticalLineToRelative(5f)
+                quadToRelative(0f, 0.43f, -0.29f, 0.71f)
+                reflectiveQuadTo(9f, 21f)
+                horizontalLineTo(6f)
+                quadTo(5.18f, 21f, 4.59f, 20.41f)
+                reflectiveQuadTo(4f, 19f)
+                close()
+            }
+        }.build()
+        return _homeFilledIconVector!!
+    }
+
+private var _homeFilledIconVector: ImageVector? = null
+
+private val FolderFilledIconVector: ImageVector
+    get() {
+        if (_folderFilledIconVector != null) return _folderFilledIconVector!!
+        _folderFilledIconVector = ImageVector.Builder(
+            name = "folder_filled",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.NonZero
+            ) {
+                moveTo(4f, 20f)
+                quadTo(3.18f, 20f, 2.59f, 19.41f)
+                reflectiveQuadTo(2f, 18f)
+                verticalLineTo(6f)
+                quadTo(2f, 5.18f, 2.59f, 4.59f)
+                reflectiveQuadTo(4f, 4f)
+                horizontalLineTo(9.18f)
+                quadToRelative(0.4f, 0f, 0.76f, 0.15f)
+                reflectiveQuadToRelative(0.64f, 0.43f)
+                lineTo(12f, 6f)
+                horizontalLineToRelative(8f)
+                quadToRelative(0.83f, 0f, 1.41f, 0.59f)
+                quadTo(22f, 7.18f, 22f, 8f)
+                verticalLineTo(18f)
+                quadToRelative(0f, 0.82f, -0.59f, 1.41f)
+                reflectiveQuadTo(20f, 20f)
+                horizontalLineTo(4f)
+                close()
+            }
+        }.build()
+        return _folderFilledIconVector!!
+    }
+
+private var _folderFilledIconVector: ImageVector? = null
+
 
 

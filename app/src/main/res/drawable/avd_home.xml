@@ -4,4 +4,7 @@
     <target
         android:name="home_path"
         android:animation="@animator/anim_trim_path_end" />
+    <target
+        android:name="home_fill"
+        android:animation="@animator/anim_fill_fade_in" />
 </animated-vector>

@@ -18,6 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
@@ -953,7 +959,7 @@ fun PlusMenuDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = AddIconVector,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(28.dp)
@@ -1032,10 +1038,10 @@ fun PlusMenuDialog(
                         }
 
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            imageVector = ArrowCircleRightIconVector,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -1095,10 +1101,10 @@ fun PlusMenuDialog(
                         }
 
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            imageVector = ArrowCircleRightIconVector,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -1277,3 +1283,142 @@ fun DeleteTransactionConfirmDialog(
         }
     }
 }
+
+private val AddIconVector: ImageVector
+    get() {
+        if (_addIconVector != null) {
+            return _addIconVector!!
+        }
+        _addIconVector = ImageVector.Builder(
+            name = "add",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.Companion.NonZero
+            ) {
+                moveTo(11f, 13f)
+                horizontalLineTo(6f)
+                quadTo(5.58f, 13f, 5.29f, 12.71f)
+                quadTo(5f, 12.43f, 5f, 12f)
+                reflectiveQuadTo(5.29f, 11.29f)
+                reflectiveQuadTo(6f, 11f)
+                horizontalLineToRelative(5f)
+                verticalLineTo(6f)
+                quadTo(11f, 5.57f, 11.29f, 5.29f)
+                reflectiveQuadTo(12f, 5f)
+                reflectiveQuadToRelative(0.71f, 0.29f)
+                reflectiveQuadTo(13f, 6f)
+                verticalLineToRelative(5f)
+                horizontalLineToRelative(5f)
+                quadToRelative(0.43f, 0f, 0.71f, 0.29f)
+                reflectiveQuadTo(19f, 12f)
+                reflectiveQuadToRelative(-0.29f, 0.71f)
+                reflectiveQuadTo(18f, 13f)
+                horizontalLineTo(13f)
+                verticalLineToRelative(5f)
+                quadToRelative(0f, 0.43f, -0.29f, 0.71f)
+                reflectiveQuadTo(12f, 19f)
+                reflectiveQuadTo(11.29f, 18.71f)
+                quadTo(11f, 18.43f, 11f, 18f)
+                verticalLineTo(13f)
+                close()
+            }
+        }.build()
+        return _addIconVector!!
+    }
+
+private var _addIconVector: ImageVector? = null
+
+private val ArrowCircleRightIconVector: ImageVector
+    get() {
+        if (_arrowCircleRightIconVector != null) {
+            return _arrowCircleRightIconVector!!
+        }
+        _arrowCircleRightIconVector = ImageVector.Builder(
+            name = "arrow_circle_right",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black),
+                fillAlpha = 1f,
+                stroke = null,
+                strokeAlpha = 1f,
+                strokeLineWidth = 1f,
+                strokeLineCap = StrokeCap.Butt,
+                strokeLineJoin = StrokeJoin.Bevel,
+                strokeLineMiter = 1f,
+                pathFillType = PathFillType.Companion.NonZero
+            ) {
+                moveTo(12.2f, 13f)
+                lineToRelative(-0.9f, 0.9f)
+                quadToRelative(-0.28f, 0.28f, -0.28f, 0.7f)
+                reflectiveQuadToRelative(0.28f, 0.7f)
+                quadToRelative(0.28f, 0.28f, 0.7f, 0.28f)
+                reflectiveQuadTo(12.7f, 15.3f)
+                lineToRelative(2.6f, -2.6f)
+                quadTo(15.6f, 12.4f, 15.6f, 12f)
+                reflectiveQuadTo(15.3f, 11.3f)
+                lineTo(12.7f, 8.7f)
+                quadTo(12.43f, 8.42f, 12f, 8.42f)
+                reflectiveQuadTo(11.3f, 8.7f)
+                reflectiveQuadTo(11.03f, 9.4f)
+                reflectiveQuadToRelative(0.28f, 0.7f)
+                lineTo(12.2f, 11f)
+                horizontalLineTo(9f)
+                quadTo(8.58f, 11f, 8.29f, 11.29f)
+                reflectiveQuadTo(8f, 12f)
+                reflectiveQuadToRelative(0.29f, 0.71f)
+                quadTo(8.58f, 13f, 9f, 13f)
+                horizontalLineToRelative(3.2f)
+                close()
+                moveTo(12f, 22f)
+                quadTo(9.93f, 22f, 8.1f, 21.21f)
+                quadTo(6.28f, 20.43f, 4.93f, 19.08f)
+                quadTo(3.58f, 17.73f, 2.79f, 15.9f)
+                reflectiveQuadTo(2f, 12f)
+                quadTo(2f, 9.92f, 2.79f, 8.1f)
+                quadTo(3.58f, 6.27f, 4.93f, 4.93f)
+                quadTo(6.28f, 3.57f, 8.1f, 2.79f)
+                quadTo(9.93f, 2f, 12f, 2f)
+                reflectiveQuadToRelative(3.9f, 0.79f)
+                reflectiveQuadToRelative(3.17f, 2.14f)
+                quadToRelative(1.35f, 1.35f, 2.14f, 3.17f)
+                quadTo(22f, 9.92f, 22f, 12f)
+                reflectiveQuadToRelative(-0.79f, 3.9f)
+                reflectiveQuadToRelative(-2.14f, 3.17f)
+                quadToRelative(-1.35f, 1.35f, -3.17f, 2.14f)
+                reflectiveQuadTo(12f, 22f)
+                close()
+                moveToRelative(0f, -2f)
+                quadToRelative(3.35f, 0f, 5.68f, -2.32f)
+                reflectiveQuadTo(20f, 12f)
+                reflectiveQuadTo(17.68f, 6.32f)
+                reflectiveQuadTo(12f, 4f)
+                reflectiveQuadTo(6.33f, 6.32f)
+                reflectiveQuadTo(4f, 12f)
+                reflectiveQuadToRelative(2.33f, 5.68f)
+                reflectiveQuadTo(12f, 20f)
+                close()
+                moveToRelative(0f, -8f)
+                close()
+            }
+        }.build()
+        return _arrowCircleRightIconVector!!
+    }
+
+private var _arrowCircleRightIconVector: ImageVector? = null
+

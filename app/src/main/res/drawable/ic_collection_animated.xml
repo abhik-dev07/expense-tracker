@@ -5,6 +5,11 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
+        android:name="collection_fill"
+        android:pathData="M 4,20 Q 3.18,20 2.59,19.41 T 2,18 V 6 Q 2,5.18 2.59,4.59 T 4,4 H 9.18 q 0.4,0 0.76,0.15 t 0.64,0.43 L 12,6 h 8 q 0.83,0 1.41,0.59 Q 22,7.18 22,8 V 18 q 0,0.82 -0.59,1.41 T 20,20 H 4 Z"
+        android:fillColor="#FF000000"
+        android:fillAlpha="0" />
+    <path
         android:name="collection_path"
         android:pathData="M 4,19.5 L 20,19.5 C 20.83,19.5 21.5,18.83 21.5,18 L 21.5,7.5 C 21.5,6.67 20.83,6 20,6 L 12,6 L 10.2,4.43 C 9.94,4.15 9.58,4 9.18,4 L 4,4 C 3.17,4 2.5,4.67 2.5,5.5 L 2.5,18 C 2.5,18.83 3.17,19.5 4,19.5 Z"
         android:strokeColor="#FF000000"
