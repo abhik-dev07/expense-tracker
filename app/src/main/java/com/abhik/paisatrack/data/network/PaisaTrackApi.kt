@@ -174,7 +174,7 @@ object ApiClient {
     private val BASE_URL = if (com.abhik.paisatrack.BuildConfig.DEBUG) {
         // Use "127.0.0.1" for emulator, or physical device via wireless/USB debugging (requires: adb reverse tcp:8080 tcp:8080)
         // Alternatively, use your host PC's local network IP (e.g., "http://192.168.1.XX:8080/api/")
-        "http://10.240.24.241:8080/api/"
+        "http://172.20.10.3:8080/api/"
     } else {
         "https://paisa-track.redsider.com/api/"
     }

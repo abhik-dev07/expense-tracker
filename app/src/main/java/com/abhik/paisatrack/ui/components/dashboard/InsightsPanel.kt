@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
+import com.abhik.paisatrack.ui.components.commonUi.CloseSmallRoundedIconVector
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -389,10 +389,10 @@ fun DailyBarChart(dailySums: List<DailySum>) {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Close,
+                                    imageVector = CloseSmallRoundedIconVector,
                                     contentDescription = "Close details",
                                     tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }

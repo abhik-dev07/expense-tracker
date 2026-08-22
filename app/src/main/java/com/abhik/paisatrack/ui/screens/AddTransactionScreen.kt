@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ import com.swmansion.pulsar.Pulsar
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -46,7 +48,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
-import com.abhik.paisatrack.ui.components.commonUi.ArrowBackIosNewIconVector
+import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
 import com.airbnb.lottie.compose.*
 import com.abhik.paisatrack.R
 import androidx.compose.ui.text.style.TextAlign
@@ -131,10 +133,10 @@ fun AddTransactionScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = ArrowBackIosNewIconVector,
+                        imageVector = ArrowLeftAltIconVector,
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
@@ -433,7 +435,7 @@ fun AddTransactionScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(CircleShape)
+                                        .clip(MaterialShapes.Cookie4Sided.toShape())
                                         .background(colColor.copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -587,7 +589,7 @@ fun AddTransactionScreen(
                                                         Box(
                                                             modifier = Modifier
                                                                 .size(32.dp)
-                                                                .clip(CircleShape)
+                                                                .clip(MaterialShapes.Cookie4Sided.toShape())
                                                                 .background(
                                                                     if (isSelected) itemColor
                                                                     else itemColor.copy(alpha = 0.15f)
@@ -846,9 +848,8 @@ fun AddTransactionScreen(
                                 )
                             }
                             SubmitState.Success -> {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Success",
+                                AnimatedCheckIcon(
+                                    isSelected = true,
                                     tint = buttonContentColor,
                                     modifier = Modifier.size(24.dp)
                                 )

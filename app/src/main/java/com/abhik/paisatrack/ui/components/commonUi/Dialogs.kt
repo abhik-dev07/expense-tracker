@@ -13,11 +13,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -43,6 +45,9 @@ import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -627,9 +632,8 @@ fun AddTransactionDialog(
                                     )
                                 }
                                 DialogSubmitState.Success -> {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Success",
+                                    AnimatedCheckIcon(
+                                        isSelected = true,
                                         tint = addContentColor,
                                         modifier = Modifier.size(24.dp)
                                     )
@@ -655,6 +659,7 @@ fun AddCollectionDialog(
     var name by remember { mutableStateOf("") }
     var selectedColorIdx by remember { mutableStateOf(0) }
     var selectedIconIdx by remember { mutableStateOf(0) }
+    var isForwardIconSelection by remember { mutableStateOf(true) }
 
     var errorText by remember { mutableStateOf("") }
 
@@ -775,25 +780,39 @@ fun AddCollectionDialog(
                     CollectionIcons.forEachIndexed { i, pair ->
                         val selected = selectedIconIdx == i
                         val iconThemeColor = safeParseColor(CollectionColors[selectedColorIdx].first)
+                        val targetRotation = if (selected) (if (isForwardIconSelection) 90f else -90f) else 0f
+                        val animatedRotation by animateFloatAsState(
+                            targetValue = targetRotation,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            ),
+                            label = "IconRotation_$i"
+                        )
                         
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .graphicsLayer { rotationZ = animatedRotation }
+                                .clip(MaterialShapes.Cookie4Sided.toShape())
                                 .background(if (selected) iconThemeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 .clickable {
                                     presets.plunk()
-                                    selectedIconIdx = i
+                                    if (i != selectedIconIdx) {
+                                        isForwardIconSelection = i > selectedIconIdx
+                                        selectedIconIdx = i
+                                    }
                                     focusManager.clearFocus()
-                                }
-                                .padding(6.dp),
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = getIconByName(pair.first),
                                 contentDescription = pair.second,
                                 tint = if (selected) iconThemeColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .graphicsLayer { rotationZ = -animatedRotation }
                             )
                         }
                     }
@@ -908,7 +927,11 @@ fun AddCollectionDialog(
                                     )
                                 }
                                 DialogSubmitState.Success -> {
-                                    Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = createContentColor, modifier = Modifier.size(24.dp))
+                                    AnimatedCheckIcon(
+                                        isSelected = true,
+                                        tint = createContentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
                             }
                         }
@@ -919,6 +942,7 @@ fun AddCollectionDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PlusMenuDialog(
     onDismiss: () -> Unit,
@@ -1010,8 +1034,8 @@ fun PlusMenuDialog(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .size(44.dp)
+                                .clip(MaterialShapes.Flower.toShape())
                                 .background(Color(0xFFB7DAAE).copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1073,8 +1097,8 @@ fun PlusMenuDialog(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .size(44.dp)
+                                .clip(MaterialShapes.Cookie4Sided.toShape())
                                 .background(Color(0xFFFFB8A9).copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1165,8 +1189,8 @@ fun DeleteTransactionConfirmDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = "Warning",
+                    imageVector = DeleteRoundedIconVector,
+                    contentDescription = "Delete",
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(48.dp)
                 )
@@ -1273,7 +1297,11 @@ fun DeleteTransactionConfirmDialog(
                                     )
                                 }
                                 DialogSubmitState.Success -> {
-                                    Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = deleteContentColor, modifier = Modifier.size(24.dp))
+                                    AnimatedCheckIcon(
+                                        isSelected = true,
+                                        tint = deleteContentColor,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
                             }
                         }

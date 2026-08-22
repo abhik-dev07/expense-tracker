@@ -76,15 +76,18 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
 import androidx.compose.ui.zIndex
 import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.swmansion.pulsar.Pulsar
-import com.abhik.paisatrack.ui.components.commonUi.ArrowBackIosNewIconVector
+import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
+import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
 import com.abhik.paisatrack.ui.utils.safeParseColor
 
 private enum class CollectionSubmitState {
@@ -329,10 +332,10 @@ fun CollectionTransactionsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = ArrowBackIosNewIconVector,
+                            imageVector = ArrowLeftAltIconVector,
                             contentDescription = "Back to dashboard",
                             tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
@@ -818,8 +821,7 @@ fun CollectionTransactionsScreen(
                                     colColor = colColor,
                                     dollarFormat = dollarFormat,
                                     onDeleteClick = {
-                                        viewModel.deleteTransaction(tx)
-                                        android.widget.Toast.makeText(context, "Record deleted successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                        txToDelete = tx
                                     },
                                     onLongClick = {
                                         presets.bassDrop()
@@ -1096,9 +1098,20 @@ fun CollectionTransactionsScreen(
         var editName by remember(collection.id) { mutableStateOf(collection.name) }
         var selectedColorIdx by remember(collection.id) { mutableStateOf(initialColorIdx) }
         var selectedIconIdx by remember(collection.id) { mutableStateOf(initialIconIdx) }
+        var isForwardIconSelection by remember(collection.id) { mutableStateOf(true) }
         var errorText by remember(collection.id) { mutableStateOf("") }
         var showDeleteConfirm by remember { mutableStateOf(false) }
         var showSaveConfirm by remember { mutableStateOf(false) }
+
+        val hasChanges = remember(editName, selectedColorIdx, selectedIconIdx, collection) {
+            val origName = collection.name
+            val origColor = collection.hexColor.lowercase()
+            val origIcon = collection.iconName.lowercase()
+            val curColor = LocalCollectionColors.getOrNull(selectedColorIdx)?.first?.lowercase() ?: ""
+            val curIcon = LocalCollectionIcons.getOrNull(selectedIconIdx)?.first?.lowercase() ?: ""
+
+            editName.trim() != origName.trim() || curColor != origColor || curIcon != origIcon
+        }
 
         ModalBottomSheet(
             onDismissRequest = { showEditCollectionModal = false },
@@ -1208,25 +1221,39 @@ fun CollectionTransactionsScreen(
                     LocalCollectionIcons.forEachIndexed { i, pair ->
                         val selected = selectedIconIdx == i
                         val iconThemeColor = safeParseColor(LocalCollectionColors[selectedColorIdx].first)
+                        val targetRotation = if (selected) (if (isForwardIconSelection) 90f else -90f) else 0f
+                        val animatedRotation by animateFloatAsState(
+                            targetValue = targetRotation,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            ),
+                            label = "IconRotation_$i"
+                        )
 
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (selected) iconThemeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .clickable {
-                                    selectedIconIdx = i
-                                    focusManager.clearFocus()
-                                    presets.boulder()
-                                }
-                                .padding(6.dp),
+                                 .size(44.dp)
+                                 .graphicsLayer { rotationZ = animatedRotation }
+                                 .clip(MaterialShapes.Cookie4Sided.toShape())
+                                 .background(if (selected) iconThemeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                 .clickable {
+                                     if (i != selectedIconIdx) {
+                                         isForwardIconSelection = i > selectedIconIdx
+                                         selectedIconIdx = i
+                                     }
+                                     focusManager.clearFocus()
+                                     presets.boulder()
+                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = getIconByNameLocal(pair.first),
                                 contentDescription = pair.second,
                                 tint = if (selected) iconThemeColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .graphicsLayer { rotationZ = -animatedRotation }
                             )
                         }
                     }
@@ -1261,29 +1288,56 @@ fun CollectionTransactionsScreen(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5)),
                         shape = CircleShape
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(DeleteRoundedIconVector, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
 
                     // Save Button
-                    Button(
-                        onClick = {
-                            if (editName.trim().isEmpty()) {
-                                errorText = "Collection name is required!"
-                            } else {
-                                showSaveConfirm = true
-                                presets.ping()
-                            }
-                        },
-                        modifier = Modifier.weight(2f).height(52.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = CircleShape
+                    val saveBtnBgColor by animateColorAsState(
+                        targetValue = if (hasChanges) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        animationSpec = tween(350, easing = FastOutSlowInEasing),
+                        label = "saveBtnBg"
+                    )
+                    val saveBtnContentColor by animateColorAsState(
+                        targetValue = if (hasChanges) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        animationSpec = tween(350, easing = FastOutSlowInEasing),
+                        label = "saveBtnContent"
+                    )
+                    val saveBtnBorderWidth by animateDpAsState(
+                        targetValue = if (hasChanges) 0.dp else 1.dp,
+                        animationSpec = tween(350, easing = FastOutSlowInEasing),
+                        label = "saveBtnBorderWidth"
+                    )
+                    val saveBtnBorderColor by animateColorAsState(
+                        targetValue = if (hasChanges) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                        animationSpec = tween(350, easing = FastOutSlowInEasing),
+                        label = "saveBtnBorderColor"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .weight(2f)
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .border(saveBtnBorderWidth, saveBtnBorderColor, CircleShape)
+                            .background(saveBtnBgColor)
+                            .clickable(enabled = hasChanges) {
+                                if (editName.trim().isEmpty()) {
+                                    errorText = "Collection name is required!"
+                                } else {
+                                    showSaveConfirm = true
+                                    presets.ping()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("Save Changes", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Save Changes",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = saveBtnContentColor
+                        )
                     }
                 }
 
@@ -1310,8 +1364,8 @@ fun CollectionTransactionsScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Warning",
+                                    imageVector = DeleteRoundedIconVector,
+                                    contentDescription = "Delete",
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(48.dp)
                                 )
@@ -1422,7 +1476,11 @@ fun CollectionTransactionsScreen(
                                                         )
                                                     }
                                                     CollectionSubmitState.Success -> {
-                                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = delContentColor, modifier = Modifier.size(24.dp))
+                                                        AnimatedCheckIcon(
+                                                            isSelected = true,
+                                                            tint = delContentColor,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
                                                     }
                                                 }
                                             }
@@ -1578,7 +1636,11 @@ fun CollectionTransactionsScreen(
                                                     )
                                                 }
                                                 CollectionSubmitState.Success -> {
-                                                    Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = saveContentColor, modifier = Modifier.size(24.dp))
+                                                    AnimatedCheckIcon(
+                                                        isSelected = true,
+                                                        tint = saveContentColor,
+                                                        modifier = Modifier.size(24.dp)
+                                                    )
                                                 }
                                             }
                                         }
@@ -1634,7 +1696,7 @@ fun getIconByNameLocal(iconName: String): ImageVector {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionListItemDetailed(
     transaction: TransactionEntity,
@@ -1686,7 +1748,7 @@ fun TransactionListItemDetailed(
     ) {
         // Red Delete Underlay visual helper on vertical center end
         Icon(
-            imageVector = Icons.Default.Delete,
+            imageVector = DeleteRoundedIconVector,
             contentDescription = "Swipe to delete",
             tint = Color.White,
             modifier = Modifier
@@ -1745,8 +1807,8 @@ fun TransactionListItemDetailed(
                 // Simple type indicators
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .size(48.dp)
+                        .clip(MaterialShapes.Cookie4Sided.toShape())
                         .background(badgeBg),
                     contentAlignment = Alignment.Center
                 ) {
@@ -1754,7 +1816,7 @@ fun TransactionListItemDetailed(
                         imageVector = if (isIncome) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                         contentDescription = null,
                         tint = iconColor,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 

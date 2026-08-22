@@ -32,6 +32,9 @@ import kotlinx.coroutines.delay
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateDpAsState
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
+import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
+import com.abhik.paisatrack.ui.components.commonUi.ExitToAppRoundedIconVector
 
 private enum class SettingsSubmitState {
     Idle,
@@ -93,7 +96,7 @@ fun SettingsBottomSheet(
                         supportingContent = { Text("Safely close current finance database session") },
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                imageVector = ExitToAppRoundedIconVector,
                                 contentDescription = "Sign Out",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -113,7 +116,7 @@ fun SettingsBottomSheet(
                         supportingContent = { Text("Permanently erase all your data and collections", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) },
                         leadingContent = {
                             Icon(
-                                imageVector = Icons.Default.Delete,
+                                imageVector = DeleteRoundedIconVector,
                                 contentDescription = "Delete Account",
                                 tint = MaterialTheme.colorScheme.error
                             )
@@ -157,7 +160,7 @@ fun SettingsBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                        imageVector = ExitToAppRoundedIconVector,
                         contentDescription = "Logout",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(48.dp)
@@ -270,7 +273,11 @@ fun SettingsBottomSheet(
                                         )
                                     }
                                     SettingsSubmitState.Success -> {
-                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = logoutContentColor, modifier = Modifier.size(24.dp))
+                                        AnimatedCheckIcon(
+                                            isSelected = true,
+                                            tint = logoutContentColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
                                 }
                             }
@@ -307,7 +314,7 @@ fun SettingsBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = DeleteRoundedIconVector,
                         contentDescription = "Delete",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(48.dp)
@@ -394,7 +401,7 @@ fun SettingsBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = DeleteRoundedIconVector,
                         contentDescription = "Confirm Delete",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(48.dp)
@@ -532,7 +539,11 @@ fun SettingsBottomSheet(
                                         )
                                     }
                                     SettingsSubmitState.Success -> {
-                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = deleteContentColor, modifier = Modifier.size(24.dp))
+                                        AnimatedCheckIcon(
+                                            isSelected = true,
+                                            tint = deleteContentColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
                                 }
                             }

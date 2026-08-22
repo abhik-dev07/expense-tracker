@@ -27,8 +27,10 @@ import com.swmansion.pulsar.Pulsar
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionDetailBottomSheet(
     transaction: TransactionEntity,
@@ -98,7 +100,7 @@ fun TransactionDetailBottomSheet(
             Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialShapes.Cookie4Sided.toShape())
                     .background(collectionColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
@@ -178,7 +180,7 @@ fun TransactionDetailBottomSheet(
                     shape = CircleShape
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Edit,
+                        imageVector = EditRoundedIconVector,
                         contentDescription = "Edit Transaction",
                         modifier = Modifier.size(18.dp)
                     )

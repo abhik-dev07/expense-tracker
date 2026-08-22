@@ -2,7 +2,10 @@ package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +48,9 @@ import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.abhik.paisatrack.ui.utils.safeParseColor
+import com.abhik.paisatrack.R
+import com.airbnb.lottie.compose.*
+import androidx.compose.ui.text.style.TextAlign
 
 private enum class SubmitState {
     Idle,
@@ -76,7 +83,24 @@ fun EditTransactionBottomSheet(
     var transactionType by remember { mutableStateOf(transaction.type) } // "EXPENSE" or "INCOME"
     var selectedCollectionId by remember { mutableStateOf(transaction.collectionId) }
 
+    val parsedAmount = remember(amountTextFieldValue.text) {
+        amountTextFieldValue.text.replace(",", "").toDoubleOrNull()
+    }
+    val hasChanges = remember(description, parsedAmount, transactionType, selectedCollectionId, transaction) {
+        val descChanged = description.trim() != transaction.description.trim()
+        val amountChanged = parsedAmount != null && parsedAmount != transaction.amount
+        val typeChanged = transactionType.uppercase() != transaction.type.uppercase()
+        val collectionChanged = selectedCollectionId != transaction.collectionId
+        descChanged || amountChanged || typeChanged || collectionChanged
+    }
+
     var errorText by remember { mutableStateOf("") }
+
+    val lottieComposition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.nothing))
+    val lottieProgress by animateLottieCompositionAsState(
+        composition = lottieComposition,
+        iterations = LottieConstants.IterateForever
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -111,55 +135,78 @@ fun EditTransactionBottomSheet(
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
-            // 1. Transaction Type Tab Selector
-            Row(
+            // 1. Transaction Type Tab Selector with smooth sliding animation
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .padding(4.dp)
             ) {
                 val isExpense = transactionType == "EXPENSE"
+                val itemWidth = maxWidth / 2f
+                val indicatorOffset by animateDpAsState(
+                    targetValue = if (isExpense) itemWidth else 0.dp,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "TypeIndicatorOffset"
+                )
 
+                // Smoothly sliding selection pill background
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .offset(x = indicatorOffset)
+                        .width(itemWidth)
+                        .height(44.dp)
                         .clip(CircleShape)
-                        .background(if (!isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
-                        .clickable(enabled = submitState == SubmitState.Idle) {
-                            presets.ping()
-                            transactionType = "INCOME"
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Cash In (+)",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
-                    )
-                }
+                        .background(MaterialTheme.colorScheme.surface)
+                )
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(CircleShape)
-                        .background(if (isExpense) MaterialTheme.colorScheme.surface else Color.Transparent)
-                        .clickable(enabled = submitState == SubmitState.Idle) {
-                            presets.ping()
-                            transactionType = "EXPENSE"
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
+                // Option labels row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Cash Out (-)",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = submitState == SubmitState.Idle) {
+                                presets.ping()
+                                transactionType = "INCOME"
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cash In (+)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = submitState == SubmitState.Idle) {
+                                presets.ping()
+                                transactionType = "EXPENSE"
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Cash Out (-)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)
+                        )
+                    }
                 }
             }
 
@@ -378,7 +425,7 @@ fun EditTransactionBottomSheet(
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(CircleShape)
+                                        .clip(MaterialShapes.Cookie4Sided.toShape())
                                         .background(colColor.copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -430,6 +477,12 @@ fun EditTransactionBottomSheet(
                                             categoryFilter = filter
                                         },
                                         shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
+                                        icon = {
+                                            AnimatedCheckIcon(
+                                                isSelected = isSelected,
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        },
                                         label = {
                                             Text(
                                                 text = filter,
@@ -473,77 +526,99 @@ fun EditTransactionBottomSheet(
                                 }
                             }
 
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 260.dp)
-                                    .verticalScroll(rememberScrollState())
-                            ) {
-                                filteredCols.forEach { col ->
-                                    val isSelected = col.id == selectedCollectionId
-                                    val itemColor = safeParseColor(col.hexColor, fallback = MaterialTheme.colorScheme.primary)
+                            if (filteredCols.isEmpty()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    LottieAnimation(
+                                        composition = lottieComposition,
+                                        progress = { lottieProgress },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "No custom collections",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 260.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    filteredCols.forEach { col ->
+                                        val isSelected = col.id == selectedCollectionId
+                                        val itemColor = safeParseColor(col.hexColor, fallback = MaterialTheme.colorScheme.primary)
 
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 4.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
+                                        DropdownMenuItem(
+                                            text = {
                                                 Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(vertical = 4.dp),
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                    horizontalArrangement = Arrangement.SpaceBetween
                                                 ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(32.dp)
-                                                            .clip(CircleShape)
-                                                            .background(
-                                                                if (isSelected) itemColor
-                                                                else itemColor.copy(alpha = 0.15f)
-                                                            ),
-                                                        contentAlignment = Alignment.Center
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                                     ) {
-                                                        Icon(
-                                                            imageVector = getIconByName(col.iconName),
-                                                            contentDescription = null,
-                                                            tint = if (isSelected) Color.White else itemColor,
-                                                            modifier = Modifier.size(16.dp)
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(32.dp)
+                                                                .clip(MaterialShapes.Cookie4Sided.toShape())
+                                                                .background(
+                                                                    if (isSelected) itemColor
+                                                                    else itemColor.copy(alpha = 0.15f)
+                                                                ),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = getIconByName(col.iconName),
+                                                                contentDescription = null,
+                                                                tint = if (isSelected) Color.White else itemColor,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                        Text(
+                                                            text = col.name,
+                                                            fontSize = 15.sp,
+                                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                         )
                                                     }
-                                                    Text(
-                                                        text = col.name,
-                                                        fontSize = 15.sp,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                                    )
-                                                }
 
-                                                if (isSelected) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = "Selected",
+                                                    AnimatedCheckIcon(
+                                                        isSelected = isSelected,
                                                         tint = itemColor,
                                                         modifier = Modifier.size(20.dp)
                                                     )
                                                 }
-                                            }
-                                        },
-                                        onClick = {
-                                            presets.ping()
-                                            selectedCollectionId = col.id
-                                            dropdownExpanded = false
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(52.dp)
-                                            .background(
-                                                if (isSelected) itemColor.copy(alpha = 0.08f)
-                                                else Color.Transparent
-                                            )
-                                    )
+                                            },
+                                            onClick = {
+                                                presets.ping()
+                                                selectedCollectionId = col.id
+                                                dropdownExpanded = false
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(52.dp)
+                                                .background(
+                                                    if (isSelected) itemColor.copy(alpha = 0.08f)
+                                                    else Color.Transparent
+                                                )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -586,36 +661,42 @@ fun EditTransactionBottomSheet(
                     )
                 }
 
+                val isButtonEnabled = hasChanges && submitState == SubmitState.Idle
+
                 val buttonBgColor by animateColorAsState(
-                    targetValue = when (submitState) {
-                        SubmitState.Idle -> MaterialTheme.colorScheme.primary
-                        SubmitState.Loading, SubmitState.Success -> MaterialTheme.colorScheme.surface
+                    targetValue = when {
+                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> MaterialTheme.colorScheme.surface
+                        hasChanges -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     },
-                    animationSpec = tween(400),
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "buttonBg"
                 )
                 val buttonContentColor by animateColorAsState(
-                    targetValue = when (submitState) {
-                        SubmitState.Idle -> MaterialTheme.colorScheme.onPrimary
-                        SubmitState.Loading, SubmitState.Success -> MaterialTheme.colorScheme.primary
+                    targetValue = when {
+                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> MaterialTheme.colorScheme.primary
+                        hasChanges -> MaterialTheme.colorScheme.onPrimary
+                        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                     },
-                    animationSpec = tween(400),
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "buttonContent"
                 )
                 val buttonBorderWidth by animateDpAsState(
-                    targetValue = when (submitState) {
-                        SubmitState.Idle -> 0.dp
-                        SubmitState.Loading, SubmitState.Success -> 1.dp
+                    targetValue = when {
+                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> 1.dp
+                        hasChanges -> 0.dp
+                        else -> 1.dp
                     },
-                    animationSpec = tween(400),
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "buttonBorder"
                 )
                 val buttonBorderColor by animateColorAsState(
-                    targetValue = when (submitState) {
-                        SubmitState.Idle -> Color.Transparent
-                        SubmitState.Loading, SubmitState.Success -> MaterialTheme.colorScheme.outline
+                    targetValue = when {
+                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> MaterialTheme.colorScheme.outline
+                        hasChanges -> Color.Transparent
+                        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
                     },
-                    animationSpec = tween(400),
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "buttonBorderColor"
                 )
 
@@ -626,8 +707,8 @@ fun EditTransactionBottomSheet(
                         .clip(CircleShape)
                         .border(buttonBorderWidth, buttonBorderColor, CircleShape)
                         .background(buttonBgColor)
-                        .clickable(enabled = submitState == SubmitState.Idle) {
-                             val amt = amountTextFieldValue.text.replace(",", "").toDoubleOrNull()
+                        .clickable(enabled = isButtonEnabled) {
+                            val amt = parsedAmount
                             val desc = if (description.trim().isEmpty()) {
                                 val currentSelection = collections.find { it.id == selectedCollectionId }
                                 currentSelection?.name ?: "Expense"
@@ -687,9 +768,8 @@ fun EditTransactionBottomSheet(
                                 )
                             }
                             SubmitState.Success -> {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Success",
+                                AnimatedCheckIcon(
+                                    isSelected = true,
                                     tint = buttonContentColor,
                                     modifier = Modifier.size(24.dp)
                                 )

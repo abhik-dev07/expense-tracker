@@ -36,7 +36,9 @@ import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.commonUi.shimmerEffect
+import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
 import com.airbnb.lottie.compose.*
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -46,6 +48,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
+import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.abhik.paisatrack.ui.utils.safeParseColor
@@ -53,6 +56,7 @@ import com.swmansion.pulsar.Pulsar
 import com.swmansion.pulsar.types.RealtimeComposerStrategy
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
     Surface(
@@ -73,7 +77,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialShapes.Cookie4Sided.toShape())
                     .shimmerEffect()
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -119,7 +123,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionListItem(
     transaction: TransactionEntity,
@@ -169,7 +173,7 @@ fun TransactionListItem(
     ) {
         // Red Delete Underlay visual helper on vertical center end
         Icon(
-            imageVector = Icons.Default.Delete,
+            imageVector = DeleteRoundedIconVector,
             contentDescription = "Swipe to delete",
             tint = Color.White,
             modifier = Modifier
@@ -229,7 +233,7 @@ fun TransactionListItem(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(MaterialShapes.Cookie4Sided.toShape())
                         .background(badgeBg),
                     contentAlignment = Alignment.Center
                 ) {
@@ -310,6 +314,7 @@ fun TransactionsPanel(
     var visibleLimit by rememberSaveable { mutableStateOf(20) }
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }
     var isLoadingMore by remember { mutableStateOf(false) }
+    var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
 
     LaunchedEffect(uiState.activeCollectionFilter, uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
         visibleLimit = 20
@@ -476,8 +481,7 @@ fun TransactionsPanel(
                             categoryIcon = getIconByName(parentCollection?.iconName ?: "category"),
                             dollarFormat = dollarFormat,
                             onDeleteClick = {
-                                viewModel.deleteTransaction(tx)
-                                Toast.makeText(context, "Record deleted successfully", Toast.LENGTH_SHORT).show()
+                                txToDelete = tx
                             },
                             onLongClick = {
                                 presets.bassDrop()
@@ -519,7 +523,6 @@ fun TransactionsPanel(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 24.dp)
-                                        .height(52.dp)
                                 ) {
                                     Text(
                                         text = "Load More (${uiState.filteredTransactions.size - visibleLimit} remaining)",
@@ -578,6 +581,21 @@ fun TransactionsPanel(
             onTypeFilterChange = { viewModel.setTypeFilter(it) },
             onTimeFilterChange = { viewModel.setTimeFilter(it) },
             onDismissRequest = { showFilters = false }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (txToDelete != null) {
+        val tx = txToDelete!!
+        DeleteTransactionConfirmDialog(
+            transaction = tx,
+            dollarFormat = dollarFormat,
+            onDismiss = { txToDelete = null },
+            onConfirm = {
+                viewModel.deleteTransaction(tx)
+                Toast.makeText(context, "Record deleted successfully", Toast.LENGTH_SHORT).show()
+                txToDelete = null
+            }
         )
     }
 }

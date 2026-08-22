@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -40,11 +41,14 @@ import com.abhik.paisatrack.ui.components.CollectionIcons
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.airbnb.lottie.compose.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
+import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
+import com.abhik.paisatrack.ui.components.commonUi.EditRoundedIconVector
 import com.abhik.paisatrack.ui.utils.safeParseColor
 
 private enum class PanelSubmitState {
@@ -337,9 +341,20 @@ fun CollectionsPanel(
             var editName by remember(editingCollectionSummary) { mutableStateOf(editingCollectionSummary?.collection?.name ?: "") }
             var selectedColorIdx by remember(editingCollectionSummary) { mutableStateOf(initialColorIdx) }
             var selectedIconIdx by remember(editingCollectionSummary) { mutableStateOf(initialIconIdx) }
+            var isForwardIconSelection by remember(editingCollectionSummary) { mutableStateOf(true) }
             var errorText by remember(editingCollectionSummary) { mutableStateOf("") }
             var showDeleteConfirm by remember { mutableStateOf(false) }
             var showSaveConfirm by remember { mutableStateOf(false) }
+
+            val hasChanges = remember(editName, selectedColorIdx, selectedIconIdx, editingCollectionSummary) {
+                val origName = editingCollectionSummary?.collection?.name ?: ""
+                val origColor = (editingCollectionSummary?.collection?.hexColor ?: "").lowercase()
+                val origIcon = (editingCollectionSummary?.collection?.iconName ?: "").lowercase()
+                val curColor = CollectionColors.getOrNull(selectedColorIdx)?.first?.lowercase() ?: ""
+                val curIcon = CollectionIcons.getOrNull(selectedIconIdx)?.first?.lowercase() ?: ""
+
+                editName.trim() != origName.trim() || curColor != origColor || curIcon != origIcon
+            }
 
             ModalBottomSheet(
                 onDismissRequest = { editingCollectionSummary = null },
@@ -449,25 +464,39 @@ fun CollectionsPanel(
                         CollectionIcons.forEachIndexed { i, pair ->
                             val selected = selectedIconIdx == i
                             val iconThemeColor = safeParseColor(CollectionColors[selectedColorIdx].first)
+                            val targetRotation = if (selected) (if (isForwardIconSelection) 90f else -90f) else 0f
+                            val animatedRotation by animateFloatAsState(
+                                targetValue = targetRotation,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                label = "IconRotation_$i"
+                            )
 
                             Box(
                                 modifier = Modifier
                                     .size(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .graphicsLayer { rotationZ = animatedRotation }
+                                    .clip(MaterialShapes.Cookie4Sided.toShape())
                                     .background(if (selected) iconThemeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                     .clickable {
-                                        selectedIconIdx = i
+                                        if (i != selectedIconIdx) {
+                                            isForwardIconSelection = i > selectedIconIdx
+                                            selectedIconIdx = i
+                                        }
                                         focusManager.clearFocus()
                                         presets.boulder()
-                                    }
-                                    .padding(6.dp),
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = getIconByName(pair.first),
                                     contentDescription = pair.second,
                                     tint = if (selected) iconThemeColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .graphicsLayer { rotationZ = -animatedRotation }
                                 )
                             }
                         }
@@ -502,29 +531,56 @@ fun CollectionsPanel(
                             border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
                             shape = CircleShape
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(DeleteRoundedIconVector, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
 
                         // Save Button
-                        Button(
-                            onClick = {
-                                if (editName.trim().isEmpty()) {
-                                    errorText = "Collection name is required!"
-                                } else {
-                                    showSaveConfirm = true
-                                }
-                                presets.ping()
-                            },
-                            modifier = Modifier.weight(1.5f).height(52.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
-                            shape = CircleShape
+                        val saveBtnBgColor by animateColorAsState(
+                            targetValue = if (hasChanges) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "saveBtnBg"
+                        )
+                        val saveBtnContentColor by animateColorAsState(
+                            targetValue = if (hasChanges) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "saveBtnContent"
+                        )
+                        val saveBtnBorderWidth by animateDpAsState(
+                            targetValue = if (hasChanges) 0.dp else 1.dp,
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "saveBtnBorderWidth"
+                        )
+                        val saveBtnBorderColor by animateColorAsState(
+                            targetValue = if (hasChanges) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "saveBtnBorderColor"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1.5f)
+                                .height(52.dp)
+                                .clip(CircleShape)
+                                .border(saveBtnBorderWidth, saveBtnBorderColor, CircleShape)
+                                .background(saveBtnBgColor)
+                                .clickable(enabled = hasChanges) {
+                                    if (editName.trim().isEmpty()) {
+                                        errorText = "Collection name is required!"
+                                    } else {
+                                        showSaveConfirm = true
+                                    }
+                                    presets.ping()
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("Save Changes", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Save Changes",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = saveBtnContentColor
+                            )
                         }
                     }
 
@@ -551,8 +607,8 @@ fun CollectionsPanel(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Warning,
-                                        contentDescription = "Warning",
+                                        imageVector = DeleteRoundedIconVector,
+                                        contentDescription = "Delete",
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(48.dp)
                                     )
@@ -664,7 +720,11 @@ fun CollectionsPanel(
                                                         )
                                                     }
                                                     PanelSubmitState.Success -> {
-                                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = delContentColor, modifier = Modifier.size(24.dp))
+                                                        AnimatedCheckIcon(
+                                                            isSelected = true,
+                                                            tint = delContentColor,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
                                                     }
                                                 }
                                             }
@@ -820,7 +880,11 @@ fun CollectionsPanel(
                                                         )
                                                     }
                                                     PanelSubmitState.Success -> {
-                                                        Icon(imageVector = Icons.Default.Check, contentDescription = "Success", tint = saveContentColor, modifier = Modifier.size(24.dp))
+                                                        AnimatedCheckIcon(
+                                                            isSelected = true,
+                                                            tint = saveContentColor,
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
                                                     }
                                                 }
                                             }
@@ -836,6 +900,7 @@ fun CollectionsPanel(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CollectionGridCard(
     summary: CollectionSummary,
@@ -879,7 +944,7 @@ fun CollectionGridCard(
                 Box(
                     modifier = Modifier
                         .size(38.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(MaterialShapes.Cookie4Sided.toShape())
                         .background(colColor.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -897,7 +962,7 @@ fun CollectionGridCard(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Edit,
+                        imageVector = EditRoundedIconVector,
                         contentDescription = "Edit Collection",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(16.dp)
