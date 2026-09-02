@@ -59,6 +59,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalDensity
 import com.abhik.paisatrack.ui.utils.safeParseColor
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 private enum class DialogSubmitState {
     Idle,
@@ -74,8 +76,8 @@ fun AddTransactionDialog(
     onConfirm: (description: String, amount: Double, type: String, collectionId: String) -> Unit
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     val focusManager = LocalFocusManager.current
     var description by remember { mutableStateOf("") }
     var amountString by remember { mutableStateOf("") }
@@ -654,8 +656,8 @@ fun AddCollectionDialog(
     onConfirm: (name: String, colorHex: String, iconName: String, budget: Double?) -> Unit
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     var name by remember { mutableStateOf("") }
     var selectedColorIdx by remember { mutableStateOf(0) }
     var selectedIconIdx by remember { mutableStateOf(0) }
@@ -951,8 +953,8 @@ fun PlusMenuDialog(
 ) {
     val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -1165,8 +1167,8 @@ fun DeleteTransactionConfirmDialog(
     onConfirm: () -> Unit
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)

@@ -36,6 +36,8 @@ import com.abhik.paisatrack.ui.components.commonUi.shimmerEffect
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import kotlinx.coroutines.launch
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 @Composable
 fun DetailItemRow(label: String, value: String) {
@@ -77,8 +79,8 @@ fun VisualSummaryHeader(
     val animatedExpense = remember { Animatable(uiState.totalExpense.toFloat()) }
     val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
 
     LaunchedEffect(netBalance, uiState.totalIncome, uiState.totalExpense, uiState.isLoading) {
         if (!uiState.isLoading) {

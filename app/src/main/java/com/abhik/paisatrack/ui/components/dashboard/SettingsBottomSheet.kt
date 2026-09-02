@@ -35,6 +35,8 @@ import androidx.compose.animation.core.animateDpAsState
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
 import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
 import com.abhik.paisatrack.ui.components.commonUi.ExitToAppRoundedIconVector
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 private enum class SettingsSubmitState {
     Idle,
@@ -57,8 +59,8 @@ fun SettingsBottomSheet(
     var showDeleteAccountVerifyDialog by remember { mutableStateOf(false) }
     var deleteVerificationText by remember { mutableStateOf("") }
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

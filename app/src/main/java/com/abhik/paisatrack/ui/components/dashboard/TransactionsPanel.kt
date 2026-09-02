@@ -1,16 +1,23 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,6 +38,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import com.abhik.paisatrack.ui.components.commonUi.CloseSmallRoundedIconVector
+import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
+import com.abhik.paisatrack.ui.components.commonUi.CalendarMonthIconVector
+import com.abhik.paisatrack.ui.components.commonUi.SearchRoundedIconVector
+import com.abhik.paisatrack.ui.components.commonUi.SearchDatePickerDialog
 import com.abhik.paisatrack.R
 import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceUiState
@@ -45,13 +58,28 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import android.content.Context
+import android.view.inputmethod.InputMethodManager
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.geometry.Offset
+import kotlin.math.absoluteValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.gestures.detectTapGestures
 import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import com.abhik.paisatrack.ui.components.getIconByName
+import com.abhik.paisatrack.ui.components.formatShortDate
 import com.abhik.paisatrack.ui.utils.safeParseColor
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.ui.utils.getSafeRealtimeComposer
 import com.swmansion.pulsar.Pulsar
 import com.swmansion.pulsar.types.RealtimeComposerStrategy
 import kotlinx.coroutines.delay
@@ -148,9 +176,11 @@ fun TransactionListItem(
     }
 
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
-    val realtime = remember { com.abhik.paisatrack.ui.utils.SafeRealtimeComposer(pulsar.getRealtimeComposer(RealtimeComposerStrategy.PRIMITIVE_TICK)) }
+    // This row also renders inside the full-screen search dialog, where LocalContext is the
+    // dialog's ContextThemeWrapper. Pulsar casts its context to Activity, so resolve the host.
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
+    val realtime = remember(pulsar) { pulsar.getSafeRealtimeComposer(RealtimeComposerStrategy.PRIMITIVE_TICK) }
 
     var swipeOffsetX by remember { mutableStateOf(0f) }
     val animatedSwipeOffset by animateFloatAsState(
@@ -303,20 +333,21 @@ fun TransactionsPanel(
     viewModel: FinanceViewModel,
     dollarFormat: DecimalFormat,
     onScrollProgressChanged: (Boolean) -> Unit,
+    onSearchActiveChanged: (Boolean) -> Unit = {},
     onTransactionLongClick: (TransactionEntity) -> Unit,
     onTransactionClick: (TransactionEntity) -> Unit,
     onBackToTop: (suspend () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     val listState = rememberLazyListState()
     var visibleLimit by rememberSaveable { mutableStateOf(20) }
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }
     var isLoadingMore by remember { mutableStateOf(false) }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
 
-    LaunchedEffect(uiState.activeCollectionFilter, uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
+    LaunchedEffect(uiState.activeCollectionFilter, uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder, uiState.searchQuery) {
         visibleLimit = 20
         animationStartLimit = 0
     }
@@ -338,11 +369,115 @@ fun TransactionsPanel(
     }
 
     var showFilters by remember { mutableStateOf(false) }
+
+    // Material 3 full-screen search. The input is driven by a TextFieldState which we mirror
+    // into the ViewModel's search query (debounced downstream to drive filtering + summary).
+    val searchBarState = rememberSearchBarState()
+    val textFieldState = rememberTextFieldState()
+    var showSearchDatePicker by remember { mutableStateOf(false) }
+
+    val view = LocalView.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val searchSuggestionsListState = rememberLazyListState()
+    val searchResultsListState = rememberLazyListState()
+
+    val searchBarColors = SearchBarDefaults.colors(
+        containerColor = MaterialTheme.colorScheme.background,
+        dividerColor = Color.Transparent,
+        inputFieldColors = SearchBarDefaults.inputFieldColors(
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedLeadingIconColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurface,
+            focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    )
+
+    LaunchedEffect(searchSuggestionsListState.isScrollInProgress) {
+        if (searchSuggestionsListState.isScrollInProgress) {
+            keyboardController?.hide()
+            focusManager.clearFocus()
+        }
+    }
+
+    LaunchedEffect(searchResultsListState.isScrollInProgress) {
+        if (searchResultsListState.isScrollInProgress) {
+            keyboardController?.hide()
+            focusManager.clearFocus()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { textFieldState.text.toString() }
+            .collect { viewModel.setSearchQuery(it) }
+    }
+    // When the search view collapses, reset the query and the date filter so neither leaks
+    // into the dashboard list.
+    LaunchedEffect(searchBarState.targetValue) {
+        if (searchBarState.targetValue == SearchBarValue.Collapsed) {
+            keyboardController?.hide()
+            focusManager.clearFocus()
+            textFieldState.clearText()
+            viewModel.clearSearchDate()
+            showSearchDatePicker = false
+        }
+    }
     val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
         uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All" || uiState.activeSortOrder != "Newest"
     }
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
+
+    // Looping typewriter reveal animation for dashboard search placeholder: "entry", "record", "cash in", "cash out"
+    val searchKeywords = remember { listOf("entry", "record", "cash in", "cash out") }
+    var currentKeywordIndex by remember { mutableIntStateOf(0) }
+    var displayedKeyword by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            val word = searchKeywords[currentKeywordIndex]
+            for (i in 1..word.length) {
+                displayedKeyword = word.substring(0, i)
+                delay(90L)
+            }
+            delay(1300L)
+            for (i in (word.length - 1) downTo 0) {
+                displayedKeyword = word.substring(0, i)
+                delay(50L)
+            }
+            delay(200L)
+            currentKeywordIndex = (currentKeywordIndex + 1) % searchKeywords.size
+        }
+    }
+
+    // Extended full-screen search placeholder typewriter loop: "name", "date", "title"
+    val extendedSearchKeywords = remember { listOf("name", "date", "title") }
+    var currentExtendedIndex by remember { mutableIntStateOf(0) }
+    var displayedExtendedKeyword by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            val word = extendedSearchKeywords[currentExtendedIndex]
+            for (i in 1..word.length) {
+                displayedExtendedKeyword = word.substring(0, i)
+                delay(90L)
+            }
+            delay(1300L)
+            for (i in (word.length - 1) downTo 0) {
+                displayedExtendedKeyword = word.substring(0, i)
+                delay(50L)
+            }
+            delay(200L)
+            currentExtendedIndex = (currentExtendedIndex + 1) % extendedSearchKeywords.size
+        }
+    }
 
     val showBackToTop by remember {
         derivedStateOf {
@@ -354,6 +489,12 @@ fun TransactionsPanel(
         uiState.filteredTransactions.take(visibleLimit)
     }
 
+    val isScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
                 state = listState,
@@ -362,7 +503,7 @@ fun TransactionsPanel(
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
-            // Sticky Header: Recent transactions list header (with integrated filter trigger)
+            // Sticky Header: Recent transactions list header with Scroll-Driven Expanding Search Bar
             stickyHeader {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -371,31 +512,186 @@ fun TransactionsPanel(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .padding(horizontal = 24.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Recent Activity",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                        // 1. "Recent Activity" Title (Collapses & fades out when scrolled)
+                        AnimatedVisibility(
+                            visible = !isScrolled,
+                            enter = fadeIn(tween(220)) + expandHorizontally(spring(stiffness = Spring.StiffnessMediumLow)),
+                            exit = fadeOut(tween(180)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Recent Activity",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                            }
+                        }
 
-                        // Filter triggers icon button with offset/overflow support for tag badge details
+                        // 2. Search Container (Expands from 36.dp circular icon into full M3 pill search bar)
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = if (isScrolled) Alignment.CenterStart else Alignment.CenterEnd
+                        ) {
+                            AnimatedContent(
+                                targetState = isScrolled,
+                                transitionSpec = {
+                                    (fadeIn(tween(200)) + expandHorizontally(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))) togetherWith
+                                        (fadeOut(tween(150)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow)))
+                                },
+                                label = "SearchIconPillTransition"
+                            ) { scrolled ->
+                                if (scrolled) {
+                                    // Expanded M3 Pill-shaped Search Bar
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(44.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                presets.plunk()
+                                                scope.launch { searchBarState.animateToExpanded() }
+                                            },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
+                                        shadowElevation = 1.dp
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(start = 12.dp, end = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = SearchRoundedIconVector,
+                                                    contentDescription = "Search",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(19.dp)
+                                                )
+
+                                                Spacer(modifier = Modifier.width(10.dp))
+
+                                                val dateActive = uiState.searchDateStart != null
+                                                val dateLabel = uiState.searchDateLabel
+                                                if (dateActive && dateLabel != null) {
+                                                    Surface(
+                                                        shape = CircleShape,
+                                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = CalendarMonthIconVector,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.primary,
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                            Text(
+                                                                text = dateLabel,
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.primary
+                                                            )
+                                                            Spacer(modifier = Modifier.width(3.dp))
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(16.dp)
+                                                                    .clip(CircleShape)
+                                                                    .clickable {
+                                                                        presets.plunk()
+                                                                        viewModel.clearSearchDate()
+                                                                    },
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = CloseSmallRoundedIconVector,
+                                                                    contentDescription = "Clear date",
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(12.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = "Search ",
+                                                            fontSize = 13.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                            maxLines = 1
+                                                        )
+                                                        Text(
+                                                            text = displayedKeyword,
+                                                            fontSize = 13.sp,
+                                                            fontWeight = FontWeight.Medium,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                                            maxLines = 1
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Initial State: Compact 36.dp Circular Search Button
+                                    Box(
+                                        modifier = Modifier.size(36.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                .clickable {
+                                                    presets.plunk()
+                                                    scope.launch { searchBarState.animateToExpanded() }
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = SearchRoundedIconVector,
+                                                contentDescription = "Search",
+                                                tint = MaterialTheme.colorScheme.onBackground,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // 3. Filter triggers icon button (Always available on the right)
                         Box(
                             modifier = Modifier.size(36.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            // Interactive core with distinct circular boundary is clipped
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(CircleShape)
                                     .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable { 
+                                    .clickable {
                                         presets.plunk()
-                                        showFilters = !showFilters 
+                                        showFilters = !showFilters
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -406,7 +702,7 @@ fun TransactionsPanel(
                                 )
                             }
 
-                            // Tiny active filter feedback dot shifted to sit above the circular button boundary (unclipped)
+                            // Tiny active filter feedback dot shifted to sit above the circular button boundary
                             if (isAnyFilterActive && !showFilters) {
                                 Box(
                                     modifier = Modifier
@@ -501,6 +797,7 @@ fun TransactionsPanel(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 16.dp),
+                                    
                             contentAlignment = Alignment.Center
                         ) {
                             if (isLoadingMore) {
@@ -568,6 +865,361 @@ fun TransactionsPanel(
                 Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
+
+        val isSearchExpanded = searchBarState.targetValue == SearchBarValue.Expanded || searchBarState.currentValue == SearchBarValue.Expanded
+
+        LaunchedEffect(isSearchExpanded) {
+            onSearchActiveChanged(isSearchExpanded)
+        }
+
+        BackHandler(enabled = isSearchExpanded) {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(view.windowToken, 0)
+            keyboardController?.hide()
+            focusManager.clearFocus()
+            scope.launch { searchBarState.animateToCollapsed() }
+        }
+
+        // Full-screen Search Overlay with smooth bottom-to-top slide-in and reverse slide-out
+        AnimatedVisibility(
+            visible = isSearchExpanded,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = spring(
+                    dampingRatio = 0.82f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + fadeIn(animationSpec = tween(220)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = spring(
+                    dampingRatio = 0.85f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) + fadeOut(animationSpec = tween(180)),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(100f)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val searchContext = LocalContext.current
+                    val searchView = LocalView.current
+                    val searchKeyboard = LocalSoftwareKeyboardController.current
+                    val searchFocus = LocalFocusManager.current
+
+                    val hideKeyboardNow = remember(searchContext, searchView, searchKeyboard, searchFocus) {
+                        {
+                            searchKeyboard?.hide()
+                            searchFocus.clearFocus(force = true)
+                            val imm = searchContext.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                            imm?.hideSoftInputFromWindow(searchView.windowToken, 0)
+                            imm?.hideSoftInputFromWindow(searchView.applicationWindowToken, 0)
+                        }
+                    }
+
+                    val searchScrollConnection = remember(hideKeyboardNow) {
+                        object : NestedScrollConnection {
+                            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                                if (source == NestedScrollSource.UserInput && available.y.absoluteValue > 0.5f) {
+                                    hideKeyboardNow()
+                                }
+                                return Offset.Zero
+                            }
+                        }
+                    }
+
+                    // Top Search Bar Input Field
+                    SearchBarDefaults.InputField(
+                        textFieldState = textFieldState,
+                        searchBarState = searchBarState,
+                        onSearch = {
+                            hideKeyboardNow()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = CircleShape,
+                        colors = searchBarColors.inputFieldColors,
+                        placeholder = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Search by ",
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    text = displayedExtendedKeyword,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                                )
+                            }
+                        },
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        presets.plunk()
+                                        hideKeyboardNow()
+                                        scope.launch { searchBarState.animateToCollapsed() }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = ArrowLeftAltIconVector,
+                                    contentDescription = "Close search",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            if (textFieldState.text.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            presets.plunk()
+                                            textFieldState.clearText()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = CloseSmallRoundedIconVector,
+                                        contentDescription = "Clear search",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            } else {
+                                val dateActive = uiState.searchDateStart != null
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            presets.plunk()
+                                            showSearchDatePicker = true
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = CalendarMonthIconVector,
+                                        contentDescription = "Filter by date",
+                                        tint = if (dateActive) MaterialTheme.colorScheme.primary
+                                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    )
+
+                    // Search Content Body with Tap & Scroll Keyboard Dismissal
+                    val query = uiState.searchQuery
+                    val dateLabel = uiState.searchDateLabel
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(searchScrollConnection)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = {
+                                        hideKeyboardNow()
+                                    }
+                                )
+                            }
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+
+                            if (query.isBlank() && uiState.searchDateStart == null) {
+                                LazyColumn(
+                                    state = searchSuggestionsListState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .nestedScroll(searchScrollConnection)
+                                        .imePadding(),
+                                    contentPadding = PaddingValues(bottom = 24.dp)
+                                ) {
+                                    if (uiState.frequentNames.isEmpty()) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(32.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "Start typing to search your records by name, or pick a date.",
+                                                    fontSize = 14.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        item {
+                                            Text(
+                                                text = "Frequent",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 4.dp)
+                                            )
+                                        }
+                                        items(uiState.frequentNames) { name ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        presets.plunk()
+                                                        hideKeyboardNow()
+                                                        textFieldState.setTextAndPlaceCursorAtEnd(name)
+                                                    }
+                                                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = SearchRoundedIconVector,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(16.dp))
+                                                Text(
+                                                    text = name,
+                                                    fontSize = 15.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                val results = uiState.searchResults
+                                LazyColumn(
+                                    state = searchResultsListState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .nestedScroll(searchScrollConnection)
+                                        .imePadding(),
+                                    contentPadding = PaddingValues(bottom = 24.dp)
+                                ) {
+                                    uiState.searchSummary?.let { s ->
+                                        item {
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant
+                                            ) {
+                                                Column(modifier = Modifier.padding(16.dp)) {
+                                                    Text(
+                                                        text = (if (s.query.isBlank()) dateLabel ?: "All time"
+                                                                else "\"${s.query}\"") +
+                                                            " — ${s.matchCount} " +
+                                                            if (s.matchCount == 1) "record" else "records",
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = buildString {
+                                                            if (s.totalSent > 0) append("Cash out: ${dollarFormat.format(s.totalSent)}")
+                                                            if (s.totalSent > 0 && s.totalReceived > 0) append("  ·  ")
+                                                            if (s.totalReceived > 0) append("Cash in: ${dollarFormat.format(s.totalReceived)}")
+                                                        },
+                                                        fontSize = 13.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (results.isEmpty()) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(32.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = if (query.isBlank()) "No transactions on ${dateLabel ?: "this date"}"
+                                                           else "No results for \"${query.trim()}\"",
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onBackground,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        itemsIndexed(results, key = { _, tx -> tx.id }) { _, tx ->
+                                            val parentCollection = uiState.collections.find { it.id == tx.collectionId }
+                                            val categoryColor = safeParseColor(parentCollection?.hexColor)
+                                            TransactionListItem(
+                                                transaction = tx,
+                                                categoryName = parentCollection?.name ?: "General",
+                                                categoryColor = categoryColor,
+                                                categoryIcon = getIconByName(parentCollection?.iconName ?: "category"),
+                                                dollarFormat = dollarFormat,
+                                                onDeleteClick = {
+                                                    hideKeyboardNow()
+                                                    scope.launch { searchBarState.animateToCollapsed() }
+                                                    txToDelete = tx
+                                                },
+                                                onLongClick = {
+                                                    presets.bassDrop()
+                                                    hideKeyboardNow()
+                                                    scope.launch { searchBarState.animateToCollapsed() }
+                                                    onTransactionLongClick(tx)
+                                                },
+                                                onClick = {
+                                                    presets.boulder()
+                                                    hideKeyboardNow()
+                                                    scope.launch { searchBarState.animateToCollapsed() }
+                                                    onTransactionClick(tx)
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showSearchDatePicker) {
+        SearchDatePickerDialog(
+            activeStart = uiState.searchDateStart,
+            activeEnd = uiState.searchDateEnd,
+            onConfirm = { start, end ->
+                viewModel.setSearchDateRange(start, end)
+                showSearchDatePicker = false
+            },
+            onClear = {
+                viewModel.clearSearchDate()
+                showSearchDatePicker = false
+            },
+            onDismiss = { showSearchDatePicker = false }
+        )
     }
 
     // Shared Filter Bottom Sheet

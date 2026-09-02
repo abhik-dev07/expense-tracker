@@ -3,6 +3,9 @@ package com.abhik.paisatrack.ui.components
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // Icon mapper helper
 fun getIconByName(iconName: String): ImageVector {
@@ -51,3 +54,7 @@ val CollectionIcons = listOf(
     "fitness_center" to "Sports & Fitness",
     "work" to "Work/Office"
 )
+
+fun formatShortDate(ts: Long): String =
+    SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(ts))
+

@@ -50,6 +50,8 @@ import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
 import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
 import com.abhik.paisatrack.ui.components.commonUi.EditRoundedIconVector
 import com.abhik.paisatrack.ui.utils.safeParseColor
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 private enum class PanelSubmitState {
     Idle,
@@ -68,8 +70,8 @@ fun CollectionsPanel(
     onBackToTop: (suspend () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     
@@ -912,8 +914,8 @@ fun CollectionGridCard(
         safeParseColor(summary.collection.hexColor)
     }
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
 
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 

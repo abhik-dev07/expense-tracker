@@ -36,6 +36,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import com.abhik.paisatrack.ui.utils.safeParseColor
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 @Composable
 fun InsightsPanel(
@@ -318,8 +320,8 @@ fun DailyBarChart(dailySums: List<DailySum>) {
     var selectedDayIndex by remember { mutableStateOf(-1) }
 
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
 
     val maxAmount = remember(dailySums) {
         val maxInc = dailySums.maxOfOrNull { it.totalIncome } ?: 0.0

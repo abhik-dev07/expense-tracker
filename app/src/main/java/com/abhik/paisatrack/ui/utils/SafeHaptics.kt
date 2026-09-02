@@ -1,13 +1,33 @@
 package com.abhik.paisatrack.ui.utils
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import com.swmansion.pulsar.Pulsar
 import com.swmansion.pulsar.types.RealtimeComposerStrategy
 
-class SafePresets(private val delegate: Any) {
+/**
+ * Resolve the hosting [Activity] from any [Context]. Inside a Compose Dialog/Popup
+ * (e.g. ExpandedFullScreenSearchBar, ModalBottomSheet) `LocalContext.current` is a
+ * ContextThemeWrapper rather than the Activity. Pulsar casts its context to Activity
+ * in createPresets(), so passing the wrapper directly crashes with ClassCastException.
+ * Walk the baseContext chain to recover the Activity before constructing Pulsar.
+ */
+fun Context.findActivity(): Activity? {
+    var ctx: Context = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+class SafePresets(private val delegate: Any?) {
     private fun invokeSafe(methodName: String) {
+        val target = delegate ?: return
         try {
-            val method = delegate.javaClass.getMethod(methodName)
-            method.invoke(delegate)
+            val method = target.javaClass.getMethod(methodName)
+            method.invoke(target)
         } catch (t: Throwable) {
             // Suppress haptic vibration errors on devices with invalid amplitude support
         }
@@ -25,30 +45,35 @@ class SafePresets(private val delegate: Any) {
 }
 
 fun Pulsar.getSafePresets(): SafePresets {
-    return SafePresets(this.getPresets())
+    // getPresets() itself can throw (it casts Pulsar's context to Activity), so the
+    // acquisition has to be guarded too — not just the individual preset calls.
+    return SafePresets(try { getPresets() } catch (t: Throwable) { null })
 }
 
-class SafeRealtimeComposer(private val delegate: Any) {
+class SafeRealtimeComposer(private val delegate: Any?) {
     fun start() {
+        val target = delegate ?: return
         try {
-            delegate.javaClass.getMethod("start").invoke(delegate)
+            target.javaClass.getMethod("start").invoke(target)
         } catch (t: Throwable) {}
     }
 
     fun stop() {
+        val target = delegate ?: return
         try {
-            delegate.javaClass.getMethod("stop").invoke(delegate)
+            target.javaClass.getMethod("stop").invoke(target)
         } catch (t: Throwable) {}
     }
 
     fun set(amplitude: Float, frequency: Float, startIfNeeded: Boolean = true) {
+        val target = delegate ?: return
         try {
-            val method = delegate.javaClass.methods.firstOrNull { it.name == "set" }
-            method?.invoke(delegate, amplitude, frequency, startIfNeeded)
+            val method = target.javaClass.methods.firstOrNull { it.name == "set" }
+            method?.invoke(target, amplitude, frequency, startIfNeeded)
         } catch (t: Throwable) {}
     }
 }
 
 fun Pulsar.getSafeRealtimeComposer(strategy: RealtimeComposerStrategy): SafeRealtimeComposer {
-    return SafeRealtimeComposer(this.getRealtimeComposer(strategy))
+    return SafeRealtimeComposer(try { getRealtimeComposer(strategy) } catch (t: Throwable) { null })
 }

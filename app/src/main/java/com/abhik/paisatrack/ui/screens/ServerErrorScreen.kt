@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.R
 import com.airbnb.lottie.compose.*
 import com.swmansion.pulsar.Pulsar
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 @Composable
 fun ServerErrorScreen(
@@ -28,8 +30,8 @@ fun ServerErrorScreen(
         iterations = LottieConstants.IterateForever
     )
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
 
     Column(
         modifier = Modifier

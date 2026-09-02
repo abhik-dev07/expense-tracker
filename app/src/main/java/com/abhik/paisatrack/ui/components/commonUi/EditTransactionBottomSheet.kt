@@ -51,6 +51,8 @@ import com.abhik.paisatrack.ui.utils.safeParseColor
 import com.abhik.paisatrack.R
 import com.airbnb.lottie.compose.*
 import androidx.compose.ui.text.style.TextAlign
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 private enum class SubmitState {
     Idle,
@@ -68,8 +70,8 @@ fun EditTransactionBottomSheet(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     val isDark = isSystemInDarkTheme()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()

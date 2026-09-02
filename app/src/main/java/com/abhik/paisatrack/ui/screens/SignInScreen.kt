@@ -51,6 +51,8 @@ import com.mmk.kmpauth.google.GoogleButtonUiContainer
 import com.abhik.paisatrack.BuildConfig
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.swmansion.pulsar.Pulsar
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 enum class SignInButtonState {
     Idle,
@@ -66,8 +68,8 @@ fun SignInScreen(
     onNavigateToDashboard: () -> Unit
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
     val view = LocalView.current

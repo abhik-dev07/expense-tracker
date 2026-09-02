@@ -89,6 +89,9 @@ import com.swmansion.pulsar.Pulsar
 import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
 import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
 import com.abhik.paisatrack.ui.utils.safeParseColor
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.ui.utils.getSafeRealtimeComposer
 
 private enum class CollectionSubmitState {
     Idle,
@@ -219,8 +222,8 @@ fun CollectionTransactionsScreen(
 
     val view = LocalView.current
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     @Suppress("DEPRECATION")
     DisposableEffect(isDark) {
         val activity = context as? android.app.Activity
@@ -1721,9 +1724,9 @@ fun TransactionListItemDetailed(
     val isIncome = transaction.type.uppercase() == "INCOME"
 
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
-    val realtime = remember { com.abhik.paisatrack.ui.utils.SafeRealtimeComposer(pulsar.getRealtimeComposer(com.swmansion.pulsar.types.RealtimeComposerStrategy.PRIMITIVE_TICK)) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
+    val realtime = remember(pulsar) { pulsar.getSafeRealtimeComposer(com.swmansion.pulsar.types.RealtimeComposerStrategy.PRIMITIVE_TICK) }
 
     var swipeOffsetX by remember { mutableStateOf(0f) }
     val animatedSwipeOffset by animateFloatAsState(
@@ -1808,7 +1811,7 @@ fun TransactionListItemDetailed(
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(MaterialShapes.Cookie4Sided.toShape())
+                        .clip(MaterialShapes.Flower.toShape())
                         .background(badgeBg),
                     contentAlignment = Alignment.Center
                 ) {

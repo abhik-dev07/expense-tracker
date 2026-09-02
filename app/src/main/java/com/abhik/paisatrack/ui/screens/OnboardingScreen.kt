@@ -31,6 +31,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalView
 import android.view.HapticFeedbackConstants
 import com.swmansion.pulsar.Pulsar
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 data class OnboardingStep(
     val title: String,
@@ -44,8 +46,8 @@ fun OnboardingScreen(
     onNavigateToSignIn: () -> Unit
 ) {
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     val coroutineScope = rememberCoroutineScope()
     val view = LocalView.current
 

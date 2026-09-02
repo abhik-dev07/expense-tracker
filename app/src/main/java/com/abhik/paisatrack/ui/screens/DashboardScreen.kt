@@ -80,6 +80,8 @@ import com.abhik.paisatrack.ui.components.dashboard.SettingsBottomSheet
 import com.abhik.paisatrack.ui.components.dashboard.TransactionsPanel
 import com.abhik.paisatrack.ui.components.dashboard.VisualSummaryHeader
 import com.swmansion.pulsar.Pulsar
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationGraphicsApi::class)
@@ -100,6 +102,7 @@ fun DashboardScreen(
     var showAddCollectionDialog by remember { mutableStateOf(false) }
     var showPlusMenu by remember { mutableStateOf(false) }
     var isScrolling by remember { mutableStateOf(false) }
+    var isSearchOpen by rememberSaveable { mutableStateOf(false) }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var txDetailToShow by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
@@ -129,8 +132,8 @@ fun DashboardScreen(
     }
 
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     val userName = remember { AuthManager.getUserName(context) }
     val firstName = remember(userName) { userName.split(" ").firstOrNull() ?: userName }
     val profilePicUrl = remember { AuthManager.getProfilePicUrl(context) }
@@ -189,13 +192,13 @@ fun DashboardScreen(
 
 
     val bottomBarOffset by animateDpAsState(
-        targetValue = if (isScrolling) 200.dp else 0.dp,
+        targetValue = if (isScrolling || isSearchOpen) 200.dp else 0.dp,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "NavBarOffsetAnimation"
     )
 
     val bottomBarAlpha by animateFloatAsState(
-        targetValue = if (isScrolling) 0f else 1f,
+        targetValue = if (isScrolling || isSearchOpen) 0f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "NavBarAlphaAnimation"
     )
@@ -507,56 +510,64 @@ fun DashboardScreen(
                         }
                     }
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .zIndex(10f)
-                        .background(MaterialTheme.colorScheme.background)
+                AnimatedVisibility(
+                    visible = !isSearchOpen,
+                    enter = fadeIn(tween(200)) + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
+                    exit = fadeOut(tween(150)) + shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow))
                 ) {
-                    DashboardHeader(
-                        activeTab = activeTab,
-                        userName = userName,
-                        firstName = firstName,
-                        profilePicUrl = profilePicUrl,
-                        onSettingsClick = { showSettingsBottomSheet = true },
-                        isSettingsOpen = showSettingsBottomSheet
-                    )
-                }
-
-                // Floating Offline Banner below DashboardHeader and above VisualSummaryHeader
-                com.abhik.paisatrack.ui.screens.OfflineBanner(
-                    isVisible = !isOnline,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .zIndex(10f)
-                )
-
-                // Balance Card container with collapsing height + inner parallax translation
-                if (activeTab != "Profile") {
-                    val currentHeightDp = with(LocalDensity.current) {
-                        (headerHeightPx + scrollOffsetPx).coerceAtLeast(0f).toDp()
-                    }
-                    val progress = if (headerHeightPx > 0f) (-scrollOffsetPx / headerHeightPx).coerceIn(0f, 1f) else 0f
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(currentHeightDp)
-                            .clipToBounds()
-                    ) {
-                        Column(
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .graphicsLayer {
-                                    // Parallax translation (moves at 0.45x speed)
-                                    translationY = scrollOffsetPx * 0.45f
-                                    val scale = 1f - (progress * 0.04f)
-                                    scaleX = scale
-                                    scaleY = scale
-                                    alpha = (1f - progress * 0.4f).coerceIn(0.2f, 1f)
-                                }
+                                .zIndex(10f)
+                                .background(MaterialTheme.colorScheme.background)
                         ) {
-                            VisualSummaryHeader(uiState = uiState, dollarFormat = dollarFormat)
+                            DashboardHeader(
+                                activeTab = activeTab,
+                                userName = userName,
+                                firstName = firstName,
+                                profilePicUrl = profilePicUrl,
+                                onSettingsClick = { showSettingsBottomSheet = true },
+                                isSettingsOpen = showSettingsBottomSheet
+                            )
+                        }
+
+                        // Floating Offline Banner below DashboardHeader and above VisualSummaryHeader
+                        com.abhik.paisatrack.ui.screens.OfflineBanner(
+                            isVisible = !isOnline,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .zIndex(10f)
+                        )
+
+                        // Balance Card container with collapsing height + inner parallax translation
+                        if (activeTab != "Profile") {
+                            val currentHeightDp = with(LocalDensity.current) {
+                                (headerHeightPx + scrollOffsetPx).coerceAtLeast(0f).toDp()
+                            }
+                            val progress = if (headerHeightPx > 0f) (-scrollOffsetPx / headerHeightPx).coerceIn(0f, 1f) else 0f
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(currentHeightDp)
+                                    .clipToBounds()
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer {
+                                            // Parallax translation (moves at 0.45x speed)
+                                            translationY = scrollOffsetPx * 0.45f
+                                            val scale = 1f - (progress * 0.04f)
+                                            scaleX = scale
+                                            scaleY = scale
+                                            alpha = (1f - progress * 0.4f).coerceIn(0.2f, 1f)
+                                        }
+                                ) {
+                                    VisualSummaryHeader(uiState = uiState, dollarFormat = dollarFormat)
+                                }
+                            }
                         }
                     }
                 }
@@ -594,6 +605,7 @@ fun DashboardScreen(
                             viewModel = viewModel,
                             dollarFormat = dollarFormat,
                             onScrollProgressChanged = { isScrolling = it },
+                            onSearchActiveChanged = { isSearchOpen = it },
                             onTransactionLongClick = { tx -> txToDelete = tx },
                             onTransactionClick = { tx -> txDetailToShow = tx },
                             onBackToTop = { scrollAction ->

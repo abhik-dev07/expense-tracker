@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.toShape
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -46,8 +48,8 @@ fun TransactionDetailBottomSheet(
     val isIncome = transaction.type.uppercase() == "INCOME"
     val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
-    val pulsar = remember { Pulsar(context) }
-    val presets = remember { com.abhik.paisatrack.ui.utils.SafePresets(pulsar.getPresets()) }
+    val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
+    val presets = remember(pulsar) { pulsar.getSafePresets() }
     // Match exact date & time logic from the mockup
     val todayStr = SimpleDateFormat("dd MMM yyyy", LocalLocale.current.platformLocale).format(Date())
     val yesterdayStr = SimpleDateFormat("dd MMM yyyy", LocalLocale.current.platformLocale).format(Date(System.currentTimeMillis() - 86400000L))
