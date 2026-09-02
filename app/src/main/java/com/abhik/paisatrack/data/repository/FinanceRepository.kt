@@ -211,6 +211,7 @@ class FinanceRepository(
             )
             val transactionsResponse = ApiClient.api.getTransactions(
                 userId = userId,
+                limit = 25000,
                 noCache = if (noCache) "true" else "false",
                 since = since
             )

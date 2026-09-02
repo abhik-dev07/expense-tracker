@@ -37,6 +37,15 @@ data class DailySum(
     val timestamp: Long
 )
 
+data class SearchSummary(
+    val query: String,
+    val matchCount: Int,
+    val totalSent: Double,
+    val totalReceived: Double,
+    val firstTimestamp: Long,
+    val lastTimestamp: Long
+)
+
 data class FinanceUiState(
     val collections: List<CollectionEntity> = emptyList(),
     val rawTransactions: List<TransactionEntity> = emptyList(),
@@ -57,8 +66,43 @@ data class FinanceUiState(
     val collActiveTypeFilter: String = "All",
     val collActiveSortOrder: String = "Newest",
     val isLoading: Boolean = true,
-    val isServerError: Boolean = false
+    val isServerError: Boolean = false,
+    val searchQuery: String = "",
+    val searchSummary: SearchSummary? = null,
+    val frequentNames: List<String> = emptyList(),
+
+    // Search-only state. The search overlay does a global name + date lookup and deliberately
+    // ignores the dashboard's transient filters, so it keeps its own result list.
+    val searchResults: List<TransactionEntity> = emptyList(),
+    val searchDateStart: Long? = null,
+    val searchDateEnd: Long? = null,
+    val searchDateLabel: String? = null
 )
+
+fun buildSearchTokens(raw: String): List<String> =
+    raw.trim().lowercase().split(" ").filter { it.isNotBlank() }
+
+fun matchesSearch(tx: TransactionEntity, tokens: List<String>): Boolean {
+    if (tokens.isEmpty()) return true
+    val haystack = tx.description.lowercase()
+    return tokens.all { haystack.contains(it) }
+}
+
+/** "Aug 22, 2026" for a single day, "Aug 1 – Aug 22, 2026" for a span. */
+fun formatSearchDateLabel(start: Long?, end: Long?): String? {
+    if (start == null) return null
+    val full = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    val short = SimpleDateFormat("MMM d", Locale.getDefault())
+    val startCal = Calendar.getInstance().apply { timeInMillis = start }
+    val endCal = Calendar.getInstance().apply { timeInMillis = end ?: start }
+    val sameDay = startCal.get(Calendar.YEAR) == endCal.get(Calendar.YEAR) &&
+            startCal.get(Calendar.DAY_OF_YEAR) == endCal.get(Calendar.DAY_OF_YEAR)
+    return if (sameDay) {
+        full.format(Date(start))
+    } else {
+        "${short.format(Date(start))} – ${full.format(Date(end ?: start))}"
+    }
+}
 
 class FinanceViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -85,6 +129,23 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     private val _collSortOrder = MutableStateFlow("Newest")
     val collSortOrder = _collSortOrder.asStateFlow()
+
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    private val debouncedSearchQuery: Flow<String> = _searchQuery
+        .debounce { if (it.isEmpty()) 0L else 180L }
+        .distinctUntilChanged()
+
+    // Inclusive local-time day bounds for the search date filter. Scoped to the search overlay
+    // only — the dashboard list keeps using _selectedTimeFilter.
+    private val _searchDateStart = MutableStateFlow<Long?>(null)
+    val searchDateStart: StateFlow<Long?> = _searchDateStart.asStateFlow()
+
+    private val _searchDateEnd = MutableStateFlow<Long?>(null)
+    val searchDateEnd: StateFlow<Long?> = _searchDateEnd.asStateFlow()
 
     // AI Insight state
     private val _aiInsights = MutableStateFlow("")
@@ -167,7 +228,10 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         _collTypeFilter,
         _collSortOrder,
         _isLoading,
-        _isServerError
+        _isServerError,
+        debouncedSearchQuery,
+        _searchDateStart,
+        _searchDateEnd
     ) { args ->
         @Suppress("UNCHECKED_CAST")
         val collections = args[0] as List<CollectionEntity>
@@ -182,9 +246,13 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         val cSort = args[8] as String
         val isLoading = args[9] as Boolean
         val isServerError = args[10] as Boolean
+        val searchQuery = args[11] as String
+        val searchDateStart = args[12] as Long?
+        val searchDateEnd = args[13] as Long?
         
         // 1. Filter transactions for Dashboard
         val now = System.currentTimeMillis()
+        val searchTokens = buildSearchTokens(searchQuery)
         val filtered = transactions.filter { tx ->
             val matchesCollection = collectionFilter == null || tx.collectionId == collectionFilter
             val matchesType = typeFilter == "All" || tx.type.uppercase() == typeFilter.uppercase()
@@ -195,8 +263,9 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 "This Month" -> isSameMonth(tx.timestamp, now)
                 else -> true
             }
+            val matchesQuery = matchesSearch(tx, searchTokens)
             
-            matchesCollection && matchesType && matchesTime
+            matchesCollection && matchesType && matchesTime && matchesQuery
         }
 
         // Apply Dashboard Sorting
@@ -244,6 +313,45 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         // 4. Compute daily sums for graphical charts (last 7 days of transactions)
         val dailySums = computeDailySums(transactions)
 
+        // 5. Search results — a global lookup over every transaction by name and/or date,
+        // independent of the dashboard's collection/type/time filters.
+        val searchActive = searchTokens.isNotEmpty() || searchDateStart != null
+        val searchResults = if (!searchActive) emptyList() else transactions
+            .filter { tx ->
+                val matchesQuery = matchesSearch(tx, searchTokens)
+                val matchesDate = searchDateStart == null ||
+                        tx.timestamp in searchDateStart..(searchDateEnd ?: searchDateStart)
+                matchesQuery && matchesDate
+            }
+            .sortedByDescending { it.timestamp }
+
+        val summary = if (!searchActive || searchResults.isEmpty()) null else {
+            var sent = 0.0
+            var received = 0.0
+            searchResults.forEach {
+                if (it.type.uppercase() == "INCOME") received += it.amount else sent += it.amount
+            }
+            SearchSummary(
+                query = searchQuery.trim(),
+                matchCount = searchResults.size,
+                totalSent = sent,
+                totalReceived = received,
+                firstTimestamp = searchResults.minOf { it.timestamp },
+                lastTimestamp = searchResults.maxOf { it.timestamp }
+            )
+        }
+
+        val frequentNames = transactions
+            .map { it.description.trim() }
+            .filter { it.isNotBlank() }
+            .groupingBy { it.lowercase() }
+            .eachCount()
+            .filter { it.value >= 2 }
+            .entries
+            .sortedByDescending { it.value }
+            .take(12)
+            .map { entry -> transactions.first { it.description.trim().lowercase() == entry.key }.description.trim() }
+
         FinanceUiState(
             collections = collections,
             rawTransactions = transactions,
@@ -262,7 +370,14 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             collActiveTypeFilter = cType,
             collActiveSortOrder = cSort,
             isLoading = isLoading,
-            isServerError = isServerError
+            isServerError = isServerError,
+            searchQuery = searchQuery,
+            searchSummary = summary,
+            frequentNames = frequentNames,
+            searchResults = searchResults,
+            searchDateStart = searchDateStart,
+            searchDateEnd = searchDateEnd,
+            searchDateLabel = formatSearchDateLabel(searchDateStart, searchDateEnd)
         )
     }.stateIn(
         scope = viewModelScope,
@@ -504,6 +619,25 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
 
     fun setSortOrder(order: String) {
         _selectedSortOrder.value = order
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun clearSearchQuery() {
+        _searchQuery.value = ""
+    }
+
+    /** Inclusive local-time bounds; pass nulls to drop the filter. */
+    fun setSearchDateRange(start: Long?, end: Long?) {
+        _searchDateStart.value = start
+        _searchDateEnd.value = end
+    }
+
+    fun clearSearchDate() {
+        _searchDateStart.value = null
+        _searchDateEnd.value = null
     }
 
     // Collection Screen filter setters

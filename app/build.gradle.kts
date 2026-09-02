@@ -11,7 +11,9 @@ plugins {
 
 android {
   namespace = "com.abhik.paisatrack"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk {
+    version = release(37)
+  }
   lint {
     baseline = file("lint-baseline.xml")
   }
@@ -19,9 +21,9 @@ android {
   defaultConfig {
     applicationId = "com.abhik.paisatrack"
     minSdk = 24
-    targetSdk = 36
-    versionCode = 9
-    versionName = "3.0"
+    targetSdk = 37
+    versionCode = 11
+    versionName = "4.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -34,16 +36,22 @@ android {
     }
 
     create("release") {
-      storeFile = file("keystore.jks")
-      storePassword = env.getProperty("STORE_PASSWORD")
-      keyAlias = env.getProperty("KEY_ALIAS")
-      keyPassword = env.getProperty("KEY_PASSWORD")
+      val keystoreFile = file("keystore.jks")
+      if (keystoreFile.exists()) {
+        storeFile = keystoreFile
+        storePassword = env.getProperty("STORE_PASSWORD") ?: "android"
+        keyAlias = env.getProperty("KEY_ALIAS") ?: "androiddebugkey"
+        keyPassword = env.getProperty("KEY_PASSWORD") ?: "android"
+      }
     }
     getByName("debug") {
-      storeFile = file("keystore.jks")
-      storePassword = env.getProperty("STORE_PASSWORD") ?: "android"
-      keyAlias = env.getProperty("KEY_ALIAS") ?: "androiddebugkey"
-      keyPassword = env.getProperty("KEY_PASSWORD") ?: "android"
+      val keystoreFile = file("keystore.jks")
+      if (keystoreFile.exists()) {
+        storeFile = keystoreFile
+        storePassword = env.getProperty("STORE_PASSWORD") ?: "android"
+        keyAlias = env.getProperty("KEY_ALIAS") ?: "androiddebugkey"
+        keyPassword = env.getProperty("KEY_PASSWORD") ?: "android"
+      }
     }
   }
 
@@ -53,7 +61,10 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      val keystoreFile = file("keystore.jks")
+      if (keystoreFile.exists()) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
     debug {
       signingConfig = signingConfigs.getByName("debug")
@@ -68,6 +79,7 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  buildToolsVersion = "37.0.0"
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -98,6 +110,7 @@ dependencies {
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.androidx.compose.material.icons.extended)
   implementation(libs.androidx.compose.material3)
+  implementation(libs.androidx.compose.animation.graphics)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
@@ -109,6 +122,7 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.lottie.compose)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)

@@ -30,17 +30,38 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "finance_database"
-                )
-                    .addMigrations(MIGRATION_3_4)
-                    .fallbackToDestructiveMigration(dropAllTables = true)
-                    .build()
+                var instance = buildDatabase(context)
+                try {
+                    // Force an open to check if the database is corrupted/cannot be opened (e.g. from a bad backup restore)
+                    instance.openHelper.writableDatabase
+                } catch (e: android.database.sqlite.SQLiteException) {
+                    e.printStackTrace()
+                    // Delete the corrupted database and retry
+                    context.deleteDatabase("finance_database")
+                    instance = buildDatabase(context)
+                }
                 INSTANCE = instance
                 instance
             }
+        }
+
+        private fun buildDatabase(context: Context): AppDatabase {
+            val dbName = "finance_database"
+            val dbFile = context.getDatabasePath(dbName)
+            dbFile.parentFile?.let { parentDir ->
+                if (!parentDir.exists()) {
+                    parentDir.mkdirs()
+                }
+            }
+
+            return Room.databaseBuilder(
+                context.applicationContext,
+                AppDatabase::class.java,
+                dbName
+            )
+                .addMigrations(MIGRATION_3_4)
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .build()
         }
     }
 }
