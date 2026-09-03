@@ -29,9 +29,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +49,7 @@ import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
 import com.abhik.paisatrack.ui.components.commonUi.CalendarMonthIconVector
 import com.abhik.paisatrack.ui.components.commonUi.SearchRoundedIconVector
 import com.abhik.paisatrack.ui.components.commonUi.SearchDatePickerDialog
+import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.abhik.paisatrack.R
 import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceUiState
@@ -117,7 +123,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
                         .clip(RoundedCornerShape(4.dp))
                         .shimmerEffect()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
                         .width(80.dp)
@@ -138,7 +144,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
                         .clip(RoundedCornerShape(4.dp))
                         .shimmerEffect()
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
                         .width(50.dp)
@@ -151,7 +157,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionListItem(
     transaction: TransactionEntity,
@@ -180,148 +186,177 @@ fun TransactionListItem(
     // dialog's ContextThemeWrapper. Pulsar casts its context to Activity, so resolve the host.
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
-    val realtime = remember(pulsar) { pulsar.getSafeRealtimeComposer(RealtimeComposerStrategy.PRIMITIVE_TICK) }
-
-    var swipeOffsetX by remember { mutableStateOf(0f) }
-    val animatedSwipeOffset by animateFloatAsState(
-        targetValue = swipeOffsetX,
-        animationSpec = tween(150),
-        label = "SwipeOffsetDashboard"
-    )
 
     // Match the transaction badge styling to the collection cards by using the collection color directly.
     val (badgeBg, iconColor) = remember(categoryColor) {
         categoryColor.copy(alpha = 0.15f) to categoryColor
     }
 
-    Box(
+    val isIncome = transaction.type.uppercase() == "INCOME"
+    val semanticDescription = remember(transaction.description, categoryName, isIncome, transaction.amount, dateStr) {
+        "${transaction.description}, $categoryName, ${if (isIncome) "Income" else "Expense"} ${dollarFormat.format(transaction.amount)}, $dateStr"
+    }
+
+    @Suppress("DEPRECATION")
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                presets.cleave()
+                onDeleteClick()
+                false
+            } else {
+                false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val isSwipingToDelete = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+            val iconScale by animateFloatAsState(
+                targetValue = if (isSwipingToDelete) 1.15f else 0.85f,
+                label = "DeleteIconScale"
+            )
+            val alpha by animateFloatAsState(
+                targetValue = if (isSwipingToDelete) 1f else 0.6f,
+                label = "DeleteAlpha"
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFEF4444).copy(alpha = 0.95f))
+                    .padding(end = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .alpha(alpha)
+                        .scale(iconScale)
+                ) {
+                    Text(
+                        text = "Delete",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Icon(
+                        imageVector = DeleteRoundedIconVector,
+                        contentDescription = "Swipe to delete",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        },
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFEF4444).copy(alpha = 0.9f))
     ) {
-        // Red Delete Underlay visual helper on vertical center end
-        Icon(
-            imageVector = DeleteRoundedIconVector,
-            contentDescription = "Swipe to delete",
-            tint = Color.White,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 20.dp)
-                .size(24.dp)
-        )
-
-        // Actual card container that slides to the left
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset { IntOffset(animatedSwipeOffset.roundToInt(), 0) }
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            realtime.start()
-                        },
-                        onDragEnd = {
-                            realtime.stop()
-                            if (swipeOffsetX < -180f) {
-                                presets.cleave()
-                                onDeleteClick()
-                            }
-                            swipeOffsetX = 0f
-                        },
-                        onDragCancel = {
-                            realtime.stop()
-                            swipeOffsetX = 0f
-                        },
-                        onHorizontalDrag = { change, dragAmount ->
-                            change.consume()
-                            swipeOffsetX = (swipeOffsetX + dragAmount).coerceIn(-300f, 0f)
-                            val progress = (-swipeOffsetX / 180f).coerceIn(0f, 1f)
-                            val amplitude = 0.1f + 0.9f * progress
-                            val frequency = 0.2f + 0.8f * progress
-                            realtime.set(amplitude, frequency, startIfNeeded = true)
-                        }
-                    )
-                }
                 .combinedClickable(
                     onClick = onClick,
                     onLongClick = onLongClick
-                ),
+                )
+                .semantics {
+                    contentDescription = semanticDescription
+                    customActions = listOf(
+                        CustomAccessibilityAction("Delete") {
+                            presets.cleave()
+                            onDeleteClick()
+                            true
+                        },
+                        CustomAccessibilityAction("View details") {
+                            presets.boulder()
+                            onClick()
+                            true
+                        }
+                    )
+                },
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
             shadowElevation = 1.dp
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Mockup Icon Badge
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(MaterialShapes.Cookie4Sided.toShape())
-                        .background(badgeBg),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = categoryIcon,
-                        contentDescription = categoryName,
-                        tint = iconColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Center Details
-                Column(modifier = Modifier.weight(1f)) {
+            ListItem(
+                headlineContent = {
                     Text(
                         text = transaction.description,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                },
+                supportingContent = {
                     Text(
                         text = categoryName,
-                        fontSize = 13.sp,
-                        color = Color(0xFF9CA3AF),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                }
-
-                // Right details (Amount and Date)
-                Column(
-                    modifier = Modifier.padding(start = 8.dp),
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val isIncome = transaction.type.uppercase() == "INCOME"
-                    Text(
-                        text = "${if (isIncome) "+" else "-"}${dollarFormat.format(transaction.amount)}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = if (isIncome) Color(0xFF10B981) else Color(0xFFEF4444),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = dateStr,
-                        fontSize = 12.sp,
-                        color = Color(0xFF9CA3AF),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
+                },
+                leadingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .background(badgeBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = categoryIcon,
+                            contentDescription = null,
+                            tint = iconColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                },
+                trailingContent = {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "${if (isIncome) "+" else "-"}${dollarFormat.format(transaction.amount)}",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            ),
+                            color = if (isIncome) Color(0xFF10B981) else Color(0xFFEF4444),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = dateStr,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                colors = ListItemDefaults.colors(
+                    containerColor = Color.Transparent
+                )
+            )
         }
     }
 }
@@ -346,6 +381,7 @@ fun TransactionsPanel(
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }
     var isLoadingMore by remember { mutableStateOf(false) }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
+    var searchTransactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
 
     LaunchedEffect(uiState.activeCollectionFilter, uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder, uiState.searchQuery) {
         visibleLimit = 20
@@ -1078,7 +1114,25 @@ fun TransactionsPanel(
                                             )
                                         }
                                         items(uiState.frequentNames) { name ->
-                                            Row(
+                                            ListItem(
+                                                headlineContent = {
+                                                    Text(
+                                                        text = name,
+                                                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                },
+                                                leadingContent = {
+                                                    Icon(
+                                                        imageVector = SearchRoundedIconVector,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                },
+                                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .clickable {
@@ -1086,24 +1140,8 @@ fun TransactionsPanel(
                                                         hideKeyboardNow()
                                                         textFieldState.setTextAndPlaceCursorAtEnd(name)
                                                     }
-                                                    .padding(horizontal = 24.dp, vertical = 14.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = SearchRoundedIconVector,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(16.dp))
-                                                Text(
-                                                    text = name,
-                                                    fontSize = 15.sp,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
+                                                    .padding(horizontal = 8.dp)
+                                            )
                                         }
                                     }
                                 }
@@ -1154,17 +1192,29 @@ fun TransactionsPanel(
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(32.dp),
+                                                    .padding(horizontal = 32.dp, vertical = 24.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Text(
-                                                    text = if (query.isBlank()) "No transactions on ${dateLabel ?: "this date"}"
-                                                           else "No results for \"${query.trim()}\"",
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onBackground,
-                                                    textAlign = TextAlign.Center
-                                                )
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    LottieAnimation(
+                                                        composition = composition,
+                                                        progress = { progress },
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(200.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    Text(
+                                                        text = if (query.isBlank()) "No records on ${dateLabel ?: "this date"}"
+                                                               else "No results for \"${query.trim()}\"",
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onBackground,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
                                             }
                                         }
                                     } else {
@@ -1179,20 +1229,17 @@ fun TransactionsPanel(
                                                 dollarFormat = dollarFormat,
                                                 onDeleteClick = {
                                                     hideKeyboardNow()
-                                                    scope.launch { searchBarState.animateToCollapsed() }
                                                     txToDelete = tx
                                                 },
                                                 onLongClick = {
                                                     presets.bassDrop()
                                                     hideKeyboardNow()
-                                                    scope.launch { searchBarState.animateToCollapsed() }
-                                                    onTransactionLongClick(tx)
+                                                    searchTransactionToEdit = tx
                                                 },
                                                 onClick = {
                                                     presets.boulder()
                                                     hideKeyboardNow()
-                                                    scope.launch { searchBarState.animateToCollapsed() }
-                                                    onTransactionClick(tx)
+                                                    searchTransactionToEdit = tx
                                                 }
                                             )
                                         }
@@ -1247,6 +1294,28 @@ fun TransactionsPanel(
                 viewModel.deleteTransaction(tx)
                 Toast.makeText(context, "Record deleted successfully", Toast.LENGTH_SHORT).show()
                 txToDelete = null
+            }
+        )
+    }
+
+    // Edit Transaction Bottom Sheet in Search Results
+    if (searchTransactionToEdit != null) {
+        val tx = searchTransactionToEdit!!
+        EditTransactionBottomSheet(
+            transaction = tx,
+            collections = uiState.collections,
+            onDismiss = { searchTransactionToEdit = null },
+            onSave = { desc, amount, type, collectionId ->
+                viewModel.updateTransaction(
+                    id = tx.id,
+                    description = desc,
+                    amount = amount,
+                    type = type,
+                    collectionId = collectionId,
+                    timestamp = tx.timestamp
+                )
+                searchTransactionToEdit = null
+                Toast.makeText(context, "Record updated successfully", Toast.LENGTH_SHORT).show()
             }
         )
     }
