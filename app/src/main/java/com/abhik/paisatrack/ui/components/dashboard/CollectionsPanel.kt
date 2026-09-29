@@ -72,7 +72,6 @@ fun CollectionsPanel(
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
-    val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
     
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.nothing))
@@ -81,16 +80,7 @@ fun CollectionsPanel(
         iterations = LottieConstants.IterateForever
     )
 
-    LaunchedEffect(gridState) {
-        snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
-            .collect { (currentIndex, currentOffset) ->
-                if (currentIndex == 0 && currentOffset == 0) {
-                    onScrollProgressChanged(false)
-                } else {
-                    onScrollProgressChanged(true)
-                }
-            }
-    }
+    // Scroll progress handled by DashboardScreen
 
     var editingCollectionSummary by remember { mutableStateOf<CollectionSummary?>(null) }
     val activeColTab by viewModel.activeCollectionTab.collectAsStateWithLifecycle()
@@ -104,12 +94,6 @@ fun CollectionsPanel(
         visibleLimit = 6
         animationStartLimit = 0
         revealedCollectionIds.clear()
-    }
-
-    val showBackToTop by remember {
-        derivedStateOf {
-            gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 300
-        }
     }
 
     val filteredSummaries = remember(uiState.collectionSummaries, activeColTab) {
@@ -143,7 +127,7 @@ fun CollectionsPanel(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         // Sticky Filtration Pills Segmented Button Row placed outside LazyVerticalGrid
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier
@@ -181,18 +165,15 @@ fun CollectionsPanel(
             }
         }
 
-        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            LazyVerticalGrid(
-                    state = gridState,
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 120.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 if (filteredSummaries.isEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Box(
+                    Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 24.dp, bottom = 48.dp),
@@ -222,38 +203,48 @@ fun CollectionsPanel(
                                 )
                             }
                         }
-                    }
                 } else {
-                    itemsIndexed(paginatedSummaries) { index, summary ->
-                        val shouldBeVisible =
-                            // Avoid "empty/vanish" state when rapid tab presses keep resetting reveal list.
-                            revealedCollectionIds.isEmpty() ||
-                            index < animationStartLimit ||
-                            revealedCollectionIds.contains(summary.collection.id)
-                        val alpha by animateFloatAsState(
-                            targetValue = if (shouldBeVisible) 1f else 0f,
-                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                            label = "CollectionCardFadeIn"
-                        )
-
-                        Box(modifier = Modifier.alpha(alpha)) {
-                            CollectionGridCard(
-                                summary = summary,
-                                dollarFormat = dollarFormat,
-                                onEditClick = {
-                                    presets.plunk()
-                                    editingCollectionSummary = summary
-                                },
-                                onClick = { rect ->
-                                    onCollectionClick(summary.collection.id, rect)
+                    val rows = paginatedSummaries.chunked(2)
+                    for ((rowIndex, rowItems) in rows.withIndex()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            for ((colIndex, summary) in rowItems.withIndex()) {
+                                val index = rowIndex * 2 + colIndex
+                                val shouldBeVisible =
+                                    // Avoid "empty/vanish" state when rapid tab presses keep resetting reveal list.
+                                    revealedCollectionIds.isEmpty() ||
+                                    index < animationStartLimit ||
+                                    revealedCollectionIds.contains(summary.collection.id)
+                                val alpha by animateFloatAsState(
+                                    targetValue = if (shouldBeVisible) 1f else 0f,
+                                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                                    label = "CollectionCardFadeIn"
+                                )
+        
+                                Box(modifier = Modifier.weight(1f).alpha(alpha)) {
+                                    CollectionGridCard(
+                                        summary = summary,
+                                        dollarFormat = dollarFormat,
+                                        onEditClick = {
+                                            presets.plunk()
+                                            editingCollectionSummary = summary
+                                        },
+                                        onClick = { rect ->
+                                            onCollectionClick(summary.collection.id, rect)
+                                        }
+                                    )
                                 }
-                            )
+                            }
+                            if (rowItems.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
 
                     if (filteredSummaries.size > visibleLimit) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Box(
+                        Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 16.dp),
@@ -293,40 +284,6 @@ fun CollectionsPanel(
                     }
                 }
             }
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = showBackToTop,
-                enter = fadeIn() + slideInVertically { it / 2 },
-                exit = fadeOut() + slideOutVertically { it / 2 },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 20.dp)
-            ) {
-                FilledTonalButton(
-                    onClick = {
-                        presets.ping()
-                        onBackToTop {
-                            if (gridState.firstVisibleItemIndex > 2) {
-                                gridState.scrollToItem(2)
-                            }
-                            gridState.animateScrollToItem(0)
-                        }
-                    },
-                    elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .height(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowUpward,
-                        contentDescription = "Back to Top",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
 
         // Bottom Sheet for Editing / Deleting a collection
         if (editingCollectionSummary != null) {

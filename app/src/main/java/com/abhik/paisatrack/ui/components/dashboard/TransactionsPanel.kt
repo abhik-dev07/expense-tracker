@@ -90,6 +90,7 @@ import com.swmansion.pulsar.Pulsar
 import com.swmansion.pulsar.types.RealtimeComposerStrategy
 import kotlinx.coroutines.delay
 
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
@@ -228,6 +229,8 @@ fun TransactionListItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(1.dp)
+                    .clip(RoundedCornerShape(15.dp))
                     .background(Color(0xFFEF4444).copy(alpha = 0.95f))
                     .padding(end = 20.dp),
                 contentAlignment = Alignment.CenterEnd
@@ -371,12 +374,17 @@ fun TransactionsPanel(
     onSearchActiveChanged: (Boolean) -> Unit = {},
     onTransactionLongClick: (TransactionEntity) -> Unit,
     onTransactionClick: (TransactionEntity) -> Unit,
-    onBackToTop: (suspend () -> Unit) -> Unit
+    onBackToTop: (suspend () -> Unit) -> Unit,
+    triggerSearch: Boolean = false,
+    onSearchTriggered: () -> Unit = {},
+    showFilters: Boolean = false,
+    isAnyFilterActive: Boolean = false,
+    onToggleFilters: () -> Unit = {},
+    isScrolled: Boolean = false
 ) {
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
-    val listState = rememberLazyListState()
     var visibleLimit by rememberSaveable { mutableStateOf(20) }
     var animationStartLimit by rememberSaveable { mutableStateOf(0) }
     var isLoadingMore by remember { mutableStateOf(false) }
@@ -392,23 +400,15 @@ fun TransactionsPanel(
         composition = composition,
         iterations = LottieConstants.IterateForever
     )
-    
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .collect { (currentIndex, currentOffset) ->
-                if (currentIndex == 0 && currentOffset == 0) {
-                    onScrollProgressChanged(false)
-                } else {
-                    onScrollProgressChanged(true)
-                }
-            }
-    }
 
-    var showFilters by remember { mutableStateOf(false) }
-
-    // Material 3 full-screen search. The input is driven by a TextFieldState which we mirror
-    // into the ViewModel's search query (debounced downstream to drive filtering + summary).
     val searchBarState = rememberSearchBarState()
+
+    LaunchedEffect(triggerSearch) {
+        if (triggerSearch) {
+            searchBarState.animateToExpanded()
+            onSearchTriggered()
+        }
+    }
     val textFieldState = rememberTextFieldState()
     var showSearchDatePicker by remember { mutableStateOf(false) }
 
@@ -465,9 +465,6 @@ fun TransactionsPanel(
             showSearchDatePicker = false
         }
     }
-    val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
-        uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All" || uiState.activeSortOrder != "Newest"
-    }
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
@@ -515,176 +512,62 @@ fun TransactionsPanel(
         }
     }
 
-    val showBackToTop by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 300
-        }
-    }
+    val showBackToTop = false
 
     val paginatedTransactions = remember(uiState.filteredTransactions, visibleLimit) {
         uiState.filteredTransactions.take(visibleLimit)
     }
 
-    val isScrolled by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(bottom = 120.dp)
-            ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .fillMaxWidth()
+                .padding(bottom = 120.dp)
+        ) {
             // Sticky Header: Recent transactions list header with Scroll-Driven Expanding Search Bar
-            stickyHeader {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            Box {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.background
                     ) {
-                        // 1. "Recent Activity" Title (Collapses & fades out when scrolled)
-                        AnimatedVisibility(
-                            visible = !isScrolled,
-                            enter = fadeIn(tween(220)) + expandHorizontally(spring(stiffness = Spring.StiffnessMediumLow)),
-                            exit = fadeOut(tween(180)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(horizontal = 24.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Recent Activity",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    maxLines = 1
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
+                            // 1. "Recent Activity" Title (Collapses & fades out when scrolled)
+                            AnimatedVisibility(
+                                visible = !isScrolled,
+                                enter = fadeIn(tween(220)) + expandHorizontally(spring(stiffness = Spring.StiffnessMediumLow)),
+                                exit = fadeOut(tween(180)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "Recent Activity",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground,
+                                        maxLines = 1
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                }
                             }
-                        }
 
-                        // 2. Search Container (Expands from 36.dp circular icon into full M3 pill search bar)
-                        Box(
-                            modifier = Modifier.weight(1f),
-                            contentAlignment = if (isScrolled) Alignment.CenterStart else Alignment.CenterEnd
-                        ) {
-                            AnimatedContent(
-                                targetState = isScrolled,
-                                transitionSpec = {
-                                    (fadeIn(tween(200)) + expandHorizontally(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))) togetherWith
-                                        (fadeOut(tween(150)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow)))
-                                },
-                                label = "SearchIconPillTransition"
-                            ) { scrolled ->
-                                if (scrolled) {
-                                    // Expanded M3 Pill-shaped Search Bar
-                                    Surface(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(44.dp)
-                                            .clip(CircleShape)
-                                            .clickable {
-                                                presets.plunk()
-                                                scope.launch { searchBarState.animateToExpanded() }
-                                            },
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
-                                        shadowElevation = 1.dp
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(start = 12.dp, end = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.weight(1f),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    imageVector = SearchRoundedIconVector,
-                                                    contentDescription = "Search",
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(19.dp)
-                                                )
-
-                                                Spacer(modifier = Modifier.width(10.dp))
-
-                                                val dateActive = uiState.searchDateStart != null
-                                                val dateLabel = uiState.searchDateLabel
-                                                if (dateActive && dateLabel != null) {
-                                                    Surface(
-                                                        shape = CircleShape,
-                                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                                    ) {
-                                                        Row(
-                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                                            verticalAlignment = Alignment.CenterVertically
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = CalendarMonthIconVector,
-                                                                contentDescription = null,
-                                                                tint = MaterialTheme.colorScheme.primary,
-                                                                modifier = Modifier.size(12.dp)
-                                                            )
-                                                            Spacer(modifier = Modifier.width(4.dp))
-                                                            Text(
-                                                                text = dateLabel,
-                                                                fontSize = 11.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.primary
-                                                            )
-                                                            Spacer(modifier = Modifier.width(3.dp))
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .size(16.dp)
-                                                                    .clip(CircleShape)
-                                                                    .clickable {
-                                                                        presets.plunk()
-                                                                        viewModel.clearSearchDate()
-                                                                    },
-                                                                contentAlignment = Alignment.Center
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = CloseSmallRoundedIconVector,
-                                                                    contentDescription = "Clear date",
-                                                                    tint = MaterialTheme.colorScheme.primary,
-                                                                    modifier = Modifier.size(12.dp)
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                } else {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = "Search ",
-                                                            fontSize = 13.sp,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                                            maxLines = 1
-                                                        )
-                                                        Text(
-                                                            text = displayedKeyword,
-                                                            fontSize = 13.sp,
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                                                            maxLines = 1
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
+                            // 2. Search Container (Compact 36.dp Circular Search Button only when not scrolled)
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = !isScrolled,
+                                modifier = Modifier.weight(1f),
+                                enter = fadeIn(tween(200)) + expandHorizontally(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)),
+                                exit = fadeOut(tween(150)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.CenterEnd,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     // Initial State: Compact 36.dp Circular Search Button
                                     Box(
                                         modifier = Modifier.size(36.dp),
@@ -711,43 +594,49 @@ fun TransactionsPanel(
                                     }
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
 
-                        // 3. Filter triggers icon button (Always available on the right)
-                        Box(
-                            modifier = Modifier.size(36.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                                    .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable {
-                                        presets.plunk()
-                                        showFilters = !showFilters
-                                    },
-                                contentAlignment = Alignment.Center
+                            // 3. Filter triggers icon button (Always available on the right when not scrolled)
+                            AnimatedVisibility(
+                                visible = !isScrolled,
+                                enter = fadeIn(tween(200)) + expandHorizontally(spring(stiffness = Spring.StiffnessMediumLow)),
+                                exit = fadeOut(tween(150)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
                             ) {
-                                AnimatedTuneIcon(
-                                    isActive = showFilters,
-                                    tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            // Tiny active filter feedback dot shifted to sit above the circular button boundary
-                            if (isAnyFilterActive && !showFilters) {
                                 Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .offset(x = 1.dp, y = (-1).dp)
-                                        .size(8.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF10B981))
-                                )
+                                    modifier = Modifier.size(36.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape)
+                                            .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
+                                            .clickable {
+                                                presets.plunk()
+                                                onToggleFilters()
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        AnimatedTuneIcon(
+                                            isActive = showFilters,
+                                            tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    // Tiny active filter feedback dot shifted to sit above the circular button boundary
+                                    if (isAnyFilterActive && !showFilters) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .offset(x = 1.dp, y = (-1).dp)
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF10B981))
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -756,13 +645,12 @@ fun TransactionsPanel(
 
             // Transactions list or empty state
             if (uiState.isLoading) {
-                items(5) {
+                repeat(5) {
                     TransactionSkeletonItem()
                 }
             } else if (uiState.filteredTransactions.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
+                Box(
+                    modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 32.dp, end = 32.dp),
                         contentAlignment = Alignment.TopCenter
@@ -790,47 +678,47 @@ fun TransactionsPanel(
                             )
                         }
                     }
-                }
             } else {
-                itemsIndexed(paginatedTransactions, key = { _, tx -> tx.id }) { index, tx ->
-                    // Find parent collection for styling information
-                    val parentCollection = uiState.collections.find { it.id == tx.collectionId }
-                    val categoryColor = safeParseColor(parentCollection?.hexColor)
-
-                    val alpha = remember(tx.id) { Animatable(if (index >= animationStartLimit) 0f else 1f) }
-                    LaunchedEffect(tx.id) {
-                        if (index >= animationStartLimit) {
-                            delay((index - animationStartLimit) * 25L)
-                            alpha.animateTo(1f, tween(150))
-                        }
-                    }
-
-                    Box(modifier = Modifier.alpha(alpha.value)) {
-                        TransactionListItem(
-                            transaction = tx,
-                            categoryName = parentCollection?.name ?: "General",
-                            categoryColor = categoryColor,
-                            categoryIcon = getIconByName(parentCollection?.iconName ?: "category"),
-                            dollarFormat = dollarFormat,
-                            onDeleteClick = {
-                                txToDelete = tx
-                            },
-                            onLongClick = {
-                                presets.bassDrop()
-                                onTransactionLongClick(tx)
-                            },
-                            onClick = {
-                                presets.boulder()
-                                onTransactionClick(tx)
+                for ((index, tx) in paginatedTransactions.withIndex()) {
+                    key(tx.id) {
+                        // Find parent collection for styling information
+                        val parentCollection = uiState.collections.find { it.id == tx.collectionId }
+                        val categoryColor = safeParseColor(parentCollection?.hexColor)
+    
+                        val alpha = remember(tx.id) { Animatable(if (index >= animationStartLimit) 0f else 1f) }
+                        LaunchedEffect(tx.id) {
+                            if (index >= animationStartLimit) {
+                                delay((index - animationStartLimit) * 25L)
+                                alpha.animateTo(1f, tween(150))
                             }
-                        )
+                        }
+    
+                        Box(modifier = Modifier.alpha(alpha.value)) {
+                            TransactionListItem(
+                                transaction = tx,
+                                categoryName = parentCollection?.name ?: "General",
+                                categoryColor = categoryColor,
+                                categoryIcon = getIconByName(parentCollection?.iconName ?: "category"),
+                                dollarFormat = dollarFormat,
+                                onDeleteClick = {
+                                    txToDelete = tx
+                                },
+                                onLongClick = {
+                                    presets.bassDrop()
+                                    onTransactionLongClick(tx)
+                                },
+                                onClick = {
+                                    presets.boulder()
+                                    onTransactionClick(tx)
+                                }
+                            )
+                        }
                     }
                 }
 
                 if (uiState.filteredTransactions.size > visibleLimit) {
-                    item {
-                        Box(
-                            modifier = Modifier
+                    Box(
+                        modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 16.dp),
                                     
@@ -868,39 +756,6 @@ fun TransactionsPanel(
                     }
                 }
             }
-    }
-
-        AnimatedVisibility(
-            visible = showBackToTop,
-            enter = fadeIn() + slideInVertically { it / 2 },
-            exit = fadeOut() + slideOutVertically { it / 2 },
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 70.dp)
-        ) {
-            FilledTonalButton(
-                onClick = {
-                    presets.ping()
-                    onBackToTop {
-                        if (listState.firstVisibleItemIndex > 2) {
-                            listState.scrollToItem(2)
-                        }
-                        listState.animateScrollToItem(0)
-                    }
-                },
-                elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
-                shape = CircleShape,
-                modifier = Modifier.height(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowUpward,
-                    contentDescription = "Back to Top",
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
 
         val isSearchExpanded = searchBarState.targetValue == SearchBarValue.Expanded || searchBarState.currentValue == SearchBarValue.Expanded
 
@@ -1249,7 +1104,7 @@ fun TransactionsPanel(
                         }
                     }
                 }
-            }
+             }
         }
     }
 
@@ -1279,7 +1134,7 @@ fun TransactionsPanel(
             onSortOrderChange = { viewModel.setSortOrder(it) },
             onTypeFilterChange = { viewModel.setTypeFilter(it) },
             onTimeFilterChange = { viewModel.setTimeFilter(it) },
-            onDismissRequest = { showFilters = false }
+            onDismissRequest = onToggleFilters
         )
     }
 

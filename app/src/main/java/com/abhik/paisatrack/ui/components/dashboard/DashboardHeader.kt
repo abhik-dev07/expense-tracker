@@ -11,7 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +39,9 @@ import coil.compose.AsyncImage
 import com.swmansion.pulsar.Pulsar
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
+import androidx.compose.foundation.BorderStroke
+import kotlinx.coroutines.delay
 
 @Composable
 fun DashboardHeader(
@@ -45,6 +51,11 @@ fun DashboardHeader(
     profilePicUrl: String?,
     onSettingsClick: () -> Unit,
     isSettingsOpen: Boolean = false,
+    isScrolled: Boolean = false,
+    onSearchClick: () -> Unit = {},
+    onFilterClick: () -> Unit = {},
+    showFilters: Boolean = false,
+    isAnyFilterActive: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -56,6 +67,17 @@ fun DashboardHeader(
         targetValue = targetRotation,
         animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
         label = "SettingsRotationAnimation"
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "ShapeRotation")
+    val shapeRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "RotationAngle"
     )
 
     AnimatedContent(
@@ -81,60 +103,181 @@ fun DashboardHeader(
                     (slideOutVertically(animationSpec = tween(320, easing = FastOutSlowInEasing), targetOffsetY = { -it }) + fadeOut(animationSpec = tween(320)))
             }
         },
-        label = "DashboardHeaderVerticalTransition"
     ) { currentTab ->
         if (currentTab == "Transactions") {
+            val searchKeywords = remember { listOf("records...", "groceries...", "rent...", "food...", "gas...", "Netflix...", "salary...") }
+            var keywordIndex by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+            var displayedKeyword by remember { androidx.compose.runtime.mutableStateOf("") }
+            
+            LaunchedEffect(keywordIndex) {
+                val target = searchKeywords[keywordIndex]
+                for (i in 0..target.length) {
+                    displayedKeyword = target.substring(0, i)
+                    delay(100)
+                }
+                delay(2000)
+                for (i in target.length downTo 0) {
+                    displayedKeyword = target.substring(0, i)
+                    delay(50)
+                }
+                keywordIndex = (keywordIndex + 1) % searchKeywords.size
+            }
+
             Row(
                 modifier = modifier
                     .fillMaxWidth()
-                    .padding(start = 24.dp, top = 20.dp, end = 24.dp, bottom = 12.dp),
+                    .padding(start = 24.dp, top = 14.dp, end = 24.dp, bottom = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                val pillColor by animateColorAsState(if (isScrolled) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent, label = "pillColor")
+                val pillBorderColor by animateColorAsState(if (isScrolled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f) else Color.Transparent, label = "pillBorderColor")
+
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(CircleShape)
+                        .height(56.dp)
+                        .clickable(enabled = isScrolled) { onSearchClick() },
+                    shape = CircleShape,
+                    color = pillColor,
+                    border = BorderStroke(1.dp, pillBorderColor)
                 ) {
-                    // High-contrast profile picture from Google or letter badge
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(
+                            start = if (isScrolled) 6.dp else 0.dp,
+                            end = if (isScrolled) 6.dp else 0.dp,
+                            top = 6.dp,
+                            bottom = 6.dp
+                        )
                     ) {
-                        if (!profilePicUrl.isNullOrEmpty()) {
-                            AsyncImage(
-                                model = profilePicUrl,
-                                contentDescription = "Profile Picture",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Text(
-                                text = userName.take(1).uppercase(),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                        // High-contrast profile picture from Google or letter badge
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .graphicsLayer {
+                                    rotationZ = if (isScrolled) shapeRotation else -shapeRotation
+                                }
+                                .clip(if (isScrolled) androidx.compose.material3.MaterialShapes.Cookie9Sided.toShape() else CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        rotationZ = if (isScrolled) -shapeRotation else shapeRotation
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (!profilePicUrl.isNullOrEmpty()) {
+                                    AsyncImage(
+                                        model = profilePicUrl,
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Text(
+                                        text = userName.take(1).uppercase(),
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        AnimatedContent(
+                            targetState = isScrolled,
+                            modifier = Modifier.weight(1f),
+                            transitionSpec = {
+                                (fadeIn(tween(200)) + slideInHorizontally { it / 2 }) togetherWith
+                                (fadeOut(tween(150)) + slideOutHorizontally { -it / 2 })
+                            },
+                            label = "HeaderContentTransition"
+                        ) { scrolled ->
+                            if (scrolled) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = "Search ",
+                                            fontSize = 14.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = displayedKeyword,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                                            maxLines = 1
+                                        )
+                                    }
+                                    
+                                    // Filter Button inside pill
+                                    Box(
+                                        modifier = Modifier.size(44.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(CircleShape)
+                                                .clickable { onFilterClick() }
+                                                .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.background),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            AnimatedTuneIcon(
+                                                isActive = showFilters,
+                                                tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+
+                                        // Tiny active filter feedback dot shifted to sit above the circular button boundary
+                                        if (isAnyFilterActive && !showFilters) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .offset(x = (-2).dp, y = 2.dp)
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFF10B981))
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = "Hello,",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = Color(0xFF9CA3AF)
+                                    )
+                                    Text(
+                                        text = firstName,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+                                }
+                            }
                         }
                     }
-
-                    Column {
-                        Text(
-                            text = "Hello,",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color(0xFF9CA3AF)
-                        )
-                        Text(
-                            text = firstName,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
                 }
+
+                Spacer(modifier = Modifier.width(16.dp))
 
                 // Settings button
                 Box(

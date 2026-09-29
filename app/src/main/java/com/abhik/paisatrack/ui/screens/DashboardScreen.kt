@@ -62,6 +62,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Brush
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.ui.FinanceViewModel
@@ -118,18 +121,7 @@ fun DashboardScreen(
         entranceAlpha.animateTo(1f, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
     }
 
-    val density = LocalDensity.current
-    val headerHeight = 220.dp
-    val headerHeightPx = remember(density) { with(density) { headerHeight.toPx() } }
-    var scrollOffsetPx by rememberSaveable { mutableStateOf(0f) }
-    var previousTab by rememberSaveable { mutableStateOf(activeTab) }
-
-    LaunchedEffect(activeTab) {
-        if (activeTab != previousTab) {
-            scrollOffsetPx = 0f
-            previousTab = activeTab
-        }
-    }
+    val scrollState = rememberScrollState()
 
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
@@ -152,50 +144,18 @@ fun DashboardScreen(
         onDispose {}
     }
 
-    val nestedScrollConnection = remember(headerHeightPx) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val delta = available.y
-                if (source == NestedScrollSource.UserInput) {
-                    if (delta < -12f) {
-                        isScrolling = true
-                    } else if (delta > 12f) {
-                        isScrolling = false
-                    }
-                }
-                
-                // When scrolling down the page (delta < 0) and header is not fully collapsed
-                if (delta < 0 && scrollOffsetPx > -headerHeightPx) {
-                    val newOffset = scrollOffsetPx + delta
-                    scrollOffsetPx = newOffset.coerceIn(-headerHeightPx, 0f)
-                    return Offset(0f, delta)
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                val delta = available.y
-                // When scrolling up towards top (delta > 0) and header is collapsed
-                if (delta > 0 && scrollOffsetPx < 0f) {
-                    val newOffset = scrollOffsetPx + delta
-                    scrollOffsetPx = newOffset.coerceIn(-headerHeightPx, 0f)
-                    return Offset(0f, delta)
-                }
-                return Offset.Zero
-            }
-        }
-    }
-
 
     val bottomBarOffset by animateDpAsState(
         targetValue = if (isScrolling || isSearchOpen) 200.dp else 0.dp,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "NavBarOffsetAnimation"
     )
+
+    var triggerSearch by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showFilters by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val isAnyFilterActive = remember(uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder) {
+        uiState.activeTimeFilter != "All" || uiState.activeTypeFilter != "All" || uiState.activeSortOrder != "Newest"
+    }
 
     val bottomBarAlpha by animateFloatAsState(
         targetValue = if (isScrolling || isSearchOpen) 0f else 1f,
@@ -496,146 +456,180 @@ fun DashboardScreen(
                 .padding(top = innerPadding.calculateTopPadding()),
             color = MaterialTheme.colorScheme.background
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(nestedScrollConnection)
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures { _, dragAmount ->
-                            if (dragAmount < -8f) {
-                                isScrolling = true
-                            } else if (dragAmount > 8f) {
-                                isScrolling = false
+            LaunchedEffect(scrollState.isScrollInProgress) {
+                isScrolling = scrollState.isScrollInProgress
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                ) {
+                    Spacer(modifier = Modifier.height(100.dp))
+
+                    AnimatedVisibility(
+                        visible = !isSearchOpen,
+                        enter = fadeIn(tween(200)) + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
+                        exit = fadeOut(tween(150)) + shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow))
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // Floating Offline Banner below DashboardHeader and above VisualSummaryHeader
+                            com.abhik.paisatrack.ui.screens.OfflineBanner(
+                                isVisible = !isOnline,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(10f)
+                            )
+
+                            // Balance Card container
+                            if (activeTab != "Profile") {
+                                VisualSummaryHeader(uiState = uiState, dollarFormat = dollarFormat)
                             }
                         }
                     }
-            ) {
-                AnimatedVisibility(
-                    visible = !isSearchOpen,
-                    enter = fadeIn(tween(200)) + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
-                    exit = fadeOut(tween(150)) + shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow))
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .zIndex(10f)
-                                .background(MaterialTheme.colorScheme.background)
-                        ) {
-                            DashboardHeader(
-                                activeTab = activeTab,
-                                userName = userName,
-                                firstName = firstName,
-                                profilePicUrl = profilePicUrl,
-                                onSettingsClick = { showSettingsBottomSheet = true },
-                                isSettingsOpen = showSettingsBottomSheet
+
+                    // Tab Switcher Content
+                    AnimatedContent(
+                        targetState = activeTab,
+                        transitionSpec = {
+                            val fromIndex = when (initialState) {
+                                "Transactions" -> 0
+                                "Insights" -> 1
+                                "Collections" -> 2
+                                else -> 0
+                            }
+                            val toIndex = when (targetState) {
+                                "Transactions" -> 0
+                                "Insights" -> 1
+                                "Collections" -> 2
+                                else -> 0
+                            }
+                            if (toIndex > fromIndex) {
+                                (slideInHorizontally(animationSpec = tween(300), initialOffsetX = { it }) + fadeIn(animationSpec = tween(300))) togetherWith
+                                    (slideOutHorizontally(animationSpec = tween(300), targetOffsetX = { -it }) + fadeOut(animationSpec = tween(300)))
+                            } else {
+                                (slideInHorizontally(animationSpec = tween(300), initialOffsetX = { -it }) + fadeIn(animationSpec = tween(300))) togetherWith
+                                    (slideOutHorizontally(animationSpec = tween(300), targetOffsetX = { -it }) + fadeOut(animationSpec = tween(300)))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = "TabTransition"
+                    ) { targetTab ->
+                        when (targetTab) {
+                            "Transactions" -> TransactionsPanel(
+                                uiState = uiState,
+                                viewModel = viewModel,
+                                dollarFormat = dollarFormat,
+                                onScrollProgressChanged = { isScrolling = it },
+                                onSearchActiveChanged = { isSearchOpen = it },
+                                onTransactionLongClick = { tx -> txToDelete = tx },
+                                onTransactionClick = { tx -> txDetailToShow = tx },
+                                onBackToTop = { scrollAction ->
+                                    coroutineScope.launch {
+                                        scrollAction()
+                                    }
+                                },
+                                triggerSearch = triggerSearch,
+                                onSearchTriggered = { triggerSearch = false },
+                                showFilters = showFilters,
+                                isAnyFilterActive = isAnyFilterActive,
+                                onToggleFilters = { showFilters = !showFilters },
+                                isScrolled = scrollState.value > with(LocalDensity.current) { 250.dp.toPx() }
                             )
-                        }
-
-                        // Floating Offline Banner below DashboardHeader and above VisualSummaryHeader
-                        com.abhik.paisatrack.ui.screens.OfflineBanner(
-                            isVisible = !isOnline,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .zIndex(10f)
-                        )
-
-                        // Balance Card container with collapsing height + inner parallax translation
-                        if (activeTab != "Profile") {
-                            val currentHeightDp = with(LocalDensity.current) {
-                                (headerHeightPx + scrollOffsetPx).coerceAtLeast(0f).toDp()
-                            }
-                            val progress = if (headerHeightPx > 0f) (-scrollOffsetPx / headerHeightPx).coerceIn(0f, 1f) else 0f
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(currentHeightDp)
-                                    .clipToBounds()
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .graphicsLayer {
-                                            // Parallax translation (moves at 0.45x speed)
-                                            translationY = scrollOffsetPx * 0.45f
-                                            val scale = 1f - (progress * 0.04f)
-                                            scaleX = scale
-                                            scaleY = scale
-                                            alpha = (1f - progress * 0.4f).coerceIn(0.2f, 1f)
-                                        }
-                                ) {
-                                    VisualSummaryHeader(uiState = uiState, dollarFormat = dollarFormat)
+                            "Collections" -> CollectionsPanel(
+                                uiState = uiState,
+                                viewModel = viewModel,
+                                dollarFormat = dollarFormat,
+                                onScrollProgressChanged = { isScrolling = it },
+                                onCollectionClick = onNavigateToCollectionTransactions,
+                                onBackToTop = { scrollAction ->
+                                    coroutineScope.launch {
+                                        scrollAction()
+                                    }
                                 }
-                            }
+                            )
+                            "Insights" -> InsightsPanel(
+                                uiState = uiState,
+                                aiInsights = aiInsights,
+                                aiLoading = aiLoading,
+                                onRefreshInsights = { viewModel.fetchAiInsights() },
+                                dollarFormat = dollarFormat,
+                                onScrollProgressChanged = { isScrolling = it }
+                            )
                         }
                     }
                 }
 
-                // Tab Switcher Content
-                AnimatedContent(
-                    targetState = activeTab,
-                    transitionSpec = {
-                        val fromIndex = when (initialState) {
-                            "Transactions" -> 0
-                            "Insights" -> 1
-                            "Collections" -> 2
-                            else -> 0
-                        }
-                        val toIndex = when (targetState) {
-                            "Transactions" -> 0
-                            "Insights" -> 1
-                            "Collections" -> 2
-                            else -> 0
-                        }
-                        if (toIndex > fromIndex) {
-                            (slideInHorizontally(animationSpec = tween(300), initialOffsetX = { it }) + fadeIn(animationSpec = tween(300))) togetherWith
-                                (slideOutHorizontally(animationSpec = tween(300), targetOffsetX = { -it }) + fadeOut(animationSpec = tween(300)))
-                        } else {
-                            (slideInHorizontally(animationSpec = tween(300), initialOffsetX = { -it }) + fadeIn(animationSpec = tween(300))) togetherWith
-                                (slideOutHorizontally(animationSpec = tween(300), targetOffsetX = { it }) + fadeOut(animationSpec = tween(300)))
-                        }
-                    },
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    label = "TabTransition"
-                ) { targetTab ->
-                    when (targetTab) {
-                        "Transactions" -> TransactionsPanel(
-                            uiState = uiState,
-                            viewModel = viewModel,
-                            dollarFormat = dollarFormat,
-                            onScrollProgressChanged = { isScrolling = it },
-                            onSearchActiveChanged = { isSearchOpen = it },
-                            onTransactionLongClick = { tx -> txToDelete = tx },
-                            onTransactionClick = { tx -> txDetailToShow = tx },
-                            onBackToTop = { scrollAction ->
-                                coroutineScope.launch {
-                                    scrollOffsetPx = 0f
-                                    scrollAction()
-                                }
+                AnimatedVisibility(
+                    visible = !isSearchOpen,
+                    enter = fadeIn(tween(200)),
+                    exit = fadeOut(tween(150))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .zIndex(20f)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.background,
+                                        MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+                                        MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
+                                        MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                            .padding(bottom = 24.dp)
+                    ) {
+                        DashboardHeader(
+                            activeTab = activeTab,
+                            userName = userName,
+                            firstName = firstName,
+                            profilePicUrl = profilePicUrl,
+                            onSettingsClick = { showSettingsBottomSheet = true },
+                            isSettingsOpen = showSettingsBottomSheet,
+                            isScrolled = scrollState.value > 100,
+                            onSearchClick = { triggerSearch = true },
+                            onFilterClick = { showFilters = !showFilters },
+                            showFilters = showFilters,
+                            isAnyFilterActive = isAnyFilterActive
+                        )
+                    }
+                }
+
+                val showBackToTop by remember {
+                    derivedStateOf {
+                        scrollState.value > 600 && activeTab != "Insights"
+                    }
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showBackToTop && !isSearchOpen,
+                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
+                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 100.dp)
+                ) {
+                    FilledTonalButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                scrollState.animateScrollTo(0)
                             }
+                        },
+                        elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
+                        shape = CircleShape,
+                        modifier = Modifier.height(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowUpward,
+                            contentDescription = "Back to Top",
+                            modifier = Modifier.size(16.dp)
                         )
-                        "Collections" -> CollectionsPanel(
-                            uiState = uiState,
-                            viewModel = viewModel,
-                            dollarFormat = dollarFormat,
-                            onScrollProgressChanged = { isScrolling = it },
-                            onCollectionClick = onNavigateToCollectionTransactions,
-                            onBackToTop = { scrollAction ->
-                                coroutineScope.launch {
-                                    scrollOffsetPx = 0f
-                                    scrollAction()
-                                }
-                            }
-                        )
-                        "Insights" -> InsightsPanel(
-                            uiState = uiState,
-                            aiInsights = aiInsights,
-                            aiLoading = aiLoading,
-                            onRefreshInsights = { viewModel.fetchAiInsights() },
-                            dollarFormat = dollarFormat,
-                            onScrollProgressChanged = { isScrolling = it }
-                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

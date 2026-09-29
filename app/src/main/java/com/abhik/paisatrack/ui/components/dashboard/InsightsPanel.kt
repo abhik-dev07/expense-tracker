@@ -48,23 +48,11 @@ fun InsightsPanel(
     dollarFormat: DecimalFormat,
     onScrollProgressChanged: (Boolean) -> Unit
 ) {
-    val scrollState = rememberScrollState()
-    
-    LaunchedEffect(scrollState) {
-        snapshotFlow { scrollState.value }
-            .collect { currentValue ->
-                if (currentValue == 0) {
-                    onScrollProgressChanged(false)
-                } else {
-                    onScrollProgressChanged(true)
-                }
-            }
-    }
+    // Scroll progress handled by DashboardScreen
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
+            .fillMaxWidth()
             .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
