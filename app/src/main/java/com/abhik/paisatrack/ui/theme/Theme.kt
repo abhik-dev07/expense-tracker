@@ -12,9 +12,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.unit.Density
 
-private val DarkColorScheme =
+internal val DarkColorScheme =
   darkColorScheme(
     primary = SleekPrimaryDark,
     onPrimary = SleekOnPrimaryDark,
@@ -33,7 +35,7 @@ private val DarkColorScheme =
     outline = SleekOutlineDark
   )
 
-private val LightColorScheme =
+internal val LightColorScheme =
   lightColorScheme(
     primary = SleekPrimary,
     onPrimary = SleekOnPrimary,
@@ -54,12 +56,12 @@ private val LightColorScheme =
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
+  darkTheme: Boolean = isAppInDarkTheme(),
   // Force user-designed color palette for Sleek theme
   dynamicColor: Boolean = false,
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
+  val targetColorScheme =
     when {
       dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
         val context = LocalContext.current
@@ -69,6 +71,42 @@ fun MyApplicationTheme(
       darkTheme -> DarkColorScheme
       else -> LightColorScheme
     }
+    
+  val animationSpec = androidx.compose.animation.core.tween<androidx.compose.ui.graphics.Color>(durationMillis = 400)
+  
+  val primary by androidx.compose.animation.animateColorAsState(targetColorScheme.primary, animationSpec, label = "primary")
+  val onPrimary by androidx.compose.animation.animateColorAsState(targetColorScheme.onPrimary, animationSpec, label = "onPrimary")
+  val primaryContainer by androidx.compose.animation.animateColorAsState(targetColorScheme.primaryContainer, animationSpec, label = "primaryContainer")
+  val onPrimaryContainer by androidx.compose.animation.animateColorAsState(targetColorScheme.onPrimaryContainer, animationSpec, label = "onPrimaryContainer")
+  val secondary by androidx.compose.animation.animateColorAsState(targetColorScheme.secondary, animationSpec, label = "secondary")
+  val onSecondary by androidx.compose.animation.animateColorAsState(targetColorScheme.onSecondary, animationSpec, label = "onSecondary")
+  val secondaryContainer by androidx.compose.animation.animateColorAsState(targetColorScheme.secondaryContainer, animationSpec, label = "secondaryContainer")
+  val onSecondaryContainer by androidx.compose.animation.animateColorAsState(targetColorScheme.onSecondaryContainer, animationSpec, label = "onSecondaryContainer")
+  val background by androidx.compose.animation.animateColorAsState(targetColorScheme.background, animationSpec, label = "background")
+  val onBackground by androidx.compose.animation.animateColorAsState(targetColorScheme.onBackground, animationSpec, label = "onBackground")
+  val surface by androidx.compose.animation.animateColorAsState(targetColorScheme.surface, animationSpec, label = "surface")
+  val onSurface by androidx.compose.animation.animateColorAsState(targetColorScheme.onSurface, animationSpec, label = "onSurface")
+  val surfaceVariant by androidx.compose.animation.animateColorAsState(targetColorScheme.surfaceVariant, animationSpec, label = "surfaceVariant")
+  val onSurfaceVariant by androidx.compose.animation.animateColorAsState(targetColorScheme.onSurfaceVariant, animationSpec, label = "onSurfaceVariant")
+  val outline by androidx.compose.animation.animateColorAsState(targetColorScheme.outline, animationSpec, label = "outline")
+
+  val colorScheme = targetColorScheme.copy(
+      primary = primary,
+      onPrimary = onPrimary,
+      primaryContainer = primaryContainer,
+      onPrimaryContainer = onPrimaryContainer,
+      secondary = secondary,
+      onSecondary = onSecondary,
+      secondaryContainer = secondaryContainer,
+      onSecondaryContainer = onSecondaryContainer,
+      background = background,
+      onBackground = onBackground,
+      surface = surface,
+      onSurface = onSurface,
+      surfaceVariant = surfaceVariant,
+      onSurfaceVariant = onSurfaceVariant,
+      outline = outline
+  )
 
   val currentDensity = LocalDensity.current
   val configuration = LocalConfiguration.current
@@ -91,5 +129,15 @@ fun MyApplicationTheme(
 
   CompositionLocalProvider(LocalDensity provides customDensity) {
     MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  }
+}
+
+@Composable
+fun isAppInDarkTheme(): Boolean {
+  val themeMode by com.abhik.paisatrack.ui.theme.ThemeManager.themeMode.collectAsState()
+  return when (themeMode) {
+      com.abhik.paisatrack.ui.theme.ThemeMode.Light -> false
+      com.abhik.paisatrack.ui.theme.ThemeMode.Dark -> true
+      com.abhik.paisatrack.ui.theme.ThemeMode.System -> isSystemInDarkTheme()
   }
 }

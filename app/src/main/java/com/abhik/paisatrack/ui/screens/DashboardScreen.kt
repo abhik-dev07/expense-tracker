@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.zIndex
@@ -51,6 +52,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -94,6 +96,7 @@ fun DashboardScreen(
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToCollectionTransactions: (String, androidx.compose.ui.geometry.Rect?) -> Unit,
     onLogout: () -> Unit,
+    onProfileClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     isOnline: Boolean = true
 ) {
@@ -111,8 +114,14 @@ fun DashboardScreen(
     var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var showSettingsBottomSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    var isScrollingUp by remember { mutableStateOf(false) }
+    var isAutoScrollingToTop by remember { mutableStateOf(false) }
+    var isNavBarVisible by remember { mutableStateOf(true) }
+
     LaunchedEffect(activeTab) {
         isScrolling = false
+        isScrollingUp = false
+        isNavBarVisible = true
     }
 
     // Entrance fade-in animation (plays once when Dashboard first appears after LoaderScreen)
@@ -123,6 +132,45 @@ fun DashboardScreen(
 
     val scrollState = rememberScrollState()
 
+    LaunchedEffect(scrollState) {
+        var previousOffset = scrollState.value
+        var accumulatedDelta = 0
+        snapshotFlow { scrollState.value }
+            .collect { currentOffset ->
+                val delta = currentOffset - previousOffset
+                if (isAutoScrollingToTop) {
+                    isScrollingUp = false
+                    isNavBarVisible = true
+                    accumulatedDelta = 0
+                } else if (currentOffset <= 80) {
+                    isNavBarVisible = true
+                    accumulatedDelta = 0
+                    if (currentOffset <= 400) {
+                        isScrollingUp = false
+                    }
+                } else if (delta < 0) {
+                    // Scrolling up (offset decreasing towards top)
+                    if (accumulatedDelta > 0) accumulatedDelta = 0
+                    accumulatedDelta += delta
+                    if (accumulatedDelta < -20) {
+                        isNavBarVisible = true
+                        if (currentOffset > 400) {
+                            isScrollingUp = true
+                        }
+                    }
+                } else if (delta > 0) {
+                    // Scrolling down (offset increasing)
+                    if (accumulatedDelta < 0) accumulatedDelta = 0
+                    accumulatedDelta += delta
+                    if (accumulatedDelta > 20) {
+                        isScrollingUp = false
+                        isNavBarVisible = false
+                    }
+                }
+                previousOffset = currentOffset
+            }
+    }
+
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
@@ -131,7 +179,7 @@ fun DashboardScreen(
     val profilePicUrl = remember { AuthManager.getProfilePicUrl(context) }
     val dollarFormat = remember { DecimalFormat("₹#,##0.00") }
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     val view = LocalView.current
     @Suppress("DEPRECATION")
     DisposableEffect(isDark) {
@@ -146,7 +194,7 @@ fun DashboardScreen(
 
 
     val bottomBarOffset by animateDpAsState(
-        targetValue = if (isScrolling || isSearchOpen) 200.dp else 0.dp,
+        targetValue = if (!isNavBarVisible || isSearchOpen) 200.dp else 0.dp,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "NavBarOffsetAnimation"
     )
@@ -158,7 +206,7 @@ fun DashboardScreen(
     }
 
     val bottomBarAlpha by animateFloatAsState(
-        targetValue = if (isScrolling || isSearchOpen) 0f else 1f,
+        targetValue = if (!isNavBarVisible || isSearchOpen) 0f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "NavBarAlphaAnimation"
     )
@@ -199,12 +247,13 @@ fun DashboardScreen(
                     label = "TabIndicatorIndexAnimation"
                 )
 
-                val homeAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_home)
-                val analysisAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_analysis)
-                val collectionAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_collection)
-                val plusAnimatedVector = AnimatedImageVector.animatedVectorResource(R.drawable.avd_plus)
-
-                val plusPainter = rememberAnimatedVectorPainter(plusAnimatedVector, atEnd = showPlusMenu)
+                val plusRotation by animateFloatAsState(
+                    targetValue = if (showPlusMenu) 135f else 0f,
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                    label = "PlusIconRotation"
+                )
+                val plusIconRes = R.drawable.ic_plus_custom
+                val plusPainter = painterResource(id = plusIconRes)
 
                 BoxWithConstraints(
                     modifier = Modifier
@@ -244,6 +293,9 @@ fun DashboardScreen(
                             )
                     )
 
+                    val navActiveTint = if (isDark) Color(0xFF15915F) else Color(0xFF1FB47B)
+                    val navInactiveTint = if (isDark) Color(0xFFF5F5F5) else Color(0xFF000000)
+
                     // Row of Tab items
                     Row(
                         modifier = Modifier.fillMaxSize(),
@@ -272,39 +324,26 @@ fun DashboardScreen(
                                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                 }
 
-                                // Icon mapping: AnimatedVectorDrawable forward on select, reverse ("back effect") on deselect, then smooth Crossfade into predefined inactive icon
+                                // Icon mapping: Crossfade between inactive and active SVGs based on theme
                                 when (tab.first) {
                                     "Transactions" -> {
-                                        var showStatic by remember { mutableStateOf(!isSelected) }
-                                        var atEnd by remember { mutableStateOf(isSelected) }
-                                        LaunchedEffect(isSelected) {
-                                            if (isSelected) {
-                                                showStatic = false
-                                                atEnd = true
-                                            } else if (!showStatic) {
-                                                atEnd = false
-                                                kotlinx.coroutines.delay(450)
-                                                showStatic = true
-                                            }
-                                        }
-                                        val homePainter = rememberAnimatedVectorPainter(homeAnimatedVector, atEnd = atEnd)
                                         Crossfade(
-                                            targetState = showStatic,
+                                            targetState = isSelected,
                                             animationSpec = tween(durationMillis = 200),
                                             label = "HomeIconCrossfade"
-                                        ) { isStatic ->
-                                            if (isStatic) {
+                                        ) { active ->
+                                            if (active) {
                                                 Icon(
-                                                    imageVector = HomeIconVector,
+                                                    painter = painterResource(id = R.drawable.home_active),
                                                     contentDescription = "Transactions",
-                                                    tint = contentColor,
+                                                    tint = navActiveTint,
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             } else {
                                                 Icon(
-                                                    painter = homePainter,
+                                                    painter = painterResource(id = R.drawable.home),
                                                     contentDescription = "Transactions",
-                                                    tint = contentColor,
+                                                    tint = navInactiveTint,
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             }
@@ -312,36 +351,23 @@ fun DashboardScreen(
                                     }
 
                                     "Insights" -> {
-                                        var showStatic by remember { mutableStateOf(!isSelected) }
-                                        var atEnd by remember { mutableStateOf(isSelected) }
-                                        LaunchedEffect(isSelected) {
-                                            if (isSelected) {
-                                                showStatic = false
-                                                atEnd = true
-                                            } else if (!showStatic) {
-                                                atEnd = false
-                                                kotlinx.coroutines.delay(450)
-                                                showStatic = true
-                                            }
-                                        }
-                                        val analysisPainter = rememberAnimatedVectorPainter(analysisAnimatedVector, atEnd = atEnd)
                                         Crossfade(
-                                            targetState = showStatic,
+                                            targetState = isSelected,
                                             animationSpec = tween(durationMillis = 200),
                                             label = "AnalysisIconCrossfade"
-                                        ) { isStatic ->
-                                            if (isStatic) {
+                                        ) { active ->
+                                            if (active) {
                                                 Icon(
-                                                    imageVector = EqualizerIconVector,
+                                                    painter = painterResource(id = R.drawable.analysis_active),
                                                     contentDescription = "Insights",
-                                                    tint = contentColor,
+                                                    tint = navActiveTint,
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             } else {
                                                 Icon(
-                                                    painter = analysisPainter,
+                                                    painter = painterResource(id = R.drawable.analysis),
                                                     contentDescription = "Insights",
-                                                    tint = contentColor,
+                                                    tint = navInactiveTint,
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             }
@@ -349,36 +375,23 @@ fun DashboardScreen(
                                     }
 
                                     "Collections" -> {
-                                        var showStatic by remember { mutableStateOf(!isSelected) }
-                                        var atEnd by remember { mutableStateOf(isSelected) }
-                                        LaunchedEffect(isSelected) {
-                                            if (isSelected) {
-                                                showStatic = false
-                                                atEnd = true
-                                            } else if (!showStatic) {
-                                                atEnd = false
-                                                kotlinx.coroutines.delay(450)
-                                                showStatic = true
-                                            }
-                                        }
-                                        val collectionPainter = rememberAnimatedVectorPainter(collectionAnimatedVector, atEnd = atEnd)
                                         Crossfade(
-                                            targetState = showStatic,
+                                            targetState = isSelected,
                                             animationSpec = tween(durationMillis = 200),
                                             label = "CollectionIconCrossfade"
-                                        ) { isStatic ->
-                                            if (isStatic) {
+                                        ) { active ->
+                                            if (active) {
                                                 Icon(
-                                                    imageVector = FolderIconVector,
+                                                    painter = painterResource(id = R.drawable.folder_active),
                                                     contentDescription = "Collections",
-                                                    tint = contentColor,
+                                                    tint = navActiveTint,
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             } else {
                                                 Icon(
-                                                    painter = collectionPainter,
+                                                    painter = painterResource(id = R.drawable.folder),
                                                     contentDescription = "Collections",
-                                                    tint = contentColor,
+                                                    tint = navInactiveTint,
                                                     modifier = Modifier.size(24.dp)
                                                 )
                                             }
@@ -443,8 +456,10 @@ fun DashboardScreen(
                     Icon(
                         painter = plusPainter,
                         contentDescription = "Add Menu",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(28.dp)
+                        tint = if (isDark) Color(0xFFF2F2F2) else Color(0xFF000000),
+                        modifier = Modifier
+                            .size(28.dp)
+                            .rotate(plusRotation)
                     )
                 }
             }
@@ -452,8 +467,7 @@ fun DashboardScreen(
     ) { innerPadding ->
         Surface(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding()),
+                .fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
             LaunchedEffect(scrollState.isScrollInProgress) {
@@ -466,7 +480,15 @@ fun DashboardScreen(
                         .fillMaxSize()
                         .verticalScroll(scrollState)
                 ) {
-                    Spacer(modifier = Modifier.height(100.dp))
+                    // Match the expanded height of DashboardHeader (8dp top + 50dp row + 14dp spacer + 52dp search + 12dp bottom = 136dp)
+                    val targetHeaderHeight = if (activeTab == "Transactions") 136.dp else 74.dp
+                    val headerHeight by animateDpAsState(
+                        targetValue = targetHeaderHeight,
+                        animationSpec = tween(320, easing = FastOutSlowInEasing),
+                        label = "HeaderSpacerAnimation"
+                    )
+                    val statusBarHeight = androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                    Spacer(modifier = Modifier.height(headerHeight + statusBarHeight))
 
                     AnimatedVisibility(
                         visible = !isSearchOpen,
@@ -527,7 +549,14 @@ fun DashboardScreen(
                                 onTransactionClick = { tx -> txDetailToShow = tx },
                                 onBackToTop = { scrollAction ->
                                     coroutineScope.launch {
-                                        scrollAction()
+                                        isAutoScrollingToTop = true
+                                        isScrollingUp = false
+                                        isNavBarVisible = true
+                                        try {
+                                            scrollAction()
+                                        } finally {
+                                            isAutoScrollingToTop = false
+                                        }
                                     }
                                 },
                                 triggerSearch = triggerSearch,
@@ -545,7 +574,14 @@ fun DashboardScreen(
                                 onCollectionClick = onNavigateToCollectionTransactions,
                                 onBackToTop = { scrollAction ->
                                     coroutineScope.launch {
-                                        scrollAction()
+                                        isAutoScrollingToTop = true
+                                        isScrollingUp = false
+                                        isNavBarVisible = true
+                                        try {
+                                            scrollAction()
+                                        } finally {
+                                            isAutoScrollingToTop = false
+                                        }
                                     }
                                 }
                             )
@@ -570,27 +606,15 @@ fun DashboardScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .zIndex(20f)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.background,
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.8f),
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
-                                        Color.Transparent
-                                    )
-                                )
-                            )
-                            .padding(bottom = 24.dp)
                     ) {
                         DashboardHeader(
                             activeTab = activeTab,
                             userName = userName,
                             firstName = firstName,
                             profilePicUrl = profilePicUrl,
-                            onSettingsClick = { showSettingsBottomSheet = true },
-                            isSettingsOpen = showSettingsBottomSheet,
-                            isScrolled = scrollState.value > 100,
+                            onSettingsClick = onProfileClick,
+                            isSettingsOpen = false,
+                            scrollOffset = scrollState.value.toFloat(),
                             onSearchClick = { triggerSearch = true },
                             onFilterClick = { showFilters = !showFilters },
                             showFilters = showFilters,
@@ -601,22 +625,37 @@ fun DashboardScreen(
 
                 val showBackToTop by remember {
                     derivedStateOf {
-                        scrollState.value > 600 && activeTab != "Insights"
+                        isScrollingUp && scrollState.value > 400 && activeTab != "Insights"
                     }
                 }
 
                 androidx.compose.animation.AnimatedVisibility(
                     visible = showBackToTop && !isSearchOpen,
-                    enter = fadeIn() + scaleIn(initialScale = 0.8f),
-                    exit = fadeOut() + scaleOut(targetScale = 0.8f),
+                    enter = fadeIn(tween(250)) + slideInVertically(
+                        initialOffsetY = { 40 },
+                        animationSpec = tween(250, easing = FastOutSlowInEasing)
+                    ),
+                    exit = fadeOut(tween(200)) + slideOutVertically(
+                        targetOffsetY = { 40 },
+                        animationSpec = tween(200, easing = FastOutSlowInEasing)
+                    ),
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(top = 100.dp)
+                        .zIndex(15f)
+                        .padding(top = 72.dp + 16.dp + androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
                 ) {
                     FilledTonalButton(
                         onClick = {
+                            presets.ping()
+                            isScrollingUp = false
+                            isNavBarVisible = true
                             coroutineScope.launch {
-                                scrollState.animateScrollTo(0)
+                                isAutoScrollingToTop = true
+                                try {
+                                    scrollState.animateScrollTo(0)
+                                } finally {
+                                    isAutoScrollingToTop = false
+                                }
                             }
                         },
                         elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
@@ -624,12 +663,18 @@ fun DashboardScreen(
                         modifier = Modifier.height(40.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowUpward,
+                            painter = painterResource(id = R.drawable.ic_up_arrow),
                             contentDescription = "Back to Top",
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Back to Top", 
+                            fontSize = 12.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
+                        )
                     }
                 }
             }
@@ -1013,6 +1058,7 @@ private val FolderFilledIconVector: ImageVector
     }
 
 private var _folderFilledIconVector: ImageVector? = null
+
 
 
 

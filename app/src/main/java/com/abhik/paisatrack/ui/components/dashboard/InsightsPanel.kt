@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.animation.AnimatedVisibility
+import com.abhik.paisatrack.R
+import androidx.compose.ui.res.painterResource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -13,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
-import com.abhik.paisatrack.ui.components.commonUi.CloseSmallRoundedIconVector
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -379,7 +380,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = CloseSmallRoundedIconVector,
+                                    painter = painterResource(id = R.drawable.ic_close_small),
                                     contentDescription = "Close details",
                                     tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(16.dp)

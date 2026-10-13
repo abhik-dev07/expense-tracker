@@ -1,6 +1,9 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.foundation.BorderStroke
+import com.abhik.paisatrack.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,9 +35,6 @@ import kotlinx.coroutines.delay
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateDpAsState
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
-import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
-import com.abhik.paisatrack.ui.components.commonUi.ExitToAppRoundedIconVector
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
 
@@ -98,7 +98,7 @@ fun SettingsBottomSheet(
                         supportingContent = { Text("Safely close current finance database session") },
                         leadingContent = {
                             Icon(
-                                imageVector = ExitToAppRoundedIconVector,
+                                painter = painterResource(id = R.drawable.ic_signout),
                                 contentDescription = "Sign Out",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -118,7 +118,7 @@ fun SettingsBottomSheet(
                         supportingContent = { Text("Permanently erase all your data and collections", color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) },
                         leadingContent = {
                             Icon(
-                                imageVector = DeleteRoundedIconVector,
+                                painter = painterResource(id = R.drawable.ic_delete),
                                 contentDescription = "Delete Account",
                                 tint = MaterialTheme.colorScheme.error
                             )
@@ -162,7 +162,7 @@ fun SettingsBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = ExitToAppRoundedIconVector,
+                        painter = painterResource(id = R.drawable.ic_signout),
                         contentDescription = "Logout",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(48.dp)
@@ -275,9 +275,10 @@ fun SettingsBottomSheet(
                                         )
                                     }
                                     SettingsSubmitState.Success -> {
-                                        AnimatedCheckIcon(
-                                            isSelected = true,
-                                            tint = logoutContentColor,
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tick),
+                                            contentDescription = "Check",
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
@@ -316,7 +317,7 @@ fun SettingsBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = DeleteRoundedIconVector,
+                        painter = painterResource(id = R.drawable.ic_delete),
                         contentDescription = "Delete",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(48.dp)
@@ -403,7 +404,7 @@ fun SettingsBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = DeleteRoundedIconVector,
+                        painter = painterResource(id = R.drawable.ic_delete),
                         contentDescription = "Confirm Delete",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(48.dp)
@@ -541,9 +542,10 @@ fun SettingsBottomSheet(
                                         )
                                     }
                                     SettingsSubmitState.Success -> {
-                                        AnimatedCheckIcon(
-                                            isSelected = true,
-                                            tint = deleteContentColor,
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tick),
+                                            contentDescription = "Check",
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }

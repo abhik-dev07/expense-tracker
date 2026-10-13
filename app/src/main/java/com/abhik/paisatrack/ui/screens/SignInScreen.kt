@@ -99,7 +99,7 @@ fun SignInScreen(
         iterations = LottieConstants.IterateForever
     )
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     val buttonBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFFFFFFF)
     val buttonBorderColor = if (isDark) Color(0xFF38383A) else Color(0x14000000)
 
@@ -287,7 +287,7 @@ fun SignInScreen(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Image(
-                                            painter = painterResource(id = R.drawable.google_logo),
+                                            painter = painterResource(id = R.drawable.img_google_logo),
                                             contentDescription = "Google Logo",
                                             modifier = Modifier.size(24.dp)
                                         )
@@ -549,3 +549,4 @@ private fun getGoogleIdFromIdToken(idToken: String?): String? {
         null
     }
 }
+

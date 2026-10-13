@@ -7,7 +7,7 @@ import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -49,7 +49,7 @@ import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.UpdateAvailability
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
   private lateinit var appUpdateManager: AppUpdateManager
 
   private val updateLauncher = registerForActivityResult(
@@ -61,7 +61,10 @@ class MainActivity : ComponentActivity() {
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    android.util.Log.d("ThemeSwitch", "MainActivity.onCreate called (recreated: ${savedInstanceState != null})")
     installSplashScreen()
+    com.abhik.paisatrack.ui.theme.ThemeManager.init(this)
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     
@@ -99,6 +102,20 @@ class MainActivity : ComponentActivity() {
     }
 
     setContent {
+      val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
+      DisposableEffect(isDark) {
+        enableEdgeToEdge(
+          statusBarStyle = androidx.activity.SystemBarStyle.auto(
+            android.graphics.Color.TRANSPARENT,
+            android.graphics.Color.TRANSPARENT
+          ) { isDark },
+          navigationBarStyle = androidx.activity.SystemBarStyle.auto(
+            android.graphics.Color.TRANSPARENT,
+            android.graphics.Color.TRANSPARENT
+          ) { isDark }
+        )
+        onDispose {}
+      }
       MyApplicationTheme {
         Surface(
           modifier = Modifier.fillMaxSize(),
@@ -164,10 +181,11 @@ class MainActivity : ComponentActivity() {
             }
           }
 
-          androidx.compose.foundation.layout.Column(
-            modifier = Modifier.fillMaxSize()
-          ) {
-            NavHost(navController = navController, startDestination = "loader") {
+          androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+            androidx.compose.foundation.layout.Column(
+              modifier = Modifier.fillMaxSize()
+            ) {
+              NavHost(navController = navController, startDestination = "loader") {
               composable("loader") {
                   LoaderScreen(
                     onNavigateToDashboard = {
@@ -236,6 +254,9 @@ class MainActivity : ComponentActivity() {
                       navController.navigate("sign_in") {
                         popUpTo(0) { inclusive = true }
                       }
+                    },
+                    onProfileClick = {
+                      navController.navigate("profile")
                     }
                   )
                 }
@@ -322,13 +343,41 @@ class MainActivity : ComponentActivity() {
                       navController.popBackStack()
                     }
                   )
+                }
+                composable(
+                  "profile",
+                  enterTransition = {
+                    androidx.compose.animation.slideInHorizontally(animationSpec = androidx.compose.animation.core.tween(320), initialOffsetX = { it })
+                  },
+                  exitTransition = {
+                    androidx.compose.animation.slideOutHorizontally(animationSpec = androidx.compose.animation.core.tween(320), targetOffsetX = { -it })
+                  },
+                  popEnterTransition = {
+                    androidx.compose.animation.slideInHorizontally(animationSpec = androidx.compose.animation.core.tween(320), initialOffsetX = { -it })
+                  },
+                  popExitTransition = {
+                    androidx.compose.animation.slideOutHorizontally(animationSpec = androidx.compose.animation.core.tween(320), targetOffsetX = { it })
+                  }
+                ) {
+                  com.abhik.paisatrack.ui.screens.ProfileScreen(
+                    onBack = {
+                      navController.popBackStack()
+                    },
+                    onLogout = {
+                      navController.navigate("sign_in") {
+                        popUpTo(0) { inclusive = true }
+                      }
+                    }
+                  )
               }
-            }
-          }
-        }
-      }
-    }
-  }
+            } // Close NavHost
+            } // Close Column
+            com.abhik.paisatrack.ui.theme.ThemeTransitionOverlay()
+          } // Close Box
+        } // Close Surface
+      } // Close MyApplicationTheme
+    } // Close setContent
+  } // Close onCreate
 
   private fun createNotificationChannel() {
     val channelId = "paisa_track_alerts_v3"
@@ -393,5 +442,9 @@ class MainActivity : ComponentActivity() {
         }
       }
     }
+  }
+  override fun onDestroy() {
+    android.util.Log.d("ThemeSwitch", "MainActivity.onDestroy called (isFinishing: $isFinishing)")
+    super.onDestroy()
   }
 }

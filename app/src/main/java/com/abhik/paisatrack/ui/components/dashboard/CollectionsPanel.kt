@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
 import android.widget.Toast
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -34,6 +36,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abhik.paisatrack.R
 import com.abhik.paisatrack.ui.CollectionSummary
+import com.abhik.paisatrack.ui.theme.SearchBorderDark
+import com.abhik.paisatrack.ui.theme.SearchBorderLight
 import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.CollectionColors
@@ -46,9 +50,6 @@ import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
-import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
-import com.abhik.paisatrack.ui.components.commonUi.EditRoundedIconVector
 import com.abhik.paisatrack.ui.utils.safeParseColor
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
@@ -149,10 +150,13 @@ fun CollectionsPanel(
                     },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                     icon = {
-                        AnimatedCheckIcon(
-                            isSelected = selected,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                        if (selected) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_tick),
+                                contentDescription = "Check",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     },
                     label = {
                         Text(
@@ -288,7 +292,7 @@ fun CollectionsPanel(
         // Bottom Sheet for Editing / Deleting a collection
         if (editingCollectionSummary != null) {
             val focusManager = LocalFocusManager.current
-            val isDark = isSystemInDarkTheme()
+            val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
 
             val initialColorIdx = remember(editingCollectionSummary) {
                 CollectionColors.indexOfFirst { it.first.lowercase() == (editingCollectionSummary?.collection?.hexColor ?: "").lowercase() }.coerceAtLeast(0)
@@ -490,7 +494,7 @@ fun CollectionsPanel(
                             border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
                             shape = CircleShape
                         ) {
-                            Icon(DeleteRoundedIconVector, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(painterResource(id = R.drawable.ic_delete), contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
@@ -566,7 +570,7 @@ fun CollectionsPanel(
                                     verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Icon(
-                                        imageVector = DeleteRoundedIconVector,
+                                        painter = painterResource(id = R.drawable.ic_delete),
                                         contentDescription = "Delete",
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(48.dp)
@@ -679,9 +683,10 @@ fun CollectionsPanel(
                                                         )
                                                     }
                                                     PanelSubmitState.Success -> {
-                                                        AnimatedCheckIcon(
-                                                            isSelected = true,
-                                                            tint = delContentColor,
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.ic_tick),
+                                                            contentDescription = "Check",
+                                                            tint = MaterialTheme.colorScheme.primary,
                                                             modifier = Modifier.size(24.dp)
                                                         )
                                                     }
@@ -839,9 +844,10 @@ fun CollectionsPanel(
                                                         )
                                                     }
                                                     PanelSubmitState.Success -> {
-                                                        AnimatedCheckIcon(
-                                                            isSelected = true,
-                                                            tint = saveContentColor,
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.ic_tick),
+                                                            contentDescription = "Check",
+                                                            tint = MaterialTheme.colorScheme.primary,
                                                             modifier = Modifier.size(24.dp)
                                                         )
                                                     }
@@ -889,6 +895,7 @@ fun CollectionGridCard(
                 onClick(rect)
             },
         shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, if (com.abhik.paisatrack.ui.theme.isAppInDarkTheme()) SearchBorderDark else SearchBorderLight),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -921,7 +928,7 @@ fun CollectionGridCard(
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
-                        imageVector = EditRoundedIconVector,
+                        painter = painterResource(id = R.drawable.ic_edit),
                         contentDescription = "Edit Collection",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(16.dp)
@@ -968,3 +975,4 @@ fun CollectionGridCard(
         }
     }
 }
+

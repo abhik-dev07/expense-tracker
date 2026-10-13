@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -72,7 +74,7 @@ fun EditTransactionBottomSheet(
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     var submitState by remember { mutableStateOf(SubmitState.Idle) }
@@ -480,10 +482,13 @@ fun EditTransactionBottomSheet(
                                         },
                                         shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
                                         icon = {
-                                            AnimatedCheckIcon(
-                                                isSelected = isSelected,
-                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                            )
+                                            if (isSelected) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_tick),
+                                                    contentDescription = "Check",
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
                                         },
                                         label = {
                                             Text(
@@ -600,11 +605,14 @@ fun EditTransactionBottomSheet(
                                                         )
                                                     }
 
-                                                    AnimatedCheckIcon(
-                                                        isSelected = isSelected,
-                                                        tint = itemColor,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.ic_tick),
+                                                            contentDescription = "Check",
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(20.dp)
+                                                        )
+                                                    }
                                                 }
                                             },
                                             onClick = {
@@ -770,9 +778,10 @@ fun EditTransactionBottomSheet(
                                 )
                             }
                             SubmitState.Success -> {
-                                AnimatedCheckIcon(
-                                    isSelected = true,
-                                    tint = buttonContentColor,
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_tick),
+                                    contentDescription = "Check",
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -815,3 +824,4 @@ private fun formatAmountWithCommas(raw: String): String {
         formattedInt
     }
 }
+

@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
 import android.widget.Toast
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
@@ -44,18 +46,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.abhik.paisatrack.ui.components.commonUi.CloseSmallRoundedIconVector
-import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
-import com.abhik.paisatrack.ui.components.commonUi.CalendarMonthIconVector
-import com.abhik.paisatrack.ui.components.commonUi.SearchRoundedIconVector
 import com.abhik.paisatrack.ui.components.commonUi.SearchDatePickerDialog
 import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.abhik.paisatrack.R
 import com.abhik.paisatrack.data.model.TransactionEntity
+import com.abhik.paisatrack.ui.theme.SearchBorderDark
+import com.abhik.paisatrack.ui.theme.SearchBorderLight
 import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.components.commonUi.shimmerEffect
-import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.toShape
 import com.airbnb.lottie.compose.*
@@ -77,7 +76,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.gestures.detectTapGestures
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import com.abhik.paisatrack.ui.components.getIconByName
@@ -249,7 +247,7 @@ fun TransactionListItem(
                         fontSize = 14.sp
                     )
                     Icon(
-                        imageVector = DeleteRoundedIconVector,
+                        painter = painterResource(id = R.drawable.ic_delete),
                         contentDescription = "Swipe to delete",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
@@ -286,7 +284,7 @@ fun TransactionListItem(
                 },
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
+            border = BorderStroke(1.dp, if (com.abhik.paisatrack.ui.theme.isAppInDarkTheme()) SearchBorderDark else SearchBorderLight),
             shadowElevation = 1.dp
         ) {
             ListItem(
@@ -467,6 +465,7 @@ fun TransactionsPanel(
     }
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
+    var isFilterShimmering by remember { mutableStateOf(false) }
 
     // Looping typewriter reveal animation for dashboard search placeholder: "entry", "record", "cash in", "cash out"
     val searchKeywords = remember { listOf("entry", "record", "cash in", "cash out") }
@@ -556,95 +555,13 @@ fun TransactionsPanel(
                                     Spacer(modifier = Modifier.width(12.dp))
                                 }
                             }
-
-                            // 2. Search Container (Compact 36.dp Circular Search Button only when not scrolled)
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = !isScrolled,
-                                modifier = Modifier.weight(1f),
-                                enter = fadeIn(tween(200)) + expandHorizontally(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)),
-                                exit = fadeOut(tween(150)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.CenterEnd,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    // Initial State: Compact 36.dp Circular Search Button
-                                    Box(
-                                        modifier = Modifier.size(36.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                                .clickable {
-                                                    presets.plunk()
-                                                    scope.launch { searchBarState.animateToExpanded() }
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = SearchRoundedIconVector,
-                                                contentDescription = "Search",
-                                                tint = MaterialTheme.colorScheme.onBackground,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // 3. Filter triggers icon button (Always available on the right when not scrolled)
-                            AnimatedVisibility(
-                                visible = !isScrolled,
-                                enter = fadeIn(tween(200)) + expandHorizontally(spring(stiffness = Spring.StiffnessMediumLow)),
-                                exit = fadeOut(tween(150)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(36.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(CircleShape)
-                                            .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
-                                            .clickable {
-                                                presets.plunk()
-                                                onToggleFilters()
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AnimatedTuneIcon(
-                                            isActive = showFilters,
-                                            tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    // Tiny active filter feedback dot shifted to sit above the circular button boundary
-                                    if (isAnyFilterActive && !showFilters) {
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .offset(x = 1.dp, y = (-1).dp)
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(0xFF10B981))
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 }
             }
 
             // Transactions list or empty state
-            if (uiState.isLoading) {
+            if (uiState.isLoading || isFilterShimmering) {
                 repeat(5) {
                     TransactionSkeletonItem()
                 }
@@ -865,7 +782,7 @@ fun TransactionsPanel(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = ArrowLeftAltIconVector,
+                                    painter = painterResource(id = R.drawable.ic_chevron_back),
                                     contentDescription = "Close search",
                                     tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(22.dp)
@@ -885,7 +802,7 @@ fun TransactionsPanel(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = CloseSmallRoundedIconVector,
+                                        painter = painterResource(id = R.drawable.ic_close_small),
                                         contentDescription = "Clear search",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(22.dp)
@@ -904,7 +821,7 @@ fun TransactionsPanel(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = CalendarMonthIconVector,
+                                        painter = painterResource(id = R.drawable.ic_date),
                                         contentDescription = "Filter by date",
                                         tint = if (dateActive) MaterialTheme.colorScheme.primary
                                                else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -981,7 +898,7 @@ fun TransactionsPanel(
                                                 },
                                                 leadingContent = {
                                                     Icon(
-                                                        imageVector = SearchRoundedIconVector,
+                                                        painter = painterResource(id = R.drawable.ic_search),
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         modifier = Modifier.size(20.dp)
@@ -1131,9 +1048,16 @@ fun TransactionsPanel(
             activeSortOrder = uiState.activeSortOrder,
             activeTypeFilter = uiState.activeTypeFilter,
             activeTimeFilter = uiState.activeTimeFilter,
-            onSortOrderChange = { viewModel.setSortOrder(it) },
-            onTypeFilterChange = { viewModel.setTypeFilter(it) },
-            onTimeFilterChange = { viewModel.setTimeFilter(it) },
+            onApplyFilters = { sort, type, time ->
+                viewModel.setSortOrder(sort)
+                viewModel.setTypeFilter(type)
+                viewModel.setTimeFilter(time)
+                scope.launch {
+                    isFilterShimmering = true
+                    delay(550)
+                    isFilterShimmering = false
+                }
+            },
             onDismissRequest = onToggleFilters
         )
     }
@@ -1175,3 +1099,4 @@ fun TransactionsPanel(
         )
     }
 }
+

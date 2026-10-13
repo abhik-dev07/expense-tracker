@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.foundation.background
+import com.abhik.paisatrack.R
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -46,7 +48,7 @@ fun TransactionDetailBottomSheet(
 ) {
 
     val isIncome = transaction.type.uppercase() == "INCOME"
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
@@ -182,7 +184,7 @@ fun TransactionDetailBottomSheet(
                     shape = CircleShape
                 ) {
                     Icon(
-                        imageVector = EditRoundedIconVector,
+                        painter = painterResource(id = R.drawable.ic_edit),
                         contentDescription = "Edit Transaction",
                         modifier = Modifier.size(18.dp)
                     )
@@ -214,3 +216,4 @@ fun TransactionDetailBottomSheet(
         }
     }
 }
+

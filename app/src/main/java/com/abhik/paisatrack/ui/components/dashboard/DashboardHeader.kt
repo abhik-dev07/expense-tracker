@@ -1,6 +1,9 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.animation.*
+import com.abhik.paisatrack.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -8,8 +11,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Brush
+import com.abhik.paisatrack.ui.theme.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -29,6 +35,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -39,10 +48,13 @@ import coil.compose.AsyncImage
 import com.swmansion.pulsar.Pulsar
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import androidx.compose.foundation.BorderStroke
 import kotlinx.coroutines.delay
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.toShape
+import androidx.compose.material3.MaterialShapes
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun DashboardHeader(
     activeTab: String,
@@ -51,7 +63,7 @@ fun DashboardHeader(
     profilePicUrl: String?,
     onSettingsClick: () -> Unit,
     isSettingsOpen: Boolean = false,
-    isScrolled: Boolean = false,
+    scrollOffset: Float = 0f,
     onSearchClick: () -> Unit = {},
     onFilterClick: () -> Unit = {},
     showFilters: Boolean = false,
@@ -80,6 +92,36 @@ fun DashboardHeader(
         label = "RotationAngle"
     )
 
+    val calendar = java.util.Calendar.getInstance()
+    val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+    val greeting = when (hour) {
+        in 5..11 -> "Good morning"
+        12 -> "Good noon"
+        in 13..16 -> "Good afternoon"
+        in 17..20 -> "Good evening"
+        else -> "Good night"
+    }
+    
+    val fullGreeting = "$greeting $firstName"
+    val searchKeywords = remember { listOf("records...", "groceries...", "rent...", "food...", "gas...", "Netflix...", "salary...") }
+    var keywordIndex by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var displayedKeyword by remember { androidx.compose.runtime.mutableStateOf("") }
+    
+    LaunchedEffect(keywordIndex) {
+        val target = searchKeywords[keywordIndex]
+        for (i in 0..target.length) {
+            displayedKeyword = target.substring(0, i)
+            delay(70)
+        }
+        delay(2000)
+        for (i in target.length downTo 0) {
+            displayedKeyword = target.substring(0, i)
+            delay(30)
+        }
+        delay(500)
+        keywordIndex = (keywordIndex + 1) % searchKeywords.size
+    }
+
     AnimatedContent(
         targetState = activeTab,
         transitionSpec = {
@@ -103,360 +145,261 @@ fun DashboardHeader(
                     (slideOutVertically(animationSpec = tween(320, easing = FastOutSlowInEasing), targetOffsetY = { -it }) + fadeOut(animationSpec = tween(320)))
             }
         },
+        label = "DashboardHeaderTransition"
     ) { currentTab ->
-        if (currentTab == "Transactions") {
-            val searchKeywords = remember { listOf("records...", "groceries...", "rent...", "food...", "gas...", "Netflix...", "salary...") }
-            var keywordIndex by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-            var displayedKeyword by remember { androidx.compose.runtime.mutableStateOf("") }
-            
-            LaunchedEffect(keywordIndex) {
-                val target = searchKeywords[keywordIndex]
-                for (i in 0..target.length) {
-                    displayedKeyword = target.substring(0, i)
-                    delay(100)
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val collapseRange = with(density) { 100.dp.toPx() } // Start collapsing at 100dp range
+        val collapseProgress = (scrollOffset / collapseRange).coerceIn(0f, 1f)
+        
+        val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
+        val pageBgColor = if (isDark) androidx.compose.ui.graphics.Color(0xFF202027) else androidx.compose.ui.graphics.Color(0xFFFFFFFF)
+        
+        val headerGradient = Brush.verticalGradient(
+            colorStops = if (isDark) arrayOf(
+                0.0f to androidx.compose.ui.graphics.lerp(HeaderGradient0Dark, pageBgColor, collapseProgress),
+                0.18f to androidx.compose.ui.graphics.lerp(HeaderGradient18Dark, pageBgColor, collapseProgress),
+                0.38f to androidx.compose.ui.graphics.lerp(HeaderGradient38Dark, pageBgColor, collapseProgress),
+                0.58f to androidx.compose.ui.graphics.lerp(HeaderGradient58Dark, pageBgColor, collapseProgress),
+                0.75f to androidx.compose.ui.graphics.lerp(HeaderGradient75Dark, pageBgColor, collapseProgress),
+                0.90f to androidx.compose.ui.graphics.lerp(HeaderGradient90Dark, pageBgColor, collapseProgress),
+                1.0f to androidx.compose.ui.graphics.lerp(HeaderGradient100Dark, pageBgColor, collapseProgress)
+            ) else arrayOf(
+                0.0f to androidx.compose.ui.graphics.lerp(HeaderGradient0Light, pageBgColor, collapseProgress),
+                0.18f to androidx.compose.ui.graphics.lerp(HeaderGradient18Light, pageBgColor, collapseProgress),
+                0.38f to androidx.compose.ui.graphics.lerp(HeaderGradient38Light, pageBgColor, collapseProgress),
+                0.58f to androidx.compose.ui.graphics.lerp(HeaderGradient58Light, pageBgColor, collapseProgress),
+                0.75f to androidx.compose.ui.graphics.lerp(HeaderGradient75Light, pageBgColor, collapseProgress),
+                0.90f to androidx.compose.ui.graphics.lerp(HeaderGradient90Light, pageBgColor, collapseProgress),
+                1.0f to androidx.compose.ui.graphics.lerp(HeaderGradient100Light, pageBgColor, collapseProgress)
+            )
+        )
+        val headerTextPrimary = if (isDark) HeaderTextPrimaryDark else HeaderTextPrimaryLight
+        val headerTextSecondary = if (isDark) HeaderTextSecondaryDark else HeaderTextSecondaryLight
+        val searchSurfaceColor = if (isDark) HeaderSurfaceDark else MaterialTheme.colorScheme.surface
+        
+        val searchBg = if (isDark) SearchBackgroundDark else SearchBackgroundLight
+        val searchBorder = if (isDark) SearchBorderDark else SearchBorderLight
+        val searchPlaceholder = if (isDark) SearchPlaceholderDark else SearchPlaceholderLight
+        val searchDivider = if (isDark) SearchDividerDark else SearchDividerLight
+        val searchIconTint = if (isDark) SearchIconDark else SearchIconLight
+        
+        val profileSurface = if (isDark) ProfileSurfaceDark else ProfileSurfaceLight
+        val profileBorder = if (isDark) ProfileBorderDark else ProfileBorderLight
+        
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .background(headerGradient)
+                .statusBarsPadding()
+                .padding(bottom = 12.dp)
+        ) {
+            if (currentTab == "Transactions") {
+                // Top Row: Greeting & Name (Left) + Logo (Right)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(top = 8.dp)
+                        .height(50.dp * (1f - collapseProgress))
+                        .alpha(1f - collapseProgress)
+                        .graphicsLayer {
+                            translationY = -20f * collapseProgress
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Left: Greeting and First Name
+                    Column {
+                        Text(
+                            text = "$greeting,",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = headerTextSecondary
+                        )
+                        Text(
+                            text = firstName,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = headerTextPrimary
+                        )
+                    }
+                    
+                    // Right: Logo (acts as Settings button now)
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .scale(1f - (0.15f * collapseProgress)) // Scale when collapsed
+                            .clip(MaterialShapes.Clover8Leaf.toShape())
+                            .clickable {
+                                onSettingsClick()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (!profilePicUrl.isNullOrEmpty()) {
+                            AsyncImage(
+                                model = profilePicUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = userName.take(1).uppercase(),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDark) HeaderTextPrimaryDark else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }
-                delay(2000)
-                for (i in target.length downTo 0) {
-                    displayedKeyword = target.substring(0, i)
-                    delay(50)
-                }
-                keywordIndex = (keywordIndex + 1) % searchKeywords.size
-            }
-
-            Row(
-                modifier = modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, top = 14.dp, end = 24.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val pillColor by animateColorAsState(if (isScrolled) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent, label = "pillColor")
-                val pillBorderColor by animateColorAsState(if (isScrolled) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f) else Color.Transparent, label = "pillBorderColor")
-
+                
+                Spacer(modifier = Modifier.height(14.dp * (1f - collapseProgress)))
+                
+                // Bottom Row: Search Bar
                 Surface(
                     modifier = Modifier
-                        .weight(1f)
-                        .clip(CircleShape)
-                        .height(56.dp)
-                        .clickable(enabled = isScrolled) { onSearchClick() },
-                    shape = CircleShape,
-                    color = pillColor,
-                    border = BorderStroke(1.dp, pillBorderColor)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .height(52.dp)
+                        .clickable { onSearchClick() },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp), // pill shaped
+                    color = searchBg,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, searchBorder)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.padding(
-                            start = if (isScrolled) 6.dp else 0.dp,
-                            end = if (isScrolled) 6.dp else 0.dp,
-                            top = 6.dp,
-                            bottom = 6.dp
-                        )
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // High-contrast profile picture from Google or letter badge
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_search),
+                            contentDescription = "Search",
+                            tint = searchIconTint,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Search \"$displayedKeyword\"",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = searchPlaceholder,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        // Vertical Divider
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
-                                .graphicsLayer {
-                                    rotationZ = if (isScrolled) shapeRotation else -shapeRotation
-                                }
-                                .clip(if (isScrolled) androidx.compose.material3.MaterialShapes.Cookie9Sided.toShape() else CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        rotationZ = if (isScrolled) -shapeRotation else shapeRotation
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (!profilePicUrl.isNullOrEmpty()) {
-                                    AsyncImage(
-                                        model = profilePicUrl,
-                                        contentDescription = "Profile Picture",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Text(
-                                        text = userName.take(1).uppercase(),
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
+                                .height(24.dp)
+                                .width(1.dp)
+                                .background(searchDivider)
+                        )
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        // Filter
+                        val isFilterActive = isAnyFilterActive || showFilters
+                        val filterTint = if (isFilterActive) {
+                            if (isDark) Color(0xFFFFFFFF) else Color(0xFF1FB47B)
+                        } else {
+                            searchIconTint
                         }
 
-                        AnimatedContent(
-                            targetState = isScrolled,
-                            modifier = Modifier.weight(1f),
-                            transitionSpec = {
-                                (fadeIn(tween(200)) + slideInHorizontally { it / 2 }) togetherWith
-                                (fadeOut(tween(150)) + slideOutHorizontally { -it / 2 })
-                            },
-                            label = "HeaderContentTransition"
-                        ) { scrolled ->
-                            if (scrolled) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(
-                                            text = "Search ",
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                            maxLines = 1
-                                        )
-                                        Text(
-                                            text = displayedKeyword,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                                            maxLines = 1
-                                        )
-                                    }
-                                    
-                                    // Filter Button inside pill
-                                    Box(
-                                        modifier = Modifier.size(44.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(CircleShape)
-                                                .clickable { onFilterClick() }
-                                                .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.background),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            AnimatedTuneIcon(
-                                                isActive = showFilters,
-                                                tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .clickable { onFilterClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = if (isFilterActive) R.drawable.ic_filter_active else R.drawable.ic_filter),
+                                contentDescription = "Filter",
+                                tint = filterTint,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Headers for secondary screens
+                val headerText = when (currentTab) {
+                    "Collections" -> "Collections & Vaults"
+                    "Insights" -> "Insights & Analytics"
+                    else -> ""
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = headerText,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = headerTextPrimary
+                    )
 
-                                        // Tiny active filter feedback dot shifted to sit above the circular button boundary
-                                        if (isAnyFilterActive && !showFilters) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .align(Alignment.TopEnd)
-                                                    .offset(x = (-2).dp, y = 2.dp)
-                                                    .size(8.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(0xFF10B981))
-                                            )
-                                        }
-                                    }
-                                }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) Color.Black.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.8f))
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f),
+                                    shape = CircleShape
+                                )
+                                .clickable {
+                                    presets.plunk()
+                                    onSearchClick()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_search),
+                                contentDescription = "Search",
+                                tint = if (isDark) Color.White else Color.Black,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        // Profile section
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(MaterialShapes.Clover8Leaf.toShape())
+                                .clickable {
+                                    onSettingsClick()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (!profilePicUrl.isNullOrEmpty()) {
+                                AsyncImage(
+                                    model = profilePicUrl,
+                                    contentDescription = "Profile Picture",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
                             } else {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    Text(
-                                        text = "Hello,",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Normal,
-                                        color = Color(0xFF9CA3AF)
-                                    )
-                                    Text(
-                                        text = firstName,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
+                                Text(
+                                    text = userName.take(1).uppercase(),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) HeaderTextPrimaryDark else MaterialTheme.colorScheme.onSurface
+                                )
                             }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Settings button
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable {
-                            presets.plunk()
-                            onSettingsClick()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = SettingsIconVector,
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier
-                            .size(22.dp)
-                            .graphicsLayer { rotationZ = animatedRotation }
-                    )
-                }
-            }
-        } else {
-            // Header for secondary screens (Collections, Insights)
-            val headerText = when (currentTab) {
-                "Collections" -> "Collections & Vaults"
-                "Insights" -> "Insights & Analytics"
-                else -> ""
-            }
-            Row(
-                modifier = modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, top = 20.dp, end = 24.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = headerText,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
             }
         }
     }
 }
 
-private val SettingsIconVector: ImageVector
-    get() {
-        if (_settingsIconVector != null) return _settingsIconVector!!
-        _settingsIconVector = ImageVector.Builder(
-            name = "settings",
-            defaultWidth = 24.dp,
-            defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f
-        ).apply {
-            path(
-                fill = SolidColor(Color.Black),
-                fillAlpha = 1f,
-                stroke = null,
-                strokeAlpha = 1f,
-                strokeLineWidth = 1f,
-                strokeLineCap = StrokeCap.Butt,
-                strokeLineJoin = StrokeJoin.Bevel,
-                strokeLineMiter = 1f,
-                pathFillType = PathFillType.NonZero
-            ) {
-                moveTo(10.83f, 22f)
-                quadTo(10.15f, 22f, 9.66f, 21.55f)
-                reflectiveQuadTo(9.08f, 20.45f)
-                lineTo(8.85f, 18.8f)
-                quadTo(8.53f, 18.68f, 8.24f, 18.5f)
-                reflectiveQuadTo(7.68f, 18.13f)
-                lineTo(6.13f, 18.77f)
-                quadTo(5.5f, 19.05f, 4.88f, 18.83f)
-                reflectiveQuadTo(3.9f, 18.02f)
-                lineTo(2.73f, 15.98f)
-                quadTo(2.38f, 15.4f, 2.53f, 14.75f)
-                reflectiveQuadTo(3.2f, 13.68f)
-                lineToRelative(1.33f, -1f)
-                quadTo(4.5f, 12.5f, 4.5f, 12.34f)
-                quadToRelative(0f, -0.16f, 0f, -0.34f)
-                reflectiveQuadToRelative(0f, -0.34f)
-                reflectiveQuadTo(4.53f, 11.33f)
-                lineToRelative(-1.33f, -1f)
-                quadTo(2.68f, 9.9f, 2.53f, 9.25f)
-                reflectiveQuadTo(2.73f, 8.02f)
-                lineTo(3.9f, 5.97f)
-                quadTo(4.25f, 5.4f, 4.88f, 5.18f)
-                reflectiveQuadTo(6.13f, 5.22f)
-                lineTo(7.68f, 5.88f)
-                quadTo(7.95f, 5.68f, 8.25f, 5.5f)
-                reflectiveQuadTo(8.85f, 5.2f)
-                lineTo(9.08f, 3.55f)
-                quadTo(9.18f, 2.9f, 9.66f, 2.45f)
-                reflectiveQuadTo(10.83f, 2f)
-                horizontalLineToRelative(2.35f)
-                quadToRelative(0.68f, 0f, 1.16f, 0.45f)
-                reflectiveQuadToRelative(0.59f, 1.1f)
-                lineTo(15.15f, 5.2f)
-                quadToRelative(0.33f, 0.13f, 0.61f, 0.3f)
-                reflectiveQuadToRelative(0.56f, 0.38f)
-                lineTo(17.88f, 5.22f)
-                quadTo(18.5f, 4.95f, 19.13f, 5.18f)
-                reflectiveQuadToRelative(0.98f, 0.8f)
-                lineToRelative(1.18f, 2.05f)
-                quadToRelative(0.35f, 0.58f, 0.2f, 1.23f)
-                reflectiveQuadTo(20.8f, 10.33f)
-                lineToRelative(-1.32f, 1f)
-                quadToRelative(0.02f, 0.18f, 0.02f, 0.34f)
-                reflectiveQuadToRelative(0f, 0.34f)
-                reflectiveQuadToRelative(0f, 0.34f)
-                reflectiveQuadToRelative(-0.05f, 0.34f)
-                lineToRelative(1.32f, 1f)
-                quadToRelative(0.52f, 0.43f, 0.68f, 1.08f)
-                reflectiveQuadToRelative(-0.2f, 1.22f)
-                lineToRelative(-1.2f, 2.05f)
-                quadToRelative(-0.35f, 0.58f, -0.98f, 0.8f)
-                reflectiveQuadTo(17.83f, 18.77f)
-                lineToRelative(-1.5f, -0.65f)
-                quadToRelative(-0.27f, 0.2f, -0.57f, 0.38f)
-                reflectiveQuadToRelative(-0.6f, 0.3f)
-                lineToRelative(-0.22f, 1.65f)
-                quadToRelative(-0.1f, 0.65f, -0.59f, 1.1f)
-                reflectiveQuadTo(13.18f, 22f)
-                horizontalLineTo(10.83f)
-                close()
-                moveTo(11f, 20f)
-                horizontalLineToRelative(1.98f)
-                lineToRelative(0.35f, -2.65f)
-                quadToRelative(0.78f, -0.2f, 1.44f, -0.59f)
-                reflectiveQuadToRelative(1.21f, -0.94f)
-                lineToRelative(2.47f, 1.03f)
-                lineToRelative(0.98f, -1.7f)
-                lineTo(17.28f, 13.52f)
-                quadToRelative(0.13f, -0.35f, 0.17f, -0.74f)
-                reflectiveQuadTo(17.5f, 12f)
-                reflectiveQuadTo(17.45f, 11.21f)
-                quadTo(17.4f, 10.83f, 17.28f, 10.48f)
-                lineTo(19.43f, 8.85f)
-                lineTo(18.45f, 7.15f)
-                lineTo(15.98f, 8.2f)
-                quadTo(15.43f, 7.63f, 14.76f, 7.24f)
-                reflectiveQuadTo(13.33f, 6.65f)
-                lineTo(13f, 4f)
-                horizontalLineTo(11.03f)
-                lineTo(10.68f, 6.65f)
-                quadTo(9.9f, 6.85f, 9.24f, 7.24f)
-                reflectiveQuadTo(8.03f, 8.17f)
-                lineTo(5.55f, 7.15f)
-                lineTo(4.58f, 8.85f)
-                lineToRelative(2.15f, 1.6f)
-                quadTo(6.6f, 10.83f, 6.55f, 11.2f)
-                reflectiveQuadTo(6.5f, 12f)
-                quadToRelative(0f, 0.4f, 0.05f, 0.77f)
-                reflectiveQuadToRelative(0.17f, 0.75f)
-                lineTo(4.58f, 15.15f)
-                lineToRelative(0.98f, 1.7f)
-                lineTo(8.03f, 15.8f)
-                quadToRelative(0.55f, 0.58f, 1.21f, 0.96f)
-                reflectiveQuadToRelative(1.44f, 0.59f)
-                lineTo(11f, 20f)
-                close()
-                moveToRelative(1.05f, -4.5f)
-                quadToRelative(1.45f, 0f, 2.47f, -1.03f)
-                reflectiveQuadTo(15.55f, 12f)
-                reflectiveQuadTo(14.53f, 9.52f)
-                reflectiveQuadTo(12.05f, 8.5f)
-                quadToRelative(-1.47f, 0f, -2.49f, 1.02f)
-                reflectiveQuadTo(8.55f, 12f)
-                reflectiveQuadToRelative(1.01f, 2.47f)
-                reflectiveQuadToRelative(2.49f, 1.03f)
-                close()
-                moveTo(12f, 12f)
-                close()
-            }
-        }.build()
-        return _settingsIconVector!!
-    }
 
-private var _settingsIconVector: ImageVector? = null

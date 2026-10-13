@@ -1,6 +1,7 @@
 package com.abhik.paisatrack.ui.screens
 
 import android.widget.Toast
+import androidx.compose.material3.Icon
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -24,12 +25,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.abhik.paisatrack.ui.components.getIconByName
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -83,22 +87,20 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedTuneIcon
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
+import com.abhik.paisatrack.ui.components.dashboard.TransactionSkeletonItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.toShape
 import com.abhik.paisatrack.ui.components.commonUi.TransactionDetailBottomSheet
 import androidx.compose.ui.zIndex
 import com.abhik.paisatrack.ui.components.commonUi.EditTransactionBottomSheet
 import com.swmansion.pulsar.Pulsar
-import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
-import com.abhik.paisatrack.ui.components.commonUi.DeleteRoundedIconVector
 import com.abhik.paisatrack.ui.utils.safeParseColor
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
 import com.abhik.paisatrack.ui.utils.getSafeRealtimeComposer
+import com.abhik.paisatrack.ui.theme.*
 
 private enum class CollectionSubmitState {
     Idle,
@@ -194,14 +196,14 @@ fun CollectionTransactionsScreen(
     }
     
     val dollarFormat = remember { DecimalFormat("₹#,##0.00") }
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     var showDetailDialog by remember { mutableStateOf(false) }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var txDetailToShow by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var showEditCollectionModal by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-    val listState = rememberLazyListState()
+    val scrollState = rememberScrollState()
 
     var showFilters by remember { mutableStateOf(false) }
     val isAnyFilterActive = remember(uiState.collActiveTimeFilter, uiState.collActiveTypeFilter, uiState.collActiveSortOrder) {
@@ -209,6 +211,7 @@ fun CollectionTransactionsScreen(
     }
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
+    var isFilterShimmering by remember { mutableStateOf(false) }
 
     var isScrolling by remember { mutableStateOf(false) }
 
@@ -250,20 +253,47 @@ fun CollectionTransactionsScreen(
         }
     }
 
+    var isScrollingUp by remember { mutableStateOf(false) }
+    var isAutoScrollingToTop by remember { mutableStateOf(false) }
+
+    LaunchedEffect(scrollState) {
+        var previousOffset = scrollState.value
+        var accumulatedDelta = 0
+        snapshotFlow { scrollState.value }
+            .collect { currentOffset ->
+                val delta = currentOffset - previousOffset
+                if (isAutoScrollingToTop) {
+                    isScrollingUp = false
+                    accumulatedDelta = 0
+                } else if (currentOffset <= 300) {
+                    isScrollingUp = false
+                    accumulatedDelta = 0
+                } else if (delta < 0) {
+                    // Scrolling up (offset decreasing towards top)
+                    if (accumulatedDelta > 0) accumulatedDelta = 0
+                    accumulatedDelta += delta
+                    if (accumulatedDelta < -20) {
+                        isScrollingUp = true
+                    }
+                } else if (delta > 0) {
+                    // Scrolling down (offset increasing)
+                    if (accumulatedDelta < 0) accumulatedDelta = 0
+                    accumulatedDelta += delta
+                    if (accumulatedDelta > 20) {
+                        isScrollingUp = false
+                    }
+                }
+                previousOffset = currentOffset
+            }
+    }
+
     val showBackToTop by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 300
+            isScrollingUp && scrollState.value > 300
         }
     }
 
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
-            .collect { (currentIndex, currentOffset) ->
-                if (currentIndex == 0 && currentOffset == 0 && scrollOffsetPx == 0f) {
-                    isScrolling = false
-                }
-            }
-    }
+    
 
     val colColor = remember(collection?.hexColor) {
         safeParseColor(collection?.hexColor, fallback = Color(0xFF3F51B5))
@@ -296,7 +326,7 @@ fun CollectionTransactionsScreen(
 
     val isAtTop by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset <= 10 && scrollOffsetPx == 0f
+            scrollState.value <= 10
         }
     }
 
@@ -312,7 +342,8 @@ fun CollectionTransactionsScreen(
                     },
                     icon = {
                         Icon(
-                            imageVector = AddIconVector,
+                            painter = painterResource(id = R.drawable.ic_plus_custom),
+                            tint = if (isDark) Color.Black else Color.White,
                             contentDescription = "Add Transaction",
                             modifier = Modifier.size(24.dp)
                         )
@@ -321,7 +352,8 @@ fun CollectionTransactionsScreen(
                         Text(
                             text = "Add Record",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            color = if (isDark) Color.Black else Color.White
                         )
                     },
                     expanded = isAtTop,
@@ -334,235 +366,251 @@ fun CollectionTransactionsScreen(
         },
         floatingActionButtonPosition = FabPosition.End
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(nestedScrollConnection)
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures { _, dragAmount ->
-                        if (dragAmount < -8f) {
-                            isScrolling = true
-                        } else if (dragAmount > 8f) {
-                            isScrolling = false
-                        }
-                    }
-                }
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // 1. Fixed Visually Rich Header (Title Row)
+            // Fixed Header Layer
+            val isHeaderScrolled by remember { derivedStateOf { scrollState.value > 10 } }
+            
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .zIndex(10f)
-                    .background(MaterialTheme.colorScheme.background)
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f)
                     .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                colColor.copy(alpha = if (isDark) 0.15f else 0.08f),
-                                colColor.copy(alpha = if (isDark) 0.05f else 0.02f)
+                        if (isHeaderScrolled) {
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.background,
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
+                                    Color.Transparent
+                                )
                             )
-                        )
-                    )
-                    .padding(
-                        top = innerPadding.calculateTopPadding() + 20.dp,
-                        bottom = 12.dp,
-                        start = 24.dp,
-                        end = 24.dp
+                        } else {
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    colColor.copy(alpha = if (isDark) 0.18f else 0.12f),
+                                    colColor.copy(alpha = if (isDark) 0.08f else 0.05f),
+                                    Color.Transparent
+                                )
+                            )
+                        }
                     )
             ) {
-                // Back and Title Navigation Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Circular back button
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
-                            .border(
-                                androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
-                                ),
-                                CircleShape
-                            )
-                            .clickable {
-                                onBack()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = ArrowLeftAltIconVector,
-                            contentDescription = "Back to dashboard",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    // Centered Column for Title & Subtitle (ledger records registered)
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = collection?.name ?: "Collection details",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "${transactions.size} records registered",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    // Circular Edit Button with horizontal three dots (...)
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
-                            .border(
-                                androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
-                                ),
-                                CircleShape
-                            )
-                            .clickable {
-                                presets.plunk()
-                                showEditCollectionModal = true
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreHoriz,
-                            contentDescription = "Edit Collection Settings",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            // Floating Offline Banner placed below top title header row
-            com.abhik.paisatrack.ui.screens.OfflineBanner(
-                isVisible = !isOnline,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(10f)
-            )
-
-            // 2. Collapsible Balance Card container with collapsing height + inner parallax translation
-            if (summary != null) {
-                val currentHeightDp = with(LocalDensity.current) {
-                    (headerHeightPx + scrollOffsetPx).coerceAtLeast(0f).toDp()
-                }
-                val progress = if (headerHeightPx > 0f) (-scrollOffsetPx / headerHeightPx).coerceIn(0f, 1f) else 0f
-
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(currentHeightDp)
-                        .clipToBounds()
+                        .padding(
+                            top = innerPadding.calculateTopPadding() + 8.dp,
+                            bottom = 24.dp
+                        )
                 ) {
-                    Column(
+                    // Navigation Row
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .graphicsLayer {
-                                // Parallax translation (moves at 0.45x speed)
-                                translationY = scrollOffsetPx * 0.45f
-                                val scale = 1f - (progress * 0.04f)
-                                scaleX = scale
-                                scaleY = scale
-                                alpha = (1f - progress * 0.4f).coerceIn(0.2f, 1f)
+                            .padding(horizontal = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Circular back button
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
+                                .border(
+                                    BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f)),
+                                    CircleShape
+                                )
+                                .clickable { onBack() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_chevron_back),
+                                contentDescription = "Back to dashboard",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Start-aligned Column for Title & Subtitle inside Pill + Filter Icon
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
+                                .border(
+                                    BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f)),
+                                    CircleShape
+                                )
+                                .padding(start = 16.dp, end = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                horizontalAlignment = Alignment.Start,
+                                verticalArrangement = Arrangement.spacedBy((-4).dp)
+                            ) {
+                                Text(
+                                    text = (collection?.name ?: "Collection details").let { if (it.length > 18) it.take(18) + "..." else it },
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${transactions.size} records",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
                             }
+                            
+                            // Vertical Divider
+                            Box(
+                                modifier = Modifier
+                                    .height(24.dp)
+                                    .width(1.dp)
+                                    .background(if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f))
+                            )
+                            
+                            Spacer(modifier = Modifier.width(6.dp))
+                            
+                            // Filter Button
+                            val isFilterActive = isAnyFilterActive || showFilters
+                            val filterTint = if (isFilterActive) {
+                                if (isDark) Color(0xFFFFFFFF) else Color(0xFF1FB47B)
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .clickable { 
+                                        presets.plunk()
+                                        showFilters = !showFilters
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = if (isFilterActive) R.drawable.ic_filter_active else R.drawable.ic_filter),
+                                    contentDescription = "Filter",
+                                    tint = filterTint,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Search Button (Swapped with Three Dots)
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
+                                .border(
+                                    BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f)),
+                                    CircleShape
+                                )
+                                .clickable {
+                                    presets.plunk()
+                                    // search action can be hooked up here
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_search),
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Edit Button (Three dots - Swapped with Search)
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
+                                .border(
+                                    BorderStroke(1.dp, if (isDark) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f)),
+                                    CircleShape
+                                )
+                                .clickable {
+                                    presets.plunk()
+                                    showEditCollectionModal = true
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreHoriz,
+                                contentDescription = "Edit Collection Settings",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Floating Offline Banner
+                    com.abhik.paisatrack.ui.screens.OfflineBanner(
+                        isVisible = !isOnline,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    )
+                }
+            }
+
+            // Scrollable Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+            ) {
+                Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding() + 80.dp))
+
+                // 2. Collapsible Balance Card container
+                if (summary != null) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         val netBalance = summary.totalIncome - summary.totalExpense
                         
                         var hasAnimated by rememberSaveable { mutableStateOf(false) }
-                        val animatedBalance = remember { Animatable(netBalance.toFloat()) }
-                        val animatedIncome = remember { Animatable(summary.totalIncome.toFloat()) }
-                        val animatedExpense = remember { Animatable(summary.totalExpense.toFloat()) }
                         val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
 
-                        LaunchedEffect(netBalance, summary.totalIncome, summary.totalExpense, uiState.isLoading) {
+                        LaunchedEffect(uiState.isLoading) {
                             if (!uiState.isLoading) {
                                 if (!hasAnimated) {
-                                    animatedBalance.snapTo((netBalance * 0.88).toFloat())
-                                    animatedIncome.snapTo((summary.totalIncome * 0.88).toFloat())
-                                    animatedExpense.snapTo((summary.totalExpense * 0.88).toFloat())
-
                                     launch {
                                         alphaAnim.animateTo(
                                             targetValue = 1f,
                                             animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
                                         )
                                     }
-                                    launch {
-                                        animatedBalance.animateTo(
-                                            targetValue = netBalance.toFloat(),
-                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedIncome.animateTo(
-                                            targetValue = summary.totalIncome.toFloat(),
-                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedExpense.animateTo(
-                                            targetValue = summary.totalExpense.toFloat(),
-                                            animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                                        )
-                                    }
                                     hasAnimated = true
                                 } else {
                                     alphaAnim.snapTo(1f)
-                                    launch {
-                                        animatedBalance.animateTo(
-                                            targetValue = netBalance.toFloat(),
-                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedIncome.animateTo(
-                                            targetValue = summary.totalIncome.toFloat(),
-                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                                        )
-                                    }
-                                    launch {
-                                        animatedExpense.animateTo(
-                                            targetValue = summary.totalExpense.toFloat(),
-                                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                                        )
-                                    }
                                 }
                             }
                         }
 
-                        val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else netBalance
-                        val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else summary.totalIncome
-                        val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else summary.totalExpense
-
-                        val netStr = dollarFormat.format(displayBalance)
-                        val incomeStr = dollarFormat.format(displayIncome)
-                        val expenseStr = dollarFormat.format(displayExpense)
-
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 8.dp)
+                                .padding(start = 24.dp, end = 24.dp, bottom = 8.dp)
                                 .clip(RoundedCornerShape(24.dp))
                                 .clickable {
                                     presets.ping()
@@ -570,13 +618,9 @@ fun CollectionTransactionsScreen(
                                 },
                             shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else Color.White
+                                containerColor = if (isDark) VsBgDark else VsBgLight
                             ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = 1.dp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
-                            )
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -589,7 +633,7 @@ fun CollectionTransactionsScreen(
                                 Text(
                                     text = "Collection Overview",
                                     fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    color = if (isDark) VsTextDark.copy(alpha = 0.8f) else VsTextLight.copy(alpha = 0.8f),
                                     fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Center
                                 )
@@ -597,14 +641,13 @@ fun CollectionTransactionsScreen(
                                 Spacer(modifier = Modifier.height(6.dp))
 
                                 // Giant Net Balance Center text
-                                Text(
-                                    text = netStr,
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center,
+                                com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
+                                    amount = netBalance,
+                                    textStyle = LocalTextStyle.current.copy(
+                                        fontSize = 32.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = if (isDark) VsTextDark else VsTextLight,
                                     modifier = Modifier.padding(horizontal = 4.dp)
                                 )
 
@@ -620,12 +663,12 @@ fun CollectionTransactionsScreen(
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(16.dp),
                                         colors = CardDefaults.cardColors(
-                                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                                            containerColor = if (isDark) VsContainerDark else VsContainerLight
                                         ),
                                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                                         border = androidx.compose.foundation.BorderStroke(
                                             width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
                                         )
                                     ) {
                                         Row(
@@ -644,12 +687,11 @@ fun CollectionTransactionsScreen(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.ArrowDownward,
+                                                    painter = painterResource(id = R.drawable.ic_arrow_up),
                                                     contentDescription = "Income icon",
                                                     tint = if (isDark) Color(0xFFB7DAAE) else Color(0xFF1F4D20),
                                                     modifier = Modifier
                                                         .size(18.dp)
-                                                        .rotate(45f)
                                                 )
                                             }
 
@@ -661,13 +703,13 @@ fun CollectionTransactionsScreen(
                                                     fontWeight = FontWeight.Medium
                                                 )
                                                 Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = incomeStr,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onBackground,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
+                                                com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
+                                                    amount = summary.totalIncome,
+                                                    textStyle = LocalTextStyle.current.copy(
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.onBackground
                                                 )
                                             }
                                         }
@@ -678,12 +720,12 @@ fun CollectionTransactionsScreen(
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(16.dp),
                                         colors = CardDefaults.cardColors(
-                                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                                            containerColor = if (isDark) VsContainerDark else VsContainerLight
                                         ),
                                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                                         border = androidx.compose.foundation.BorderStroke(
                                             width = 1.dp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.05f)
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
                                         )
                                     ) {
                                         Row(
@@ -702,12 +744,11 @@ fun CollectionTransactionsScreen(
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.ArrowUpward,
+                                                    painter = painterResource(id = R.drawable.ic_arrow_down),
                                                     contentDescription = "Expense icon",
                                                     tint = if (isDark) Color(0xFFFFB8A9) else Color(0xFF6E261A),
                                                     modifier = Modifier
                                                         .size(18.dp)
-                                                        .rotate(45f)
                                                 )
                                             }
 
@@ -719,13 +760,13 @@ fun CollectionTransactionsScreen(
                                                     fontWeight = FontWeight.Medium
                                                 )
                                                 Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = expenseStr,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onBackground,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
+                                                com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
+                                                    amount = summary.totalExpense,
+                                                    textStyle = LocalTextStyle.current.copy(
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    color = MaterialTheme.colorScheme.onBackground
                                                 )
                                             }
                                         }
@@ -735,84 +776,37 @@ fun CollectionTransactionsScreen(
                         }
                     }
                 }
-            }
 
-            // 3. Main Parallax Scrollable Content
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                LazyColumn(
-                    state = listState,
+            // 3. Scrollable Content
+            Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .fillMaxWidth(),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                        .fillMaxWidth()
+                        .padding(bottom = 80.dp)
                 ) {
-                    // Sticky Header: Recent Transactions Title and Filter triggers
-                    stickyHeader {
-                        val isStuck = remember {
-                            derivedStateOf {
-                                listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4
-                            }
-                        }
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.background.copy(alpha = if (isStuck.value) 0.96f else 1f),
-                            tonalElevation = if (isStuck.value) 4.dp else 0.dp,
-                            shadowElevation = if (isStuck.value) 3.dp else 0.dp
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Recent Activity",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-
-                                Box(
-                                    modifier = Modifier.size(36.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(CircleShape)
-                                            .background(if (showFilters) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.surfaceVariant)
-                                            .clickable {
-                                                presets.plunk()
-                                                showFilters = !showFilters
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AnimatedTuneIcon(
-                                            isActive = showFilters,
-                                            tint = if (showFilters) MaterialTheme.colorScheme.background else if (isAnyFilterActive) Color(0xFF10B981) else MaterialTheme.colorScheme.onBackground,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    if (isAnyFilterActive && !showFilters) {
-                                        Box(
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .offset(x = 1.dp, y = (-1).dp)
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(Color(0xFF10B981))
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                    // Header: Recent Transactions Title and Filter triggers
+                    // Header: Recent Transactions Title
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Recent Activity",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
                     }
 
                     // Transactions list items or empty state item
-                    if (transactions.isEmpty()) {
-                        item {
+                    if (isFilterShimmering) {
+                        repeat(5) {
+                            TransactionSkeletonItem()
+                        }
+                    } else if (transactions.isEmpty()) {
+                        Box {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -844,39 +838,37 @@ fun CollectionTransactionsScreen(
                             }
                         }
                     } else {
-                        itemsIndexed(paginatedTransactions, key = { _, tx -> tx.id }) { index, tx ->
-                            val alpha = remember(tx.id) { androidx.compose.animation.core.Animatable(if (index >= animationStartLimit) 0f else 1f) }
-                            LaunchedEffect(tx.id) {
-                                if (index >= animationStartLimit) {
-                                    kotlinx.coroutines.delay((index - animationStartLimit) * 25L)
-                                    alpha.animateTo(1f, tween(150))
+                        for ((index, tx) in paginatedTransactions.withIndex()) {
+                            key(tx.id) {
+                                val alpha = remember(tx.id) { Animatable(if (index >= animationStartLimit) 0f else 1f) }
+                                LaunchedEffect(tx.id) {
+                                    if (index >= animationStartLimit) {
+                                        delay((index - animationStartLimit) * 25L)
+                                        alpha.animateTo(1f, tween(150))
+                                    }
+                                }
+                                Box(modifier = Modifier.alpha(alpha.value)) {
+                                    TransactionListItemDetailed(
+                                        transaction = tx,
+                                        colColor = colColor,
+                                        dollarFormat = dollarFormat,
+                                        onDeleteClick = {
+                                            txToDelete = tx
+                                        },
+                                        onLongClick = {
+                                            presets.bassDrop()
+                                            txToDelete = tx
+                                        },
+                                        onClick = {
+                                            presets.boulder()
+                                            txDetailToShow = tx
+                                        }
+                                    )
                                 }
                             }
-
-                            Box(
-                                modifier = Modifier.alpha(alpha.value)
-                            ) {
-                                TransactionListItemDetailed(
-                                    transaction = tx,
-                                    colColor = colColor,
-                                    dollarFormat = dollarFormat,
-                                    onDeleteClick = {
-                                        txToDelete = tx
-                                    },
-                                    onLongClick = {
-                                        presets.bassDrop()
-                                        txToDelete = tx
-                                    },
-                                    onClick = {
-                                        presets.boulder()
-                                        txDetailToShow = tx
-                                    }
-                                )
-                            }
                         }
-
                         if (transactions.size > visibleLimit) {
-                            item {
+                            Box {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -916,25 +908,30 @@ fun CollectionTransactionsScreen(
                             }
                         }
                     }
+                }
             }
 
-                androidx.compose.animation.AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                     visible = showBackToTop,
                     enter = fadeIn() + slideInVertically { it / 2 },
                     exit = fadeOut() + slideOutVertically { it / 2 },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(top = 16.dp)
+                        .zIndex(2f)
+                        .padding(top = innerPadding.calculateTopPadding() + 85.dp)
                 ) {
                     FilledTonalButton(
                         onClick = {
                             presets.ping()
+                            isScrollingUp = false
                             scope.launch {
-                                scrollOffsetPx = 0f
-                                if (listState.firstVisibleItemIndex > 2) {
-                                    listState.scrollToItem(2)
+                                isAutoScrollingToTop = true
+                                try {
+                                    scrollOffsetPx = 0f
+                                    scrollState.animateScrollTo(0)
+                                } finally {
+                                    isAutoScrollingToTop = false
                                 }
-                                listState.animateScrollToItem(0)
                             }
                         },
                         elevation = ButtonDefaults.filledTonalButtonElevation(defaultElevation = 6.dp),
@@ -943,17 +940,22 @@ fun CollectionTransactionsScreen(
                             .height(40.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowUpward,
+                            painter = painterResource(id = R.drawable.ic_up_arrow),
                             contentDescription = "Back to Top",
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Back to Top", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Back to Top", 
+                            fontSize = 12.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
+                        )
                     }
                 }
             }
         }
-    }
 
     // Wide Category Balance Detail Dialog
     if (showDetailDialog && summary != null) {
@@ -1097,7 +1099,7 @@ fun CollectionTransactionsScreen(
     if (txDetailToShow != null) {
         val tx = txDetailToShow!!
         val colName = collection?.name ?: "General"
-        val colIcon = getIconByNameLocal(collection?.iconName ?: "category")
+        val colIcon = getIconByName(collection?.iconName ?: "category")
 
         TransactionDetailBottomSheet(
             transaction = tx,
@@ -1120,9 +1122,16 @@ fun CollectionTransactionsScreen(
             activeSortOrder = uiState.collActiveSortOrder,
             activeTypeFilter = uiState.collActiveTypeFilter,
             activeTimeFilter = uiState.collActiveTimeFilter,
-            onSortOrderChange = { viewModel.setCollectionSortOrder(it) },
-            onTypeFilterChange = { viewModel.setCollectionTypeFilter(it) },
-            onTimeFilterChange = { viewModel.setCollectionTimeFilter(it) },
+            onApplyFilters = { sort, type, time ->
+                viewModel.setCollectionSortOrder(sort)
+                viewModel.setCollectionTypeFilter(type)
+                viewModel.setCollectionTimeFilter(time)
+                scope.launch {
+                    isFilterShimmering = true
+                    delay(550)
+                    isFilterShimmering = false
+                }
+            },
             onDismissRequest = { showFilters = false }
         )
     }
@@ -1289,7 +1298,7 @@ fun CollectionTransactionsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = getIconByNameLocal(pair.first),
+                                imageVector = getIconByName(pair.first),
                                 contentDescription = pair.second,
                                 tint = if (selected) iconThemeColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
@@ -1329,7 +1338,7 @@ fun CollectionTransactionsScreen(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5)),
                         shape = CircleShape
                     ) {
-                        Icon(DeleteRoundedIconVector, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(painterResource(id = R.drawable.ic_delete), contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Delete", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -1405,7 +1414,7 @@ fun CollectionTransactionsScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 Icon(
-                                    imageVector = DeleteRoundedIconVector,
+                                    painter = painterResource(id = R.drawable.ic_delete),
                                     contentDescription = "Delete",
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(48.dp)
@@ -1517,9 +1526,10 @@ fun CollectionTransactionsScreen(
                                                         )
                                                     }
                                                     CollectionSubmitState.Success -> {
-                                                        AnimatedCheckIcon(
-                                                            isSelected = true,
-                                                            tint = delContentColor,
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.ic_tick),
+                                                            contentDescription = "Check",
+                                                            tint = MaterialTheme.colorScheme.primary,
                                                             modifier = Modifier.size(24.dp)
                                                         )
                                                     }
@@ -1677,9 +1687,10 @@ fun CollectionTransactionsScreen(
                                                     )
                                                 }
                                                 CollectionSubmitState.Success -> {
-                                                    AnimatedCheckIcon(
-                                                        isSelected = true,
-                                                        tint = saveContentColor,
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.ic_tick),
+                                                        contentDescription = "Check",
+                                                        tint = MaterialTheme.colorScheme.primary,
                                                         modifier = Modifier.size(24.dp)
                                                     )
                                                 }
@@ -1717,25 +1728,6 @@ fun CollectionTransactionsScreen(
     }
 }
 
-
-
-fun getIconByNameLocal(iconName: String): ImageVector {
-    return when (iconName.lowercase().trim()) {
-        "restaurant", "coffee", "utensils", "food", "fast-food", "food and drinks", "food-and-drinks", "hamburger" -> Icons.Default.Restaurant
-        "directions_car", "car", "bus", "transport", "automobile", "carfront", "car-front" -> Icons.Default.DirectionsCar
-        "movie", "film", "clapperboard", "play", "tv", "entertainment" -> Icons.Default.Movie
-        "account_balance_wallet", "wallet", "dollar-sign", "trending-up", "savings", "cash", "bills", "receiptindianrupee", "receipt-indian-rupee" -> Icons.Default.AccountBalanceWallet
-        "local_hospital", "heart", "activity", "stethoscope", "health", "medical", "health care", "health-care", "hospital" -> Icons.Default.LocalHospital
-        "flight", "plane", "travel", "airplane" -> Icons.Default.Flight
-        "school", "book", "book-open", "graduation-cap", "graduationcap", "education", "study" -> Icons.Default.School
-        "shopping_cart", "shopping-cart", "shopping-bag", "shopping", "gift", "gifts", "groceries", "shoppingbasket", "shopping-basket" -> Icons.Default.ShoppingCart
-        "home", "home-bills", "house", "rent" -> Icons.Default.Home
-        "fitness_center", "dumbbell", "sports", "gym", "workout" -> Icons.Default.FitnessCenter
-        "work", "briefcase", "job", "business" -> Icons.Default.Work
-        "category", "general", "pet", "pawprint", "paw-print", "others", "ellipsis" -> Icons.Default.Category
-        else -> Icons.Default.Category
-    }
-}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -1822,7 +1814,7 @@ fun TransactionListItemDetailed(
                         fontSize = 14.sp
                     )
                     Icon(
-                        imageVector = DeleteRoundedIconVector,
+                        painter = painterResource(id = R.drawable.ic_delete),
                         contentDescription = "Swipe to delete",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
@@ -1859,7 +1851,7 @@ fun TransactionListItemDetailed(
                 },
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
+            border = BorderStroke(1.dp, if (com.abhik.paisatrack.ui.theme.isAppInDarkTheme()) SearchBorderDark else SearchBorderLight),
             shadowElevation = 1.dp
         ) {
             ListItem(
@@ -1895,7 +1887,7 @@ fun TransactionListItemDetailed(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (isIncome) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
+                            painter = painterResource(id = if (isIncome) R.drawable.ic_arrow_up else R.drawable.ic_arrow_down),
                             contentDescription = null,
                             tint = iconColor,
                             modifier = Modifier.size(24.dp)
@@ -2004,4 +1996,5 @@ private val AddIconVector: ImageVector
     }
 
 private var _addIconVector: ImageVector? = null
+
 

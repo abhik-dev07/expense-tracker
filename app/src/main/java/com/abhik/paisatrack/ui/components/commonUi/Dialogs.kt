@@ -1,6 +1,7 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
 import android.widget.Toast
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -35,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.res.painterResource
+import com.abhik.paisatrack.R
 import androidx.compose.ui.window.DialogProperties
 import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
@@ -121,7 +124,7 @@ fun AddTransactionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            painter = painterResource(id = R.drawable.ic_chevron_back),
                             contentDescription = "Back",
                             tint = Color(0xFF1E2541),
                             modifier = Modifier.size(18.dp)
@@ -634,9 +637,10 @@ fun AddTransactionDialog(
                                     )
                                 }
                                 DialogSubmitState.Success -> {
-                                    AnimatedCheckIcon(
-                                        isSelected = true,
-                                        tint = addContentColor,
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_tick),
+                                        contentDescription = "Check",
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -929,9 +933,10 @@ fun AddCollectionDialog(
                                     )
                                 }
                                 DialogSubmitState.Success -> {
-                                    AnimatedCheckIcon(
-                                        isSelected = true,
-                                        tint = createContentColor,
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_tick),
+                                        contentDescription = "Check",
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -951,7 +956,7 @@ fun PlusMenuDialog(
     onAddTransaction: () -> Unit,
     onAddCollection: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
@@ -985,7 +990,7 @@ fun PlusMenuDialog(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = AddIconVector,
+                        painter = painterResource(id = R.drawable.ic_plus_custom),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(28.dp)
@@ -1191,7 +1196,7 @@ fun DeleteTransactionConfirmDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Icon(
-                    imageVector = DeleteRoundedIconVector,
+                    painter = painterResource(id = R.drawable.ic_delete),
                     contentDescription = "Delete",
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(48.dp)
@@ -1299,9 +1304,10 @@ fun DeleteTransactionConfirmDialog(
                                     )
                                 }
                                 DialogSubmitState.Success -> {
-                                    AnimatedCheckIcon(
-                                        isSelected = true,
-                                        tint = deleteContentColor,
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_tick),
+                                        contentDescription = "Check",
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -1451,4 +1457,5 @@ private val ArrowCircleRightIconVector: ImageVector
     }
 
 private var _arrowCircleRightIconVector: ImageVector? = null
+
 

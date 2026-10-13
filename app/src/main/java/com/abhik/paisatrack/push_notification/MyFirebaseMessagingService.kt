@@ -69,7 +69,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val soundUri = Uri.parse("android.resource://" + packageName + "/raw/notification")
 
         val notificationIcon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            R.drawable.ic_notification
+            R.drawable.img_notification
         } else {
             R.mipmap.ic_launcher
         }

@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.foundation.background
+import com.abhik.paisatrack.R
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -756,10 +758,13 @@ private fun M3ConnectedButtonGroup(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        AnimatedCheckIcon(
-                            isSelected = selected,
-                            tint = animContentColor
-                        )
+                        if (selected) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_tick),
+                                contentDescription = "Check",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
 
                         Text(
                             text = mode,

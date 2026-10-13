@@ -1,6 +1,7 @@
 package com.abhik.paisatrack.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,10 +41,13 @@ fun LoaderScreen(
         }
     }
 
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
+    val bgColor = if (isDark) Color(0xFF1D3A30) else Color(0xFF1FB47B)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1FB47B)),
+            .background(bgColor),
         contentAlignment = Alignment.Center
     ) {
         LottieAnimation(
@@ -53,3 +57,4 @@ fun LoaderScreen(
         )
     }
 }
+

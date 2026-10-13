@@ -22,8 +22,8 @@ android {
     applicationId = "com.abhik.paisatrack"
     minSdk = 24
     targetSdk = 37
-    versionCode = 11
-    versionName = "4.0"
+    versionCode = 9
+    versionName = "3.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -105,6 +105,7 @@ dependencies {
   implementation("androidx.glance:glance-appwidget:1.1.1")
   implementation("androidx.glance:glance-material3:1.1.1")
   implementation(libs.firebase.messaging)
+  implementation("androidx.appcompat:appcompat:1.6.1")
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.compose.material.icons.core)

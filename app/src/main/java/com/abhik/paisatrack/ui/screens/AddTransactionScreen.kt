@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +23,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.zIndex
+import com.abhik.paisatrack.ui.theme.HeaderGradient0Dark
+import com.abhik.paisatrack.ui.theme.HeaderGradient18Dark
+import com.abhik.paisatrack.ui.theme.HeaderGradient38Dark
+import com.abhik.paisatrack.ui.theme.HeaderGradient58Dark
+import com.abhik.paisatrack.ui.theme.HeaderGradient75Dark
+import com.abhik.paisatrack.ui.theme.HeaderGradient90Dark
+import com.abhik.paisatrack.ui.theme.HeaderGradient0Light
+import com.abhik.paisatrack.ui.theme.HeaderGradient18Light
+import com.abhik.paisatrack.ui.theme.HeaderGradient38Light
+import com.abhik.paisatrack.ui.theme.HeaderGradient58Light
+import com.abhik.paisatrack.ui.theme.HeaderGradient75Light
+import com.abhik.paisatrack.ui.theme.HeaderGradient90Light
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -35,7 +50,6 @@ import com.swmansion.pulsar.Pulsar
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -47,8 +61,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
-import com.abhik.paisatrack.ui.components.commonUi.AnimatedCheckIcon
-import com.abhik.paisatrack.ui.components.commonUi.ArrowLeftAltIconVector
 import com.airbnb.lottie.compose.*
 import com.abhik.paisatrack.R
 import androidx.compose.ui.text.style.TextAlign
@@ -72,7 +84,7 @@ fun AddTransactionScreen(
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val collections = uiState.collections
@@ -100,134 +112,178 @@ fun AddTransactionScreen(
         }
     }
 
+    val scrollState = rememberScrollState()
+
     Scaffold(
         modifier = Modifier.fillMaxSize().imePadding(),
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            // 1. Sleek Top Bar with Back Arrow and Title
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else Color.White)
-                        .border(
-                            androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
-                            ),
-                            CircleShape
-                        )
-                        .clickable(enabled = submitState == SubmitState.Idle) {
-                            onBack()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = ArrowLeftAltIconVector,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Text(
-                    text = "Add Record",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-
-            // 2. Transaction Type Tab Selector with smooth sliding animation
-            BoxWithConstraints(
+            // Fixed Header Layer
+            val isHeaderScrolled by remember { derivedStateOf { scrollState.value > 10 } }
+            
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(4.dp)
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f)
+                    .background(
+                        if (isHeaderScrolled) {
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.background,
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
+                                    MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
+                                    androidx.compose.ui.graphics.Color.Transparent
+                                )
+                            )
+                        } else {
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(
+                                    androidx.compose.ui.graphics.Color.Transparent,
+                                    androidx.compose.ui.graphics.Color.Transparent
+                                )
+                            )
+                        }
+                    )
             ) {
-                val isExpense = transactionType == "EXPENSE"
-                val itemWidth = maxWidth / 2f
-                val indicatorOffset by animateDpAsState(
-                    targetValue = if (isExpense) itemWidth else 0.dp,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    ),
-                    label = "TypeIndicatorOffset"
-                )
-
-                // Smoothly sliding selection pill background
-                Box(
-                    modifier = Modifier
-                        .offset(x = indicatorOffset)
-                        .width(itemWidth)
-                        .height(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface)
-                )
-
-                // Option labels row
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Circular back button
                     Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
+                            .background(if (isDark) MaterialTheme.colorScheme.surfaceVariant else androidx.compose.ui.graphics.Color.White)
+                            .border(
+                                androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isDark) androidx.compose.ui.graphics.Color.White.copy(alpha = 0.15f) else androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.1f)
+                                ),
+                                CircleShape
+                            )
                             .clickable(enabled = submitState == SubmitState.Idle) {
-                                presets.ping()
-                                transactionType = "INCOME"
+                                onBack()
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Cash In (+)",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_chevron_back),
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
-                    Box(
+                    Text(
+                        text = "Add Record",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier
                             .weight(1f)
-                            .height(44.dp)
-                            .clip(CircleShape)
-                            .clickable(enabled = submitState == SubmitState.Idle) {
-                                presets.ping()
-                                transactionType = "EXPENSE"
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Cash Out (-)",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)
-                        )
-                    }
+                            .padding(end = 44.dp), // Balance the back button
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
             }
 
-            // 3. Description field
+            // Scrollable Content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = innerPadding.calculateBottomPadding() + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                Spacer(modifier = Modifier.statusBarsPadding().height(84.dp)) // Offset for header
+
+                // 2. Transaction Type Tab Selector with smooth sliding animation
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(4.dp)
+                ) {
+                    val isExpense = transactionType == "EXPENSE"
+                    val itemWidth = maxWidth / 2f
+                    val indicatorOffset by animateDpAsState(
+                        targetValue = if (isExpense) itemWidth else 0.dp,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        ),
+                        label = "TypeIndicatorOffset"
+                    )
+
+                    // Smoothly sliding selection pill background
+                    Box(
+                        modifier = Modifier
+                            .offset(x = indicatorOffset)
+                            .width(itemWidth)
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface)
+                    )
+
+                    // Option labels row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(CircleShape)
+                                .clickable(enabled = submitState == SubmitState.Idle) {
+                                    presets.ping()
+                                    transactionType = "INCOME"
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Cash In (+)",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(CircleShape)
+                                .clickable(enabled = submitState == SubmitState.Idle) {
+                                    presets.ping()
+                                    transactionType = "EXPENSE"
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Cash Out (-)",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)
+                            )
+                        }
+                    }
+                }
+
+                // 3. Description field
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = description,
@@ -492,10 +548,13 @@ fun AddTransactionScreen(
                                         },
                                         shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
                                         icon = {
-                                            AnimatedCheckIcon(
-                                                isSelected = isSelected,
-                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                            )
+                                            if (isSelected) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_tick),
+                                                    contentDescription = "Check",
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
                                         },
                                         label = {
                                             Text(
@@ -613,11 +672,14 @@ fun AddTransactionScreen(
                                                         )
                                                     }
                                                     
-                                                    AnimatedCheckIcon(
-                                                        isSelected = isSelected,
-                                                        tint = itemColor,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
+                                                    if (isSelected) {
+                                                                                                            Icon(
+                                                                                                                painter = painterResource(id = R.drawable.ic_tick),
+                                                                                                                contentDescription = "Check",
+                                                                                                                tint = MaterialTheme.colorScheme.primary,
+                                                                                                                modifier = Modifier.size(20.dp)
+                                                                                                            )
+                                                                                                        }
                                                 }
                                             },
                                             onClick = {
@@ -850,9 +912,10 @@ fun AddTransactionScreen(
                                 )
                             }
                             SubmitState.Success -> {
-                                AnimatedCheckIcon(
-                                    isSelected = true,
-                                    tint = buttonContentColor,
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_tick),
+                                    contentDescription = "Check",
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -861,6 +924,7 @@ fun AddTransactionScreen(
                 }
             }
         }
+    }
     }
 }
 
@@ -895,3 +959,4 @@ private fun formatAmountWithCommas(raw: String): String {
         formattedInt
     }
 }
+

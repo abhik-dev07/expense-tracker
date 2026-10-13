@@ -1,6 +1,8 @@
 package com.abhik.paisatrack.ui.components.dashboard
 
 import androidx.compose.animation.core.Animatable
+import com.abhik.paisatrack.R
+import androidx.compose.ui.res.painterResource
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -13,8 +15,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,6 +33,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.abhik.paisatrack.ui.FinanceUiState
 import com.abhik.paisatrack.ui.components.commonUi.shimmerEffect
+import com.abhik.paisatrack.ui.theme.VsBgDark
+import com.abhik.paisatrack.ui.theme.VsBgLight
+import com.abhik.paisatrack.ui.theme.VsContainerDark
+import com.abhik.paisatrack.ui.theme.VsContainerLight
+import com.abhik.paisatrack.ui.theme.VsTextDark
+import com.abhik.paisatrack.ui.theme.VsTextLight
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import kotlinx.coroutines.launch
@@ -74,80 +80,33 @@ fun VisualSummaryHeader(
     val netBalance = uiState.totalIncome - uiState.totalExpense
     
     var hasAnimated by rememberSaveable { mutableStateOf(false) }
-    val animatedBalance = remember { Animatable(netBalance.toFloat()) }
-    val animatedIncome = remember { Animatable(uiState.totalIncome.toFloat()) }
-    val animatedExpense = remember { Animatable(uiState.totalExpense.toFloat()) }
     val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
 
-    LaunchedEffect(netBalance, uiState.totalIncome, uiState.totalExpense, uiState.isLoading) {
+    LaunchedEffect(uiState.isLoading) {
         if (!uiState.isLoading) {
             if (!hasAnimated) {
-                // Start numbers near target (88%) to avoid jarring 0-to-target roll
-                animatedBalance.snapTo((netBalance * 0.88).toFloat())
-                animatedIncome.snapTo((uiState.totalIncome * 0.88).toFloat())
-                animatedExpense.snapTo((uiState.totalExpense * 0.88).toFloat())
-
                 launch {
                     alphaAnim.animateTo(
                         targetValue = 1f,
                         animationSpec = tween(durationMillis = 1000, easing = LinearOutSlowInEasing)
                     )
                 }
-                launch {
-                    animatedBalance.animateTo(
-                        targetValue = netBalance.toFloat(),
-                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                    )
-                }
-                launch {
-                    animatedIncome.animateTo(
-                        targetValue = uiState.totalIncome.toFloat(),
-                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                    )
-                }
-                launch {
-                    animatedExpense.animateTo(
-                        targetValue = uiState.totalExpense.toFloat(),
-                        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing)
-                    )
-                }
                 hasAnimated = true
             } else {
                 alphaAnim.snapTo(1f)
-                launch {
-                    animatedBalance.animateTo(
-                        targetValue = netBalance.toFloat(),
-                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                    )
-                }
-                launch {
-                    animatedIncome.animateTo(
-                        targetValue = uiState.totalIncome.toFloat(),
-                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                    )
-                }
-                launch {
-                    animatedExpense.animateTo(
-                        targetValue = uiState.totalExpense.toFloat(),
-                        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                    )
-                }
             }
         }
     }
 
-    val displayBalance = if (hasAnimated) animatedBalance.value.toDouble() else netBalance
-    val displayIncome = if (hasAnimated) animatedIncome.value.toDouble() else uiState.totalIncome
-    val displayExpense = if (hasAnimated) animatedExpense.value.toDouble() else uiState.totalExpense
+    // Keep the dollarFormat for the high precision uncompressed details Modal/Dialog
+    val incomeStr = dollarFormat.format(uiState.totalIncome)
+    val expenseStr = dollarFormat.format(uiState.totalExpense)
+    val netStr = dollarFormat.format(netBalance)
 
-    val incomeStr = dollarFormat.format(displayIncome)
-    val expenseStr = dollarFormat.format(displayExpense)
-    val netStr = dollarFormat.format(displayBalance)
-
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     
     // Tactile parent Card wrapping the entire Balance section
     Card(
@@ -161,7 +120,7 @@ fun VisualSummaryHeader(
             },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDark) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else Color.White
+            containerColor = if (isDark) VsBgDark else VsBgLight
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -179,7 +138,7 @@ fun VisualSummaryHeader(
                 Text(
                     text = "Overview",
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    color = if (isDark) VsTextDark.copy(alpha = 0.8f) else VsTextLight.copy(alpha = 0.8f),
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center
                 )
@@ -187,14 +146,13 @@ fun VisualSummaryHeader(
                 Spacer(modifier = Modifier.height(6.dp))
                 
                 // Giant Net Balance Center text
-                Text(
-                    text = netStr,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
+                com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
+                    amount = netBalance,
+                    textStyle = LocalTextStyle.current.copy(
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = if (isDark) VsTextDark else VsTextLight,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
                 
@@ -210,7 +168,7 @@ fun VisualSummaryHeader(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                            containerColor = if (isDark) VsContainerDark else VsContainerLight
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(
@@ -234,12 +192,11 @@ fun VisualSummaryHeader(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.ArrowDownward,
+                                    painter = painterResource(id = R.drawable.ic_arrow_up),
                                     contentDescription = "Cash In icon",
                                     tint = if (isDark) Color(0xFFB7DAAE) else Color(0xFF1F4D20),
                                     modifier = Modifier
                                         .size(18.dp)
-                                        .rotate(45f) // Rotates standard down arrow to point Down-Left (South-West)
                                 )
                             }
                             
@@ -251,13 +208,13 @@ fun VisualSummaryHeader(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = incomeStr,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
+                                    amount = uiState.totalIncome,
+                                    textStyle = LocalTextStyle.current.copy(
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         }
@@ -268,7 +225,7 @@ fun VisualSummaryHeader(
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.8f) else Color(0xFFF8FAFC)
+                            containerColor = if (isDark) VsContainerDark else VsContainerLight
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         border = BorderStroke(
@@ -292,12 +249,11 @@ fun VisualSummaryHeader(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.ArrowUpward,
+                                    painter = painterResource(id = R.drawable.ic_arrow_down),
                                     contentDescription = "Cash Out icon",
                                     tint = if (isDark) Color(0xFFFFB8A9) else Color(0xFF6E261A),
                                     modifier = Modifier
                                         .size(18.dp)
-                                        .rotate(45f) // Rotates standard up arrow to point Up-Right (North-East)
                                 )
                             }
                             
@@ -309,13 +265,13 @@ fun VisualSummaryHeader(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = expenseStr,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
+                                    amount = uiState.totalExpense,
+                                    textStyle = LocalTextStyle.current.copy(
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         }
@@ -445,7 +401,7 @@ fun VisualSummaryHeader(
 
 @Composable
 fun VisualSummaryHeaderSkeleton() {
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -573,4 +529,5 @@ fun VisualSummaryHeaderSkeleton() {
         }
     }
 }
+
 

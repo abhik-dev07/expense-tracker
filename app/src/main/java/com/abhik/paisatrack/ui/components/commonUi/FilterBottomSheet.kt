@@ -1,12 +1,12 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.foundation.background
+import com.abhik.paisatrack.R
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,14 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
-
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathFillType
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.path
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
 
@@ -36,19 +28,32 @@ fun FilterBottomSheet(
     activeSortOrder: String,
     activeTypeFilter: String,
     activeTimeFilter: String,
-    onSortOrderChange: (String) -> Unit,
-    onTypeFilterChange: (String) -> Unit,
-    onTimeFilterChange: (String) -> Unit,
+    onApplyFilters: (sortOrder: String, typeFilter: String, timeFilter: String) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
     val scope = rememberCoroutineScope()
-    val isAnyFilterActive = activeSortOrder != "Newest" || activeTypeFilter != "All" || activeTimeFilter != "All"
+
+    var tempSortOrder by remember(activeSortOrder) { mutableStateOf(activeSortOrder) }
+    var tempTypeFilter by remember(activeTypeFilter) { mutableStateOf(activeTypeFilter) }
+    var tempTimeFilter by remember(activeTimeFilter) { mutableStateOf(activeTimeFilter) }
+
+    val isAnyFilterActive = tempSortOrder != "Newest" || tempTypeFilter != "All" || tempTimeFilter != "All"
+
+    var isApplied by remember { mutableStateOf(false) }
+
+    fun closeAndApply() {
+        if (!isApplied) {
+            isApplied = true
+            onApplyFilters(tempSortOrder, tempTypeFilter, tempTimeFilter)
+            onDismissRequest()
+        }
+    }
 
     ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
+        onDismissRequest = { closeAndApply() },
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() }
@@ -58,7 +63,7 @@ fun FilterBottomSheet(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Header of Filters: Close button when no filter active, replaced by Clear All when active
             Row(
@@ -76,13 +81,12 @@ fun FilterBottomSheet(
                 )
 
                 if (isAnyFilterActive) {
-                    // Replace close button with Clear All when filter is active
                     TextButton(
                         onClick = {
                             presets.boulder()
-                            onSortOrderChange("Newest")
-                            onTypeFilterChange("All")
-                            onTimeFilterChange("All")
+                            tempSortOrder = "Newest"
+                            tempTypeFilter = "All"
+                            tempTimeFilter = "All"
                         },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier.height(28.dp)
@@ -95,7 +99,6 @@ fun FilterBottomSheet(
                         )
                     }
                 } else {
-                    // Show Close button when no filter is active
                     Box(
                         modifier = Modifier
                             .size(28.dp)
@@ -105,13 +108,13 @@ fun FilterBottomSheet(
                                 presets.plunk()
                                 scope.launch {
                                     sheetState.hide()
-                                    onDismissRequest()
+                                    closeAndApply()
                                 }
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = CloseSmallRoundedIconVector,
+                            painter = painterResource(id = R.drawable.ic_close_small),
                             contentDescription = "Close Filters",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(16.dp)
@@ -133,19 +136,22 @@ fun FilterBottomSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     sortOrders.forEachIndexed { index, order ->
-                        val selected = activeSortOrder == order
+                        val selected = tempSortOrder == order
                         SegmentedButton(
                             selected = selected,
                             onClick = {
                                 presets.boulder()
-                                onSortOrderChange(order)
+                                tempSortOrder = order
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = sortOrders.size),
                             icon = {
-                                AnimatedCheckIcon(
-                                    isSelected = selected,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
+                                if (selected) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_tick),
+                                        contentDescription = "Check",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             },
                             label = {
                                 Text(
@@ -159,7 +165,7 @@ fun FilterBottomSheet(
                 }
             }
 
-            // Transaction Direction Filters block (Middle)
+            // Record Type Filters block (Middle)
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     text = "Record Type",
@@ -173,9 +179,9 @@ fun FilterBottomSheet(
                 ) {
                     types.forEachIndexed { index, type ->
                         val selected = when (type) {
-                            "Cash In" -> activeTypeFilter.uppercase() == "INCOME"
-                            "Cash Out" -> activeTypeFilter.uppercase() == "EXPENSE"
-                            else -> activeTypeFilter.uppercase() == "ALL"
+                            "Cash In" -> tempTypeFilter.uppercase() == "INCOME"
+                            "Cash Out" -> tempTypeFilter.uppercase() == "EXPENSE"
+                            else -> tempTypeFilter.uppercase() == "ALL"
                         }
                         SegmentedButton(
                             selected = selected,
@@ -186,14 +192,17 @@ fun FilterBottomSheet(
                                     "Cash Out" -> "EXPENSE"
                                     else -> "All"
                                 }
-                                onTypeFilterChange(mappedValue)
+                                tempTypeFilter = mappedValue
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = types.size),
                             icon = {
-                                AnimatedCheckIcon(
-                                    isSelected = selected,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
+                                if (selected) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_tick),
+                                        contentDescription = "Check",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             },
                             label = {
                                 Text(
@@ -221,10 +230,10 @@ fun FilterBottomSheet(
                 ) {
                     times.forEachIndexed { index, time ->
                         val selected = when (time) {
-                            "Daily" -> activeTimeFilter == "Today"
-                            "Weekly" -> activeTimeFilter == "This Week"
-                            "Monthly" -> activeTimeFilter == "This Month"
-                            else -> activeTimeFilter == "All"
+                            "Daily" -> tempTimeFilter == "Today"
+                            "Weekly" -> tempTimeFilter == "This Week"
+                            "Monthly" -> tempTimeFilter == "This Month"
+                            else -> tempTimeFilter == "All"
                         }
                         SegmentedButton(
                             selected = selected,
@@ -236,14 +245,17 @@ fun FilterBottomSheet(
                                     "Monthly" -> "This Month"
                                     else -> "All"
                                 }
-                                onTimeFilterChange(actualFilter)
+                                tempTimeFilter = actualFilter
                             },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = times.size),
                             icon = {
-                                AnimatedCheckIcon(
-                                    isSelected = selected,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
+                                if (selected) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_tick),
+                                        contentDescription = "Check",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             },
                             label = {
                                 Text(
@@ -255,6 +267,33 @@ fun FilterBottomSheet(
                         )
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Apply Filters Button
+            Button(
+                onClick = {
+                    presets.boulder()
+                    scope.launch {
+                        sheetState.hide()
+                        closeAndApply()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Text(
+                    text = "Apply Filters",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

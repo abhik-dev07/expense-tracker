@@ -52,7 +52,7 @@ fun Modifier.shimmerEffect(): Modifier = composed {
         label = "shimmerOffset"
     )
 
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.abhik.paisatrack.ui.theme.isAppInDarkTheme()
     val colors = if (isDark) {
         listOf(
             Color(0xFF1E293B),
@@ -128,3 +128,4 @@ fun CustomPullToRefreshIndicator(
         }
     }
 }
+
