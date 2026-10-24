@@ -51,8 +51,8 @@ import androidx.compose.animation.togetherWith
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalDensity
-import com.abhik.paisatrack.ui.utils.findActivity
-import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.utils.findActivity
+import com.abhik.paisatrack.utils.getSafePresets
 
 private enum class DialogSubmitState {
     Idle,
@@ -60,17 +60,6 @@ private enum class DialogSubmitState {
     Success
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun AddCollectionDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (name: String, colorHex: String, iconName: String, budget: Double?) -> Unit
-) {
-    AddCollectionBottomSheet(
-        onDismiss = onDismiss,
-        onConfirm = onConfirm
-    )
-}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable

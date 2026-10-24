@@ -34,8 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.ui.theme.isAppInDarkTheme
-import com.abhik.paisatrack.ui.utils.findActivity
-import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.utils.findActivity
+import com.abhik.paisatrack.utils.getSafePresets
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
 import kotlin.math.abs

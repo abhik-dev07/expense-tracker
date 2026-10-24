@@ -42,17 +42,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.R
-import com.abhik.paisatrack.ui.utils.findActivity
-import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.utils.findActivity
+import com.abhik.paisatrack.utils.getSafePresets
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
 private data class TabSpec(
     val label: String,
-    @DrawableRes val icon: Int,
-    @DrawableRes val activeIcon: Int
+    @param:DrawableRes val icon: Int,
+    @param:DrawableRes val activeIcon: Int
 )
 
 private val Tabs = listOf(

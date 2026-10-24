@@ -8,6 +8,8 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 import com.abhik.paisatrack.data.AuthManager
+import com.abhik.paisatrack.screens.dashboard.components.TransactionsPanelTracker
+import com.abhik.paisatrack.ui.components.commonUi.VisualSummaryTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -136,8 +138,8 @@ class AppNavigator(
      */
     suspend fun logout(context: Context) {
         AuthManager.signOut(context)
-        com.abhik.paisatrack.ui.components.dashboard.VisualSummaryTracker.reset()
-        com.abhik.paisatrack.ui.components.dashboard.TransactionsPanelTracker.reset()
+        VisualSummaryTracker.reset()
+        TransactionsPanelTracker.reset()
         replaceRoot(AppRoute.SignIn)
     }
 

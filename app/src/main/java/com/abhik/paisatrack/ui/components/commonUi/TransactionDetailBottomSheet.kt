@@ -20,7 +20,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.data.model.TransactionEntity
-import com.abhik.paisatrack.ui.components.dashboard.DetailItemRow
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,8 +30,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.toShape
 import com.abhik.paisatrack.ui.theme.SleekSurfaceDark
 import com.abhik.paisatrack.ui.theme.isAppInDarkTheme
-import com.abhik.paisatrack.ui.utils.findActivity
-import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.utils.findActivity
+import com.abhik.paisatrack.utils.getSafePresets
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

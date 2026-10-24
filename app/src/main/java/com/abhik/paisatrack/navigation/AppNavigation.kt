@@ -35,19 +35,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.zIndex
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.abhik.paisatrack.ui.FinanceViewModel
+import com.abhik.paisatrack.utils.FinanceViewModel
 import com.abhik.paisatrack.ui.components.commonUi.AddCollectionBottomSheet
 import com.abhik.paisatrack.ui.components.commonUi.PlusMenuDialog
-import com.abhik.paisatrack.ui.screens.addtransaction.AddTransactionScreen
-import com.abhik.paisatrack.ui.screens.collectiontransaction.CollectionTransactionScreen
-import com.abhik.paisatrack.ui.screens.dashboard.DashboardScreen
-import com.abhik.paisatrack.ui.screens.insights.InsightsScreen
-import com.abhik.paisatrack.ui.screens.collections.CollectionsScreen
-import com.abhik.paisatrack.ui.screens.LoaderScreen
-import com.abhik.paisatrack.ui.screens.OnboardingScreen
-import com.abhik.paisatrack.ui.screens.profile.ProfileScreen
-import com.abhik.paisatrack.ui.screens.signin.SignInScreen
-import com.abhik.paisatrack.ui.screens.search.SearchScreen
+import com.abhik.paisatrack.screens.addtransaction.AddTransactionScreen
+import com.abhik.paisatrack.screens.collectiontransaction.CollectionTransactionScreen
+import com.abhik.paisatrack.screens.dashboard.DashboardScreen
+import com.abhik.paisatrack.screens.insights.InsightsScreen
+import com.abhik.paisatrack.screens.collections.CollectionsScreen
+import com.abhik.paisatrack.screens.LoaderScreen
+import com.abhik.paisatrack.screens.OnboardingScreen
+import com.abhik.paisatrack.screens.profile.ProfileScreen
+import com.abhik.paisatrack.screens.signin.SignInScreen
+import com.abhik.paisatrack.screens.search.SearchScreen
 import com.abhik.paisatrack.ui.theme.isAppInDarkTheme
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -294,6 +294,7 @@ fun AppNavigation(
 
                 entry<AppRoute.Profile> {
                     ProfileScreen(
+                        isActive = navigator.currentRoute == AppRoute.Profile,
                         onBack = { navigator.navigateBack() },
                         onLogout = { navigator.logout(coroutineScope, context) }
                     )

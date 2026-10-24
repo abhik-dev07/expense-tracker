@@ -21,9 +21,8 @@ import androidx.compose.runtime.*
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.animation.*
 import com.abhik.paisatrack.navigation.AppNavigation
-import com.abhik.paisatrack.ui.FinanceViewModel
+import com.abhik.paisatrack.utils.FinanceViewModel
 import com.abhik.paisatrack.ui.theme.MyApplicationTheme
 import android.net.ConnectivityManager
 import android.net.Network
@@ -57,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     android.util.Log.d("ThemeSwitch", "MainActivity.onCreate called (recreated: ${savedInstanceState != null})")
     installSplashScreen()
     com.abhik.paisatrack.ui.theme.ThemeManager.init(this)
+    com.abhik.paisatrack.utils.HapticManager.init(this)
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     if (savedInstanceState == null) {   // fresh launch only, see below

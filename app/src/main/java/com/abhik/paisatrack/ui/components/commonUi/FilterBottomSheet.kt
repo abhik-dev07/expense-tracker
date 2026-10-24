@@ -21,8 +21,8 @@ import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
 import com.abhik.paisatrack.ui.theme.isAppInDarkTheme
 import com.abhik.paisatrack.ui.theme.SleekSurfaceDark
-import com.abhik.paisatrack.ui.utils.findActivity
-import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.utils.findActivity
+import com.abhik.paisatrack.utils.getSafePresets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
