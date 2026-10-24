@@ -64,11 +64,3 @@ fun OfflineBanner(
         }
     }
 }
-
-// Retained for backward compatibility if referenced elsewhere
-@Composable
-fun NoInternetScreen(
-    onRetry: () -> Unit
-) {
-    OfflineBanner(isVisible = true)
-}

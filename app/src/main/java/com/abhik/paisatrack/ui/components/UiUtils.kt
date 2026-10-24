@@ -5,9 +5,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import com.abhik.paisatrack.R
 import androidx.compose.material.icons.filled.*
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+
 
 // Icon mapper helper
 @Composable
@@ -59,7 +57,4 @@ val CollectionIcons = listOf(
     "work" to "Work/Office",
     "person" to "Personal"
 )
-
-fun formatShortDate(ts: Long): String =
-    SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(ts))
 
