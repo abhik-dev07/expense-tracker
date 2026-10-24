@@ -20,9 +20,7 @@ import androidx.compose.runtime.*
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import com.abhik.paisatrack.navigation.AppNavigation
 import com.abhik.paisatrack.ui.FinanceViewModel
 import com.abhik.paisatrack.ui.theme.MyApplicationTheme

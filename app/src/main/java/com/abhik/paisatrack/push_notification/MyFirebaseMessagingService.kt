@@ -1,6 +1,5 @@
 package com.abhik.paisatrack.push_notification
 
-import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent

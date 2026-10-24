@@ -1,18 +1,13 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
-import android.widget.Toast
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -22,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -43,14 +37,11 @@ import com.abhik.paisatrack.R
 import androidx.compose.ui.window.DialogProperties
 import com.abhik.paisatrack.data.model.CollectionEntity
 import com.abhik.paisatrack.data.model.TransactionEntity
-import com.abhik.paisatrack.ui.components.CollectionColors
-import com.abhik.paisatrack.ui.components.CollectionIcons
 import com.abhik.paisatrack.ui.components.getIconByName
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween

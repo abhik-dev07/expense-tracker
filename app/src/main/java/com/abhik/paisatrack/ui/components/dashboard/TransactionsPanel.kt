@@ -11,7 +11,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,7 +21,6 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,7 +40,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -62,7 +59,6 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 import android.content.Context
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.ui.platform.LocalView
@@ -79,13 +75,10 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import com.abhik.paisatrack.ui.components.commonUi.DeleteTransactionConfirmDialog
 import com.abhik.paisatrack.ui.components.commonUi.FilterBottomSheet
 import com.abhik.paisatrack.ui.components.getIconByName
-import com.abhik.paisatrack.ui.components.formatShortDate
 import com.abhik.paisatrack.ui.utils.safeParseColor
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
-import com.abhik.paisatrack.ui.utils.getSafeRealtimeComposer
 import com.swmansion.pulsar.Pulsar
-import com.swmansion.pulsar.types.RealtimeComposerStrategy
 import kotlinx.coroutines.delay
 
 
