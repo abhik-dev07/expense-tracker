@@ -2,6 +2,7 @@ package com.abhik.paisatrack
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ContentResolver
 import android.content.Context
 import android.media.AudioAttributes
 import android.net.Uri
@@ -184,14 +185,15 @@ class MainActivity : AppCompatActivity() {
   } // Close onCreate
 
   private fun createNotificationChannel() {
-    val channelId = "paisa_track_alerts_v3"
-    val soundUri = Uri.parse("android.resource://" + packageName + "/raw/notification")
+    val channelId = "paisa_track_alerts_v4"
+    val soundUri = Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${packageName}/${R.raw.notification}")
     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       // Delete old channels
       notificationManager.deleteNotificationChannel("paisa_track_notifications")
       notificationManager.deleteNotificationChannel("paisa_track_alerts_v2")
+      notificationManager.deleteNotificationChannel("paisa_track_alerts_v3")
 
       val channel = NotificationChannel(
         channelId,
