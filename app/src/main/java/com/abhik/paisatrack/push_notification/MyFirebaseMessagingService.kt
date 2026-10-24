@@ -1,9 +1,9 @@
 package com.abhik.paisatrack.push_notification
 
-import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -51,7 +51,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, message: String) {
-        val channelId = "paisa_track_alerts_v3"
+        val channelId = "paisa_track_alerts_v4"
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra("title", title)
             putExtra("body", message)
@@ -65,8 +65,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Reference the custom raw sound file
-        val soundUri = Uri.parse("android.resource://" + packageName + "/raw/notification")
+        // Reference the custom raw sound file directly
+        val soundUri = Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${packageName}/${R.raw.notification}")
 
         val notificationIcon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             R.drawable.img_notification

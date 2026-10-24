@@ -2,6 +2,7 @@ package com.abhik.paisatrack
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.ContentResolver
 import android.content.Context
 import android.media.AudioAttributes
 import android.net.Uri
@@ -17,21 +18,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.abhik.paisatrack.ui.FinanceViewModel
-import com.abhik.paisatrack.ui.screens.DashboardScreen
-import com.abhik.paisatrack.ui.screens.AddTransactionScreen
-import com.abhik.paisatrack.ui.screens.CollectionTransactionsScreen
-import com.abhik.paisatrack.ui.screens.LoaderScreen
-import com.abhik.paisatrack.ui.screens.SignInScreen
-import com.abhik.paisatrack.ui.screens.OnboardingScreen
-import com.abhik.paisatrack.ui.screens.NoInternetScreen
-import com.abhik.paisatrack.ui.screens.ServerErrorScreen
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import com.abhik.paisatrack.navigation.AppNavigation
+import com.abhik.paisatrack.utils.FinanceViewModel
 import com.abhik.paisatrack.ui.theme.MyApplicationTheme
 import android.net.ConnectivityManager
 import android.net.Network
@@ -65,8 +56,15 @@ class MainActivity : AppCompatActivity() {
     android.util.Log.d("ThemeSwitch", "MainActivity.onCreate called (recreated: ${savedInstanceState != null})")
     installSplashScreen()
     com.abhik.paisatrack.ui.theme.ThemeManager.init(this)
+    com.abhik.paisatrack.utils.HapticManager.init(this)
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    if (savedInstanceState == null) {   // fresh launch only, see below
+      WindowCompat.getInsetsController(window, window.decorView).apply {
+        systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        hide(WindowInsetsCompat.Type.navigationBars())
+      }
+    }
     
     appUpdateManager = AppUpdateManagerFactory.create(this)
     checkForUpdates()
@@ -147,7 +145,6 @@ class MainActivity : AppCompatActivity() {
 
           val viewModel: FinanceViewModel = viewModel()
           val uiState by viewModel.uiState.collectAsState()
-          val navController = rememberNavController()
 
           // Trigger sync automatically when network transitions back to online
           LaunchedEffect(isOnline) {
@@ -170,208 +167,16 @@ class MainActivity : AppCompatActivity() {
             }
           }
 
-          // Force logout when the backend reports this user was deleted
-          LaunchedEffect(Unit) {
-            viewModel.userDeletedEvent.collect {
-              val ctx = context
-              com.abhik.paisatrack.data.AuthManager.signOut(ctx)
-              navController.navigate("sign_in") {
-                popUpTo(0) { inclusive = true }
-              }
-            }
-          }
-
           androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
             androidx.compose.foundation.layout.Column(
               modifier = Modifier.fillMaxSize()
             ) {
-              NavHost(navController = navController, startDestination = "loader") {
-              composable("loader") {
-                  LoaderScreen(
-                    onNavigateToDashboard = {
-                      navController.navigate("dashboard") {
-                        popUpTo("loader") { inclusive = true }
-                      }
-                    },
-                    onNavigateToSignIn = {
-                      navController.navigate("sign_in") {
-                        popUpTo("loader") { inclusive = true }
-                      }
-                    },
-                    onNavigateToOnboarding = {
-                      navController.navigate("onboarding") {
-                        popUpTo("loader") { inclusive = true }
-                      }
-                    }
-                  )
-                }
-                composable("onboarding") {
-                  OnboardingScreen(
-                    onNavigateToSignIn = {
-                      navController.navigate("sign_in") {
-                        popUpTo("onboarding") { inclusive = true }
-                      }
-                    }
-                  )
-                }
-                composable("sign_in") {
-                  SignInScreen(
-                    viewModel = viewModel,
-                    isOnline = isOnline,
-                    onNavigateToDashboard = {
-                      navController.navigate("dashboard") {
-                        popUpTo("sign_in") { inclusive = true }
-                      }
-                    }
-                  )
-                }
-                composable(
-                  "dashboard",
-                  enterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-                  },
-                  exitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
-                  },
-                  popEnterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-                  },
-                  popExitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-                  }
-                ) { _ ->
-                  DashboardScreen(
-                    modifier = Modifier,
-                    viewModel = viewModel,
-                    isOnline = isOnline,
-                    onNavigateToAddTransaction = {
-                      navController.navigate("add_transaction")
-                    },
-                    onNavigateToCollectionTransactions = { collectionId, rect ->
-                      navController.navigate("collection_transactions/$collectionId")
-                    },
-                    onLogout = {
-                      navController.navigate("sign_in") {
-                        popUpTo(0) { inclusive = true }
-                      }
-                    },
-                    onProfileClick = {
-                      navController.navigate("profile")
-                    }
-                  )
-                }
-                composable(
-                  "collection_transactions/{collectionId}",
-                  enterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
-                  },
-                  exitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-                  },
-                  popEnterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-                  },
-                  popExitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-                  }
-                ) { backStackEntry ->
-                  val collectionId = backStackEntry.arguments?.getString("collectionId") ?: ""
-                  var isBackNavigating by rememberSaveable(collectionId) { mutableStateOf(false) }
-
-                  androidx.activity.compose.BackHandler(enabled = !isBackNavigating) {
-                    isBackNavigating = true
-                    navController.popBackStack()
-                  }
-
-                  CollectionTransactionsScreen(
-                    modifier = Modifier,
-                    viewModel = viewModel,
-                    collectionId = collectionId,
-                    isOnline = isOnline,
-                    onNavigateToAddTransaction = { colId ->
-                      navController.navigate("add_transaction/$colId")
-                    },
-                    onBack = {
-                      if (isBackNavigating) return@CollectionTransactionsScreen
-                      isBackNavigating = true
-                      navController.popBackStack()
-                    }
-                  )
-                }
-                composable(
-                  "add_transaction",
-                  enterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
-                  },
-                  exitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
-                  },
-                  popEnterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-                  },
-                  popExitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-                  }
-                ) {
-                  AddTransactionScreen(
-                    viewModel = viewModel,
-                    onBack = {
-                      navController.popBackStack()
-                    }
-                  )
-                }
-                composable(
-                  "add_transaction/{collectionId}",
-                  enterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { it })
-                  },
-                  exitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { -it })
-                  },
-                  popEnterTransition = {
-                    slideInHorizontally(animationSpec = tween(320), initialOffsetX = { -it })
-                  },
-                  popExitTransition = {
-                    slideOutHorizontally(animationSpec = tween(320), targetOffsetX = { it })
-                  }
-                ) { backStackEntry ->
-                  val colId = backStackEntry.arguments?.getString("collectionId") ?: ""
-                  AddTransactionScreen(
-                    viewModel = viewModel,
-                    initialCollectionId = colId,
-                    onBack = {
-                      navController.popBackStack()
-                    }
-                  )
-                }
-                composable(
-                  "profile",
-                  enterTransition = {
-                    androidx.compose.animation.slideInHorizontally(animationSpec = androidx.compose.animation.core.tween(320), initialOffsetX = { it })
-                  },
-                  exitTransition = {
-                    androidx.compose.animation.slideOutHorizontally(animationSpec = androidx.compose.animation.core.tween(320), targetOffsetX = { -it })
-                  },
-                  popEnterTransition = {
-                    androidx.compose.animation.slideInHorizontally(animationSpec = androidx.compose.animation.core.tween(320), initialOffsetX = { -it })
-                  },
-                  popExitTransition = {
-                    androidx.compose.animation.slideOutHorizontally(animationSpec = androidx.compose.animation.core.tween(320), targetOffsetX = { it })
-                  }
-                ) {
-                  com.abhik.paisatrack.ui.screens.ProfileScreen(
-                    onBack = {
-                      navController.popBackStack()
-                    },
-                    onLogout = {
-                      navController.navigate("sign_in") {
-                        popUpTo(0) { inclusive = true }
-                      }
-                    }
-                  )
-              }
-            } // Close NavHost
-            } // Close Column
+              AppNavigation(
+                viewModel = viewModel,
+                isOnline = isOnline,
+                modifier = Modifier.fillMaxSize()
+              )
+            }
             com.abhik.paisatrack.ui.theme.ThemeTransitionOverlay()
           } // Close Box
         } // Close Surface
@@ -380,14 +185,15 @@ class MainActivity : AppCompatActivity() {
   } // Close onCreate
 
   private fun createNotificationChannel() {
-    val channelId = "paisa_track_alerts_v3"
-    val soundUri = Uri.parse("android.resource://" + packageName + "/raw/notification")
+    val channelId = "paisa_track_alerts_v4"
+    val soundUri = Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${packageName}/${R.raw.notification}")
     val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       // Delete old channels
       notificationManager.deleteNotificationChannel("paisa_track_notifications")
       notificationManager.deleteNotificationChannel("paisa_track_alerts_v2")
+      notificationManager.deleteNotificationChannel("paisa_track_alerts_v3")
 
       val channel = NotificationChannel(
         channelId,

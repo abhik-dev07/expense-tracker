@@ -12,19 +12,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.swmansion.pulsar.Pulsar
 import kotlinx.coroutines.launch
-import com.abhik.paisatrack.ui.utils.findActivity
-import com.abhik.paisatrack.ui.utils.getSafePresets
+import com.abhik.paisatrack.ui.theme.isAppInDarkTheme
+import com.abhik.paisatrack.ui.theme.SleekSurfaceDark
+import com.abhik.paisatrack.utils.findActivity
+import com.abhik.paisatrack.utils.getSafePresets
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilterBottomSheet(
-    sheetState: SheetState,
+    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     activeSortOrder: String,
     activeTypeFilter: String,
     activeTimeFilter: String,
@@ -40,260 +43,257 @@ fun FilterBottomSheet(
     var tempTypeFilter by remember(activeTypeFilter) { mutableStateOf(activeTypeFilter) }
     var tempTimeFilter by remember(activeTimeFilter) { mutableStateOf(activeTimeFilter) }
 
-    val isAnyFilterActive = tempSortOrder != "Newest" || tempTypeFilter != "All" || tempTimeFilter != "All"
+    var isDismissed by remember { mutableStateOf(false) }
 
-    var isApplied by remember { mutableStateOf(false) }
+    fun dismissSheet() {
+        if (!isDismissed) {
+            isDismissed = true
+            onDismissRequest()
+        }
+    }
 
-    fun closeAndApply() {
-        if (!isApplied) {
-            isApplied = true
+    fun applyAndDismiss() {
+        if (!isDismissed) {
+            isDismissed = true
             onApplyFilters(tempSortOrder, tempTypeFilter, tempTimeFilter)
             onDismissRequest()
         }
     }
 
+    val isDark = isAppInDarkTheme()
+    val closeButtonBg = if (isDark) MaterialTheme.colorScheme.surfaceVariant else SleekSurfaceDark
+    val isFilterChangedFromDefault = tempSortOrder != "Newest" || tempTypeFilter != "All" || tempTimeFilter != "All"
+    val hasChangedFromActive = tempSortOrder != activeSortOrder ||
+        tempTypeFilter != activeTypeFilter ||
+        tempTimeFilter != activeTimeFilter
+    val isApplyEnabled = isFilterChangedFromDefault && hasChangedFromActive
+
     ModalBottomSheet(
-        onDismissRequest = { closeAndApply() },
+        onDismissRequest = { dismissSheet() },
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        containerColor = Color.Transparent,
+        dragHandle = null,
+        shape = RoundedCornerShape(0.dp),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .wrapContentHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header of Filters: Close button when no filter active, replaced by Clear All when active
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(36.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Filter Transactions",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                if (isAnyFilterActive) {
-                    TextButton(
-                        onClick = {
-                            presets.boulder()
-                            tempSortOrder = "Newest"
-                            tempTypeFilter = "All"
-                            tempTimeFilter = "All"
+            // Floating Circular Close Button above the sheet
+            CompositionLocalProvider(LocalContentColor provides Color.White) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(closeButtonBg)
+                        .clickable {
+                            presets.plunk()
+                            scope.launch {
+                                sheetState.hide()
+                                dismissSheet()
+                            }
                         },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text(
-                            text = "Clear All",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable {
-                                presets.plunk()
-                                scope.launch {
-                                    sheetState.hide()
-                                    closeAndApply()
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_close_small),
-                            contentDescription = "Close Filters",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close_small),
+                        contentDescription = "Close Filters",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
 
-            // Sort By Filters block (First)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Sort By",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val sortOrders = listOf("Newest", "Oldest")
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Main sheet surface container
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    sortOrders.forEachIndexed { index, order ->
-                        val selected = tempSortOrder == order
-                        SegmentedButton(
-                            selected = selected,
-                            onClick = {
+                    // Header of Filters: Title on the left, Clear All on the right when filters are active
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Filter Transactions",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        if (isFilterChangedFromDefault) {
+                            TextButton(
+                                onClick = {
+                                    presets.boulder()
+                                    tempSortOrder = "Newest"
+                                    tempTypeFilter = "All"
+                                    tempTimeFilter = "All"
+                                    scope.launch {
+                                        sheetState.hide()
+                                        if (!isDismissed) {
+                                            isDismissed = true
+                                            onApplyFilters("Newest", "All", "All")
+                                            onDismissRequest()
+                                        }
+                                    }
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(
+                                    text = "Clear All",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+
+                    // Sort By Filters block (First)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Sort By",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val sortOrders = listOf("Newest", "Oldest")
+                        ConnectedButtonGroup(
+                            options = sortOrders,
+                            selectedOption = tempSortOrder,
+                            onOptionSelected = { order ->
                                 presets.boulder()
                                 tempSortOrder = order
                             },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = sortOrders.size),
-                            icon = {
-                                if (selected) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_tick),
-                                        contentDescription = "Check",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            },
-                            label = {
-                                Text(
-                                    text = order,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Record Type Filters block (Middle)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Record Type",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val types = listOf("All", "Cash In", "Cash Out")
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    types.forEachIndexed { index, type ->
-                        val selected = when (type) {
-                            "Cash In" -> tempTypeFilter.uppercase() == "INCOME"
-                            "Cash Out" -> tempTypeFilter.uppercase() == "EXPENSE"
-                            else -> tempTypeFilter.uppercase() == "ALL"
+                            modifier = Modifier.fillMaxWidth()
+                        ) { order, selected ->
+                            Text(
+                                text = order,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
                         }
-                        SegmentedButton(
-                            selected = selected,
-                            onClick = {
+                    }
+
+                    // Record Type Filters block (Middle)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Record Type",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val types = listOf("All", "Cash In", "Cash Out")
+                        val selectedTypeString = when (tempTypeFilter.uppercase()) {
+                            "INCOME" -> "Cash In"
+                            "EXPENSE" -> "Cash Out"
+                            else -> "All"
+                        }
+                        ConnectedButtonGroup(
+                            options = types,
+                            selectedOption = selectedTypeString,
+                            onOptionSelected = { type ->
                                 presets.boulder()
-                                val mappedValue = when (type) {
+                                tempTypeFilter = when (type) {
                                     "Cash In" -> "INCOME"
                                     "Cash Out" -> "EXPENSE"
                                     else -> "All"
                                 }
-                                tempTypeFilter = mappedValue
                             },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = types.size),
-                            icon = {
-                                if (selected) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_tick),
-                                        contentDescription = "Check",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            },
-                            label = {
-                                Text(
-                                    text = type,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Time Period Filters block (Last)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Time",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                val times = listOf("All", "Daily", "Weekly", "Monthly")
-                SingleChoiceSegmentedButtonRow(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    times.forEachIndexed { index, time ->
-                        val selected = when (time) {
-                            "Daily" -> tempTimeFilter == "Today"
-                            "Weekly" -> tempTimeFilter == "This Week"
-                            "Monthly" -> tempTimeFilter == "This Month"
-                            else -> tempTimeFilter == "All"
+                            modifier = Modifier.fillMaxWidth()
+                        ) { type, selected ->
+                            Text(
+                                text = type,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
                         }
-                        SegmentedButton(
-                            selected = selected,
-                            onClick = {
+                    }
+
+                    // Time Period Filters block (Last)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Time",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        val times = listOf("All", "Daily", "Weekly", "Monthly")
+                        val selectedTimeString = when (tempTimeFilter) {
+                            "Today" -> "Daily"
+                            "This Week" -> "Weekly"
+                            "This Month" -> "Monthly"
+                            else -> "All"
+                        }
+                        ConnectedButtonGroup(
+                            options = times,
+                            selectedOption = selectedTimeString,
+                            onOptionSelected = { time ->
                                 presets.boulder()
-                                val actualFilter = when (time) {
+                                tempTimeFilter = when (time) {
                                     "Daily" -> "Today"
                                     "Weekly" -> "This Week"
                                     "Monthly" -> "This Month"
                                     else -> "All"
                                 }
-                                tempTimeFilter = actualFilter
                             },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = times.size),
-                            icon = {
-                                if (selected) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_tick),
-                                        contentDescription = "Check",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            },
-                            label = {
-                                Text(
-                                    text = time,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                                )
+                            modifier = Modifier.fillMaxWidth()
+                        ) { time, selected ->
+                            Text(
+                                text = time,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Apply Filters Button - Pill shape, disabled until filter changes from default
+                    Button(
+                        onClick = {
+                            presets.boulder()
+                            scope.launch {
+                                sheetState.hide()
+                                applyAndDismiss()
                             }
+                        },
+                        enabled = isApplyEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = if (isDark) Color(0xFF2A2A2D) else Color(0xFFE2E8F0),
+                            disabledContentColor = if (isDark) Color(0xFF6E6E73) else Color(0xFF94A3B8)
+                        )
+                    ) {
+                        Text(
+                            text = "Apply Filters",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Apply Filters Button
-            Button(
-                onClick = {
-                    presets.boulder()
-                    scope.launch {
-                        sheetState.hide()
-                        closeAndApply()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Text(
-                    text = "Apply Filters",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
     }
