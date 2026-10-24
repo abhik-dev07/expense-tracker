@@ -49,6 +49,10 @@ import com.swmansion.pulsar.Pulsar
 import com.abhik.paisatrack.ui.utils.findActivity
 import com.abhik.paisatrack.ui.utils.getSafePresets
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ripple
 import kotlinx.coroutines.delay
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.toShape
@@ -198,7 +202,7 @@ fun DashboardHeader(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
+                        .padding(horizontal = 16.dp)
                         .padding(top = 8.dp)
                         .height(50.dp * (1f - collapseProgress))
                         .alpha(1f - collapseProgress)
@@ -255,36 +259,67 @@ fun DashboardHeader(
                 
                 Spacer(modifier = Modifier.height(14.dp * (1f - collapseProgress)))
                 
+                val searchInteractionSource = remember { MutableInteractionSource() }
+                val isSearchPressed by searchInteractionSource.collectIsPressedAsState()
+                val searchPressAlpha by animateFloatAsState(
+                    targetValue = if (isSearchPressed) 0.72f else 1f,
+                    animationSpec = tween(durationMillis = 120),
+                    label = "SearchPressAlpha"
+                )
+                val searchPillLeftShape = RoundedCornerShape(
+                    topStart = 26.dp,
+                    bottomStart = 26.dp,
+                    topEnd = 0.dp,
+                    bottomEnd = 0.dp
+                )
+
                 // Bottom Row: Search Bar
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .height(52.dp)
-                        .clickable { onSearchClick() },
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(26.dp), // pill shaped
+                        .padding(horizontal = 16.dp)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(26.dp), // pill shaped
                     color = searchBg,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, searchBorder)
+                    border = BorderStroke(1.dp, searchBorder)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_search),
-                            contentDescription = "Search",
-                            tint = searchIconTint,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Search \"$displayedKeyword\"",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = searchPlaceholder,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f)
-                        )
+                        // Clickable Search Area (before the filter divider) with pill shape and press touch opacity
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(searchPillLeftShape)
+                                .clickable(
+                                    interactionSource = searchInteractionSource,
+                                    indication = ripple()
+                                ) {
+                                    presets.plunk()
+                                    onSearchClick()
+                                }
+                                .alpha(searchPressAlpha)
+                                .padding(start = 16.dp, end = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_search),
+                                contentDescription = "Search",
+                                tint = searchIconTint,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Search \"$displayedKeyword\"",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = searchPlaceholder,
+                                maxLines = 1,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                         
                         // Vertical Divider
                         Box(
@@ -293,8 +328,6 @@ fun DashboardHeader(
                                 .width(1.dp)
                                 .background(searchDivider)
                         )
-                        
-                        Spacer(modifier = Modifier.width(12.dp))
                         
                         // Filter
                         val isFilterActive = isAnyFilterActive || showFilters
@@ -306,6 +339,7 @@ fun DashboardHeader(
 
                         Box(
                             modifier = Modifier
+                                .padding(start = 12.dp, end = 16.dp)
                                 .size(32.dp)
                                 .clip(CircleShape)
                                 .clickable { onFilterClick() },
@@ -330,7 +364,7 @@ fun DashboardHeader(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 12.dp),
+                        .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {

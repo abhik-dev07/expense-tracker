@@ -1,296 +1,58 @@
-package com.abhik.paisatrack.ui.components.dashboard
+package com.abhik.paisatrack.ui.screens.insights.components
 
 import androidx.compose.animation.AnimatedVisibility
-import com.abhik.paisatrack.R
-import androidx.compose.ui.res.painterResource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.abhik.paisatrack.ui.CollectionSummary
+import com.abhik.paisatrack.R
 import com.abhik.paisatrack.ui.DailySum
-import com.abhik.paisatrack.ui.FinanceUiState
+import com.abhik.paisatrack.ui.utils.findActivity
+import com.abhik.paisatrack.ui.utils.getSafePresets
 import com.swmansion.pulsar.Pulsar
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.abhik.paisatrack.ui.utils.safeParseColor
-import com.abhik.paisatrack.ui.utils.findActivity
-import com.abhik.paisatrack.ui.utils.getSafePresets
-
-@Composable
-fun InsightsPanel(
-    uiState: FinanceUiState,
-    aiInsights: String,
-    aiLoading: Boolean,
-    onRefreshInsights: () -> Unit,
-    dollarFormat: DecimalFormat,
-    onScrollProgressChanged: (Boolean) -> Unit
-) {
-    // Scroll progress handled by DashboardScreen
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        
-        // 1. Double Rounded Bar Chart with detailed info
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Header row with title + legend
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Weekly Spending Activity",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Tap any bar to see details",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Render Enhanced Bar Chart
-                DailyBarChart(dailySums = uiState.dailyTransactionSums)
-            }
-        }
-
-        // 2. Beautiful Donut Slice breakdown of expenses
-        val expenseSummaries = remember(uiState.collectionSummaries) {
-            uiState.collectionSummaries.filter { it.totalExpense > 0.0 }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            Text(
-                text = "Spending Overview",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "Spending by Category",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (!expenseSummaries.isEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Total Spent",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = dollarFormat.format(uiState.totalExpense),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            if (expenseSummaries.isEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Add spending records to view category charts.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Give the donut bar chart some vertical gap from the total spent
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    // Center the circular donut chart on the screen
-                    Box(
-                        modifier = Modifier
-                            .size(190.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        ExpenseDonutChart(expenseSummaries = expenseSummaries)
-
-                        val totalExp = expenseSummaries.sumOf { it.totalExpense }
-                        val formattedCenter = if (totalExp >= 100000) {
-                            String.format(Locale.US, "%.1fK", totalExp / 1000.0)
-                        } else {
-                            dollarFormat.format(totalExp)
-                        }
-
-                        // Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        //     Text(
-                        //         text = formattedCenter,
-                        //         fontSize = 22.sp,
-                        //         fontWeight = FontWeight.ExtraBold,
-                        //         color = MaterialTheme.colorScheme.onBackground
-                        //     )
-                        //     Text(
-                        //         text = "Total Spent",
-                        //         fontSize = 11.sp,
-                        //         fontWeight = FontWeight.Medium,
-                        //         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        //     )
-                        // }
-                    }
-
-                    // Separation gap between donut chart and legend row
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Legend list matching screenshot showing ALL categories that have data
-                    @OptIn(ExperimentalLayoutApi::class)
-                    FlowRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        maxItemsInEachRow = 3
-                    ) {
-                        val totalSpentVal = expenseSummaries.sumOf { it.totalExpense }
-                        expenseSummaries.forEach { summary ->
-                            val rgb = safeParseColor(summary.collection.hexColor)
-                            val pct = if (totalSpentVal > 0) ((summary.totalExpense / totalSpentVal) * 100).toInt() else 0
-
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(rgb)
-                                    )
-                                    Text(
-                                        text = summary.collection.name,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "$pct%",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ---------------- CHARTS IMPLEMENTATIONS ----------------
-
-@Composable
-fun ExpenseDonutChart(expenseSummaries: List<CollectionSummary>) {
-    var animTrigger by remember { mutableStateOf(false) }
-    val animProgress by animateFloatAsState(
-        targetValue = if (animTrigger) 1f else 0f,
-        animationSpec = tween(1000),
-        label = "DonutChartScale"
-    )
-
-    LaunchedEffect(expenseSummaries) {
-        animTrigger = true
-    }
-
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val totalExp = expenseSummaries.sumOf { it.totalExpense }
-        if (totalExp <= 0.0) return@Canvas
-
-        val gapDegrees = if (expenseSummaries.size > 1) 16f else 0f
-        var startAngle = -90f
-
-        expenseSummaries.forEach { summary ->
-            val sweepAngle = (360f * (summary.totalExpense / totalExp)).toFloat()
-            val col = safeParseColor(summary.collection.hexColor)
-
-            val drawSweep = (sweepAngle - gapDegrees).coerceAtLeast(1f) * animProgress
-            val drawStart = startAngle + (gapDegrees / 2f)
-
-            drawArc(
-                color = col,
-                startAngle = drawStart,
-                sweepAngle = drawSweep,
-                useCenter = false,
-                style = Stroke(width = 24.dp.toPx(), cap = StrokeCap.Round)
-            )
-            startAngle += sweepAngle
-        }
-    }
-}
 
 @Composable
 fun DailyBarChart(dailySums: List<DailySum>) {
@@ -367,7 +129,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
                                 fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            // Circle Close Icon (matching FilterBottomSheet style)
+                            // Circle Close Icon
                             Box(
                                 modifier = Modifier
                                     .size(28.dp)
@@ -501,7 +263,7 @@ fun DailyBarChart(dailySums: List<DailySum>) {
                         fontSize = 10.sp,
                         fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
                         color = if (isToday) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     // "Today" badge
                     if (isToday) {
@@ -566,18 +328,5 @@ fun DailyBarChart(dailySums: List<DailySum>) {
                 )
             }
         }
-    }
-}
-
-/**
- * Formats an amount into a compact human-readable string.
- * e.g. 1500 -> "₹1.5K", 250 -> "₹250", 0 -> "₹0"
- */
-private fun formatCompactAmount(amount: Double): String {
-    return when {
-        amount >= 10_00_000 -> "₹${String.format("%.1f", amount / 10_00_000)}M"
-        amount >= 1_000 -> "₹${String.format("%.1f", amount / 1_000)}K"
-        amount > 0 -> "₹${amount.toInt()}"
-        else -> "₹0"
     }
 }

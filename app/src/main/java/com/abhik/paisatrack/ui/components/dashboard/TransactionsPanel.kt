@@ -95,7 +95,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)),
@@ -110,7 +110,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(MaterialShapes.Cookie4Sided.toShape())
+                    .clip(MaterialShapes.VerySunny.toShape())
                     .shimmerEffect()
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -257,7 +257,7 @@ fun TransactionListItem(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 6.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
     ) {
         Surface(
@@ -315,7 +315,7 @@ fun TransactionListItem(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .clip(MaterialShapes.VerySunny.toShape())
                             .background(badgeBg),
                         contentAlignment = Alignment.Center
                     ) {
@@ -362,6 +362,30 @@ fun TransactionListItem(
     }
 }
 
+/**
+ * Global tracker to ensure TransactionsPanel item entrance animations
+ * execute once after the initial app open and subsequently only when new data loads.
+ */
+object TransactionsPanelTracker {
+    var hasInitialAnimated: Boolean = false
+    var lastDataSignature: Any? = null
+
+    fun reset() {
+        hasInitialAnimated = false
+        lastDataSignature = null
+    }
+}
+
+private data class TransactionsPanelDataSignature(
+    val txCount: Int,
+    val txHash: Int,
+    val collectionFilter: String?,
+    val timeFilter: String,
+    val typeFilter: String,
+    val sortOrder: String,
+    val searchQuery: String
+)
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TransactionsPanel(
@@ -388,6 +412,43 @@ fun TransactionsPanel(
     var isLoadingMore by remember { mutableStateOf(false) }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
     var searchTransactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
+
+    val currentSignature = remember(
+        uiState.isLoading,
+        uiState.filteredTransactions.size,
+        uiState.filteredTransactions,
+        uiState.activeCollectionFilter,
+        uiState.activeTimeFilter,
+        uiState.activeTypeFilter,
+        uiState.activeSortOrder,
+        uiState.searchQuery
+    ) {
+        if (!uiState.isLoading) {
+            TransactionsPanelDataSignature(
+                txCount = uiState.filteredTransactions.size,
+                txHash = uiState.filteredTransactions.hashCode(),
+                collectionFilter = uiState.activeCollectionFilter,
+                timeFilter = uiState.activeTimeFilter,
+                typeFilter = uiState.activeTypeFilter,
+                sortOrder = uiState.activeSortOrder,
+                searchQuery = uiState.searchQuery
+            )
+        } else null
+    }
+
+    val isInitialAppOpen = !TransactionsPanelTracker.hasInitialAnimated
+    val isNewDataLoad = currentSignature != null &&
+            TransactionsPanelTracker.lastDataSignature != null &&
+            TransactionsPanelTracker.lastDataSignature != currentSignature
+
+    val shouldAnimateItems = isInitialAppOpen || isNewDataLoad
+
+    LaunchedEffect(currentSignature) {
+        if (currentSignature != null) {
+            TransactionsPanelTracker.hasInitialAnimated = true
+            TransactionsPanelTracker.lastDataSignature = currentSignature
+        }
+    }
 
     LaunchedEffect(uiState.activeCollectionFilter, uiState.activeTimeFilter, uiState.activeTypeFilter, uiState.activeSortOrder, uiState.searchQuery) {
         visibleLimit = 20
@@ -463,7 +524,7 @@ fun TransactionsPanel(
             showSearchDatePicker = false
         }
     }
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     var isFilterShimmering by remember { mutableStateOf(false) }
 
@@ -535,7 +596,7 @@ fun TransactionsPanel(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp)
-                                .padding(horizontal = 24.dp),
+                                .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 1. "Recent Activity" Title (Collapses & fades out when scrolled)
@@ -602,11 +663,16 @@ fun TransactionsPanel(
                         val parentCollection = uiState.collections.find { it.id == tx.collectionId }
                         val categoryColor = safeParseColor(parentCollection?.hexColor)
     
-                        val alpha = remember(tx.id) { Animatable(if (index >= animationStartLimit) 0f else 1f) }
-                        LaunchedEffect(tx.id) {
-                            if (index >= animationStartLimit) {
+                        val shouldAnimateThisItem = shouldAnimateItems && index >= animationStartLimit
+                        val alpha = remember(tx.id, shouldAnimateThisItem) {
+                            Animatable(if (shouldAnimateThisItem) 0f else 1f)
+                        }
+                        LaunchedEffect(tx.id, shouldAnimateThisItem) {
+                            if (shouldAnimateThisItem) {
                                 delay((index - animationStartLimit) * 25L)
                                 alpha.animateTo(1f, tween(150))
+                            } else {
+                                alpha.snapTo(1f)
                             }
                         }
     
@@ -660,7 +726,7 @@ fun TransactionsPanel(
                                     shape = CircleShape,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 24.dp)
+                                        .padding(horizontal = 16.dp)
                                 ) {
                                     Text(
                                         text = "Load More (${uiState.filteredTransactions.size - visibleLimit} remaining)",
@@ -882,7 +948,7 @@ fun TransactionsPanel(
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(start = 24.dp, top = 12.dp, bottom = 4.dp)
+                                                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
                                             )
                                         }
                                         items(uiState.frequentNames) { name ->
@@ -932,7 +998,7 @@ fun TransactionsPanel(
                                             Surface(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                                                    .padding(horizontal = 16.dp, vertical = 8.dp),
                                                 shape = RoundedCornerShape(16.dp),
                                                 color = MaterialTheme.colorScheme.surfaceVariant
                                             ) {
@@ -1049,13 +1115,18 @@ fun TransactionsPanel(
             activeTypeFilter = uiState.activeTypeFilter,
             activeTimeFilter = uiState.activeTimeFilter,
             onApplyFilters = { sort, type, time ->
+                val hasChanged = sort != uiState.activeSortOrder ||
+                    type != uiState.activeTypeFilter ||
+                    time != uiState.activeTimeFilter
                 viewModel.setSortOrder(sort)
                 viewModel.setTypeFilter(type)
                 viewModel.setTimeFilter(time)
-                scope.launch {
-                    isFilterShimmering = true
-                    delay(550)
-                    isFilterShimmering = false
+                if (hasChanged) {
+                    scope.launch {
+                        isFilterShimmering = true
+                        delay(550)
+                        isFilterShimmering = false
+                    }
                 }
             },
             onDismissRequest = onToggleFilters

@@ -76,16 +76,15 @@ data class FinanceUiState(
     val searchResults: List<TransactionEntity> = emptyList(),
     val searchDateStart: Long? = null,
     val searchDateEnd: Long? = null,
-    val searchDateLabel: String? = null
+    val searchDateLabel: String? = null,
+    val matchingCollections: List<CollectionEntity> = emptyList()
 )
 
 fun buildSearchTokens(raw: String): List<String> =
     raw.trim().lowercase().split(" ").filter { it.isNotBlank() }
 
-fun matchesSearch(tx: TransactionEntity, tokens: List<String>): Boolean {
-    if (tokens.isEmpty()) return true
-    val haystack = tx.description.lowercase()
-    return tokens.all { haystack.contains(it) }
+fun matchesSearch(tx: TransactionEntity, tokens: List<String>, collectionName: String = ""): Boolean {
+    return com.abhik.paisatrack.ui.screens.search.FinancialSearchUtils.matchesFinancialSearch(tx, tokens, collectionName)
 }
 
 /** "Aug 22, 2026" for a single day, "Aug 1 – Aug 22, 2026" for a span. */
@@ -250,6 +249,13 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         val searchDateStart = args[12] as Long?
         val searchDateEnd = args[13] as Long?
         
+        val collectionMap = collections.associate { it.id to it.name }
+        val naturalDateRange = if (searchDateStart == null) {
+            com.abhik.paisatrack.ui.screens.search.FinancialSearchUtils.parseNaturalDateQuery(searchQuery)
+        } else null
+        val effectiveDateStart = searchDateStart ?: naturalDateRange?.first
+        val effectiveDateEnd = searchDateEnd ?: naturalDateRange?.second
+
         // 1. Filter transactions for Dashboard
         val now = System.currentTimeMillis()
         val searchTokens = buildSearchTokens(searchQuery)
@@ -263,7 +269,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 "This Month" -> isSameMonth(tx.timestamp, now)
                 else -> true
             }
-            val matchesQuery = matchesSearch(tx, searchTokens)
+            val matchesQuery = matchesSearch(tx, searchTokens, collectionMap[tx.collectionId].orEmpty())
             
             matchesCollection && matchesType && matchesTime && matchesQuery
         }
@@ -314,16 +320,30 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         val dailySums = computeDailySums(transactions)
 
         // 5. Search results — a global lookup over every transaction by name and/or date,
-        // independent of the dashboard's collection/type/time filters.
-        val searchActive = searchTokens.isNotEmpty() || searchDateStart != null
-        val searchResults = if (!searchActive) emptyList() else transactions
-            .filter { tx ->
-                val matchesQuery = matchesSearch(tx, searchTokens)
-                val matchesDate = searchDateStart == null ||
-                        tx.timestamp in searchDateStart..(searchDateEnd ?: searchDateStart)
-                matchesQuery && matchesDate
+        // combined with active type, collection, and sort filters.
+        val searchActive = searchTokens.isNotEmpty() || effectiveDateStart != null
+        val searchResults = if (!searchActive) emptyList() else {
+            val matching = transactions.filter { tx ->
+                val matchesQuery = matchesSearch(tx, searchTokens, collectionMap[tx.collectionId].orEmpty())
+                val matchesDate = effectiveDateStart == null ||
+                        tx.timestamp in effectiveDateStart..(effectiveDateEnd ?: effectiveDateStart)
+                val matchesCollection = collectionFilter == null || tx.collectionId == collectionFilter
+                val matchesType = typeFilter == "All" || tx.type.equals(typeFilter, ignoreCase = true)
+                matchesQuery && matchesDate && matchesCollection && matchesType
             }
-            .sortedByDescending { it.timestamp }
+            when (sortOrder) {
+                "Oldest" -> matching.sortedBy { it.timestamp }
+                "Highest", "Highest Amount" -> matching.sortedByDescending { it.amount }
+                "Lowest", "Lowest Amount" -> matching.sortedBy { it.amount }
+                else -> matching.sortedByDescending { it.timestamp }
+            }
+        }
+
+        val matchingCollections = if (searchTokens.isEmpty()) emptyList() else {
+            collections.filter { col ->
+                searchTokens.all { col.name.lowercase().contains(it) }
+            }
+        }
 
         val summary = if (!searchActive || searchResults.isEmpty()) null else {
             var sent = 0.0
@@ -375,9 +395,10 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             searchSummary = summary,
             frequentNames = frequentNames,
             searchResults = searchResults,
-            searchDateStart = searchDateStart,
-            searchDateEnd = searchDateEnd,
-            searchDateLabel = formatSearchDateLabel(searchDateStart, searchDateEnd)
+            searchDateStart = effectiveDateStart,
+            searchDateEnd = effectiveDateEnd,
+            searchDateLabel = com.abhik.paisatrack.ui.screens.search.FinancialSearchUtils.formatDateLabel(effectiveDateStart, effectiveDateEnd),
+            matchingCollections = matchingCollections
         )
     }.stateIn(
         scope = viewModelScope,

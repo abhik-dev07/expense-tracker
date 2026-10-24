@@ -1,13 +1,16 @@
 package com.abhik.paisatrack.ui.components.commonUi
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Icon
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,8 +20,9 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -112,13 +116,15 @@ fun EditTransactionBottomSheet(
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         dragHandle = null,
-        modifier = modifier.imePadding()
+        modifier = modifier // imePadding moved onto the scroll Column below
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, bottom = 48.dp, top = 8.dp)
-                .verticalScroll(rememberScrollState()),
+                .imePadding()                    // viewport ends exactly at the keyboard's top edge
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()         // inside the scroll content, so no clipped cutout
+                .padding(top = 8.dp, bottom = 48.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // Drag handle (Manual to avoid double / extra visual bar)
@@ -136,86 +142,24 @@ fun EditTransactionBottomSheet(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = 24.dp)
             )
 
-            // 1. Transaction Type Tab Selector with smooth sliding animation
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(4.dp)
-            ) {
-                val isExpense = transactionType == "EXPENSE"
-                val itemWidth = maxWidth / 2f
-                val indicatorOffset by animateDpAsState(
-                    targetValue = if (isExpense) itemWidth else 0.dp,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    ),
-                    label = "TypeIndicatorOffset"
+            // 1. Transaction Type Tab Selector with fluid slide and hold drag
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                TransactionTypeSelector(
+                    transactionType = transactionType,
+                    onTypeSelected = {
+                        transactionType = it
+                    },
+                    enabled = submitState == SubmitState.Idle
                 )
-
-                // Smoothly sliding selection pill background
-                Box(
-                    modifier = Modifier
-                        .offset(x = indicatorOffset)
-                        .width(itemWidth)
-                        .height(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surface)
-                )
-
-                // Option labels row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(CircleShape)
-                            .clickable(enabled = submitState == SubmitState.Idle) {
-                                presets.ping()
-                                transactionType = "INCOME"
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Cash In (+)",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (!isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFF1FB47B)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(CircleShape)
-                            .clickable(enabled = submitState == SubmitState.Idle) {
-                                presets.ping()
-                                transactionType = "EXPENSE"
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Cash Out (-)",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isExpense) MaterialTheme.colorScheme.onSurface else Color(0xFFEF4444)
-                        )
-                    }
-                }
             }
 
             // 2. Description field
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                 OutlinedTextField(
                     value = description,
                     onValueChange = {
@@ -264,101 +208,102 @@ fun EditTransactionBottomSheet(
 
             // 3. Amount Box
             Column(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = amountTextFieldValue,
-                    onValueChange = { newValue ->
-                        if (newValue.text == amountTextFieldValue.text) {
-                            amountTextFieldValue = newValue
-                        } else {
-                            val cleanInput = newValue.text.replace(",", "")
-                            val digitCount = cleanInput.count { it != '.' }
-                            if (digitCount <= 8 && (cleanInput.isEmpty() || cleanInput.toDoubleOrNull() != null || cleanInput.last() == '.')) {
-                                val formattedText = formatAmountWithCommas(cleanInput)
-                                
-                                fun mapOffset(text: String, formattedText: String, offset: Int): Int {
-                                    val prefix = text.take(offset)
-                                    val digitsBeforeCursor = prefix.count { it != ',' }
-                                    var formattedSelectionIndex = 0
-                                    var digitsSeen = 0
-                                    while (formattedSelectionIndex < formattedText.length && digitsSeen < digitsBeforeCursor) {
-                                        if (formattedText[formattedSelectionIndex] != ',') {
-                                            digitsSeen++
-                                        }
-                                        formattedSelectionIndex++
-                                    }
-                                    while (formattedSelectionIndex < formattedText.length && formattedText[formattedSelectionIndex] == ',') {
-                                        formattedSelectionIndex++
-                                    }
-                                    return formattedSelectionIndex
-                                }
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                    OutlinedTextField(
+                        value = amountTextFieldValue,
+                        onValueChange = { newValue ->
+                            if (newValue.text == amountTextFieldValue.text) {
+                                amountTextFieldValue = newValue
+                            } else {
+                                val cleanInput = newValue.text.replace(",", "")
+                                val digitCount = cleanInput.count { it != '.' }
+                                if (digitCount <= 8 && (cleanInput.isEmpty() || cleanInput.toDoubleOrNull() != null || cleanInput.last() == '.')) {
+                                    val formattedText = formatAmountWithCommas(cleanInput)
 
-                                val newStart = mapOffset(newValue.text, formattedText, newValue.selection.start)
-                                val newEnd = mapOffset(newValue.text, formattedText, newValue.selection.end)
-                                
-                                amountTextFieldValue = newValue.copy(
-                                    text = formattedText,
-                                    selection = TextRange(newStart, newEnd)
-                                )
-                                if (digitCount == 8) {
-                                    focusManager.clearFocus()
+                                    fun mapOffset(text: String, formattedText: String, offset: Int): Int {
+                                        val prefix = text.take(offset)
+                                        val digitsBeforeCursor = prefix.count { it != ',' }
+                                        var formattedSelectionIndex = 0
+                                        var digitsSeen = 0
+                                        while (formattedSelectionIndex < formattedText.length && digitsSeen < digitsBeforeCursor) {
+                                            if (formattedText[formattedSelectionIndex] != ',') {
+                                                digitsSeen++
+                                            }
+                                            formattedSelectionIndex++
+                                        }
+                                        while (formattedSelectionIndex < formattedText.length && formattedText[formattedSelectionIndex] == ',') {
+                                            formattedSelectionIndex++
+                                        }
+                                        return formattedSelectionIndex
+                                    }
+
+                                    val newStart = mapOffset(newValue.text, formattedText, newValue.selection.start)
+                                    val newEnd = mapOffset(newValue.text, formattedText, newValue.selection.end)
+
+                                    amountTextFieldValue = newValue.copy(
+                                        text = formattedText,
+                                        selection = TextRange(newStart, newEnd)
+                                    )
+                                    if (digitCount == 8) {
+                                        focusManager.clearFocus()
+                                    }
                                 }
                             }
-                        }
-                    },
-                    label = { Text("Amount") },
-                    placeholder = { Text("0.00") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    leadingIcon = {
-                        Text(
-                            text = "₹",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 12.dp, end = 2.dp)
+                        },
+                        label = { Text("Amount") },
+                        placeholder = { Text("0.00") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        leadingIcon = {
+                            Text(
+                                text = "₹",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(start = 12.dp, end = 2.dp)
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        enabled = submitState == SubmitState.Idle,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (amountTextFieldValue.text.count { it != ',' && it != '.' } == 8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    enabled = submitState == SubmitState.Idle,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (amountTextFieldValue.text.count { it != ',' && it != '.' } == 8) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
-                )
-                val progressAmount = amountTextFieldValue.text.count { it != ',' && it != '.' } / 8f
-                val isLimitAmount = amountTextFieldValue.text.count { it != ',' && it != '.' } == 8
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, start = 4.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    LinearWavyProgressIndicator(
-                        progress = { progressAmount },
+                    val progressAmount = amountTextFieldValue.text.count { it != ',' && it != '.' } / 8f
+                    val isLimitAmount = amountTextFieldValue.text.count { it != ',' && it != '.' } == 8
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(10.dp),
-                        color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    Text(
-                        text = "${amountTextFieldValue.text.count { it != ',' && it != '.' }}/8",
-                        fontSize = 11.sp,
-                        color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        fontWeight = if (isLimitAmount) FontWeight.Bold else FontWeight.Normal
-                    )
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, start = 4.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LinearWavyProgressIndicator(
+                            progress = { progressAmount },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(10.dp),
+                            color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        Text(
+                            text = "${amountTextFieldValue.text.count { it != ',' && it != '.' }}/8",
+                            fontSize = 11.sp,
+                            color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            fontWeight = if (isLimitAmount) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    listOf(100, 500, 1000, 5000).forEach { amountToAdd ->
+                    items(listOf(100, 500, 1000, 5000)) { amountToAdd ->
                         AssistChip(
                             onClick = {
                                 presets.ping()
@@ -394,7 +339,7 @@ fun EditTransactionBottomSheet(
                 val currentSelection = collections.find { it.id == selectedCollectionId } ?: collections.first()
                 val colColor = safeParseColor(currentSelection.hexColor, fallback = MaterialTheme.colorScheme.primary)
 
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                     Text(
                         text = "Category",
                         color = Color(0xFF9CA3AF),
@@ -466,39 +411,23 @@ fun EditTransactionBottomSheet(
                                 .fillMaxWidth(0.9f)
                                 .background(MaterialTheme.colorScheme.surface)
                         ) {
-                            SingleChoiceSegmentedButtonRow(
+                            val filters = listOf("All", "Prebuild", "Owned")
+                            ConnectedButtonGroup(
+                                options = filters,
+                                selectedOption = categoryFilter,
+                                onOptionSelected = { filter ->
+                                    presets.plunk()
+                                    categoryFilter = filter
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                val filters = listOf("All", "Prebuild", "Owned")
-                                filters.forEachIndexed { index, filter ->
-                                    val isSelected = categoryFilter == filter
-                                    SegmentedButton(
-                                        selected = isSelected,
-                                        onClick = {
-                                            presets.plunk()
-                                            categoryFilter = filter
-                                        },
-                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = filters.size),
-                                        icon = {
-                                            if (isSelected) {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_tick),
-                                                    contentDescription = "Check",
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                        },
-                                        label = {
-                                            Text(
-                                                text = filter,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    )
-                                }
+                            ) { filter, isSelected ->
+                                Text(
+                                    text = filter,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
                             }
 
                             HorizontalDivider(
@@ -642,148 +571,176 @@ fun EditTransactionBottomSheet(
                     color = Color.Red,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(horizontal = 24.dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 5. Save and Cancel Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            val isSubmitting = submitState == SubmitState.Loading || submitState == SubmitState.Success
+            val isButtonEnabled = hasChanges && parsedAmount != null && parsedAmount > 0.0 && collections.isNotEmpty() && submitState == SubmitState.Idle
+
+            val buttonBgColor by animateColorAsState(
+                targetValue = when {
+                    isSubmitting -> MaterialTheme.colorScheme.primary
+                    isButtonEnabled -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                },
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                label = "buttonBg"
+            )
+            val buttonContentColor by animateColorAsState(
+                targetValue = when {
+                    isSubmitting -> MaterialTheme.colorScheme.onPrimary
+                    isButtonEnabled -> MaterialTheme.colorScheme.onPrimary
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                },
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                label = "buttonContent"
+            )
+            val buttonBorderWidth by animateDpAsState(
+                targetValue = if (isSubmitting || isButtonEnabled) 0.dp else 1.dp,
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                label = "buttonBorder"
+            )
+            val buttonBorderColor by animateColorAsState(
+                targetValue = if (isSubmitting || isButtonEnabled) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                label = "buttonBorderColor"
+            )
+
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .height(52.dp),
+                contentAlignment = Alignment.Center
             ) {
-                OutlinedButton(
-                    onClick = {
-                        presets.boulder()
-                        onDismiss()
-                    },
-                    enabled = submitState == SubmitState.Idle,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp),
-                    shape = CircleShape
+                val totalWidth = maxWidth
+                val idleButtonWidth = (totalWidth - 16.dp) / 2
+                val actionButtonWidth by animateDpAsState(
+                    targetValue = if (isSubmitting) 52.dp else idleButtonWidth,
+                    animationSpec = spring(
+                        dampingRatio = 0.8f,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "actionButtonWidth"
+                )
+                val rowSpacing by animateDpAsState(
+                    targetValue = if (isSubmitting) 0.dp else 16.dp,
+                    animationSpec = spring(
+                        dampingRatio = 0.8f,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "rowSpacing"
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(rowSpacing, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Cancel",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                    AnimatedVisibility(
+                        visible = !isSubmitting,
+                        enter = fadeIn(tween(250)) + expandHorizontally(spring(stiffness = Spring.StiffnessMedium)),
+                        exit = fadeOut(tween(200)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMedium))
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                presets.boulder()
+                                onDismiss()
+                            },
+                            enabled = submitState == SubmitState.Idle,
+                            modifier = Modifier
+                                .width(idleButtonWidth)
+                                .height(52.dp),
+                            shape = CircleShape
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
 
-                val isButtonEnabled = hasChanges && submitState == SubmitState.Idle
-
-                val buttonBgColor by animateColorAsState(
-                    targetValue = when {
-                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> MaterialTheme.colorScheme.surface
-                        hasChanges -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    },
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "buttonBg"
-                )
-                val buttonContentColor by animateColorAsState(
-                    targetValue = when {
-                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> MaterialTheme.colorScheme.primary
-                        hasChanges -> MaterialTheme.colorScheme.onPrimary
-                        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    },
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "buttonContent"
-                )
-                val buttonBorderWidth by animateDpAsState(
-                    targetValue = when {
-                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> 1.dp
-                        hasChanges -> 0.dp
-                        else -> 1.dp
-                    },
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "buttonBorder"
-                )
-                val buttonBorderColor by animateColorAsState(
-                    targetValue = when {
-                        submitState == SubmitState.Loading || submitState == SubmitState.Success -> MaterialTheme.colorScheme.outline
-                        hasChanges -> Color.Transparent
-                        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
-                    },
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "buttonBorderColor"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                        .clip(CircleShape)
-                        .border(buttonBorderWidth, buttonBorderColor, CircleShape)
-                        .background(buttonBgColor)
-                        .clickable(enabled = isButtonEnabled) {
-                            val amt = parsedAmount
-                            val desc = if (description.trim().isEmpty()) {
-                                val currentSelection = collections.find { it.id == selectedCollectionId }
-                                currentSelection?.name ?: "Expense"
-                            } else {
-                                description.trim()
-                            }
-
-                            if (amt == null || amt <= 0.0) {
-                                presets.systemNotificationError()
-                                errorText = "Enter a valid positive transaction amount!"
-                            } else if (collections.isEmpty()) {
-                                presets.systemNotificationError()
-                                errorText = "Create a category collection first!"
-                            } else {
-                                presets.ping()
-                                scope.launch {
-                                    submitState = SubmitState.Loading
-                                    delay(1200)
-                                    submitState = SubmitState.Success
-                                    presets.systemNotificationSuccess()
-                                    delay(600)
-                                    onSave(desc, amt, transactionType, selectedCollectionId)
+                    Box(
+                        modifier = Modifier
+                            .width(actionButtonWidth)
+                            .height(52.dp)
+                            .clip(CircleShape)
+                            .border(buttonBorderWidth, buttonBorderColor, CircleShape)
+                            .background(buttonBgColor)
+                            .clickable(enabled = isButtonEnabled) {
+                                val amt = parsedAmount
+                                val desc = if (description.trim().isEmpty()) {
+                                    val currentSelection = collections.find { it.id == selectedCollectionId }
+                                    currentSelection?.name ?: "Expense"
+                                } else {
+                                    description.trim()
                                 }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    AnimatedContent(
-                        targetState = submitState,
-                        transitionSpec = {
-                            (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
-                                .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
-                        },
-                        label = "submitContent"
-                    ) { state ->
-                        when (state) {
-                            SubmitState.Idle -> {
-                                Text(
-                                    text = "Save",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = buttonContentColor
-                                )
-                            }
-                            SubmitState.Loading -> {
-                                val density = androidx.compose.ui.platform.LocalDensity.current
-                                val strokeWidthPx = with(density) { 2.dp.toPx() }
-                                val amplitudePx = with(density) { 4.dp.toPx() }
-                                CircularWavyProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                    stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
-                                    trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
-                                    amplitude = amplitudePx,
-                                    wavelength = 6.dp
-                                )
-                            }
-                            SubmitState.Success -> {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_tick),
-                                    contentDescription = "Check",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
+
+                                if (amt == null || amt <= 0.0) {
+                                    presets.systemNotificationError()
+                                    errorText = "Enter a valid positive transaction amount!"
+                                } else if (collections.isEmpty()) {
+                                    presets.systemNotificationError()
+                                    errorText = "Create a category collection first!"
+                                } else {
+                                    presets.ping()
+                                    scope.launch {
+                                        submitState = SubmitState.Loading
+                                        delay(1200)
+                                        submitState = SubmitState.Success
+                                        presets.systemNotificationSuccess()
+                                        delay(600)
+                                        onSave(desc, amt, transactionType, selectedCollectionId)
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedContent(
+                            targetState = submitState,
+                            transitionSpec = {
+                                (fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f))
+                                    .togetherWith(fadeOut(tween(200)) + scaleOut(tween(200), targetScale = 0.6f))
+                            },
+                            label = "submitContent"
+                        ) { state ->
+                            when (state) {
+                                SubmitState.Idle -> {
+                                    Text(
+                                        text = "Save",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = buttonContentColor
+                                    )
+                                }
+                                SubmitState.Loading -> {
+                                    val density = androidx.compose.ui.platform.LocalDensity.current
+                                    val strokeWidthPx = with(density) { 2.5.dp.toPx() }
+                                    val amplitudePx = with(density) { 3.dp.toPx() }
+                                    CircularWavyProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f),
+                                        stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidthPx),
+                                        amplitude = amplitudePx,
+                                        wavelength = 6.dp
+                                    )
+                                }
+                                SubmitState.Success -> {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_tick),
+                                        contentDescription = "Check",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -798,7 +755,7 @@ private fun formatAmountWithCommas(raw: String): String {
     if (clean.isEmpty()) return ""
     val parts = clean.split(".")
     val integerPart = parts[0]
-    
+
     val formattedInt = if (integerPart.length > 3) {
         val lastThree = integerPart.substring(integerPart.length - 3)
         val rest = integerPart.substring(0, integerPart.length - 3)
@@ -824,4 +781,3 @@ private fun formatAmountWithCommas(raw: String): String {
         formattedInt
     }
 }
-

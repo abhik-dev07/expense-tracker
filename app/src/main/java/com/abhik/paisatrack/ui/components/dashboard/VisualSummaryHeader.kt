@@ -68,26 +68,71 @@ fun DetailItemRow(label: String, value: String) {
     }
 }
 
+/**
+ * Global tracker to ensure VisualSummaryHeader animations (alpha entrance and amount roll)
+ * execute once after the initial app open and subsequently only when new data loads.
+ */
+object VisualSummaryTracker {
+    var hasInitialAnimated: Boolean = false
+    var lastDataSignature: Any? = null
+
+    fun reset() {
+        hasInitialAnimated = false
+        lastDataSignature = null
+    }
+}
+
+private data class HeaderDataSignature(
+    val income: Double,
+    val expense: Double,
+    val txCount: Int,
+    val txHash: Int
+)
+
 @Composable
 fun VisualSummaryHeader(
     uiState: FinanceUiState,
     dollarFormat: DecimalFormat,
-    modifier: Modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+    modifier: Modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
 ) {
 
     var showDetailDialog by remember { mutableStateOf(false) }
     
     val netBalance = uiState.totalIncome - uiState.totalExpense
-    
+
+    val currentSignature = remember(
+        uiState.isLoading,
+        uiState.totalIncome,
+        uiState.totalExpense,
+        uiState.rawTransactions.size,
+        uiState.rawTransactions
+    ) {
+        if (!uiState.isLoading) {
+            HeaderDataSignature(
+                income = uiState.totalIncome,
+                expense = uiState.totalExpense,
+                txCount = uiState.rawTransactions.size,
+                txHash = uiState.rawTransactions.hashCode()
+            )
+        } else null
+    }
+
+    val isInitialAppOpen = !VisualSummaryTracker.hasInitialAnimated
+    val isNewDataLoad = currentSignature != null &&
+            VisualSummaryTracker.lastDataSignature != null &&
+            VisualSummaryTracker.lastDataSignature != currentSignature
+
+    val shouldAnimateAmounts = isInitialAppOpen || isNewDataLoad
+
     var hasAnimated by rememberSaveable { mutableStateOf(false) }
-    val alphaAnim = remember { Animatable(if (hasAnimated) 1f else 0f) }
+    val alphaAnim = remember { Animatable(if (hasAnimated || VisualSummaryTracker.hasInitialAnimated) 1f else 0f) }
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
 
-    LaunchedEffect(uiState.isLoading) {
+    LaunchedEffect(uiState.isLoading, currentSignature) {
         if (!uiState.isLoading) {
-            if (!hasAnimated) {
+            if (!hasAnimated && !VisualSummaryTracker.hasInitialAnimated) {
                 launch {
                     alphaAnim.animateTo(
                         targetValue = 1f,
@@ -95,8 +140,15 @@ fun VisualSummaryHeader(
                     )
                 }
                 hasAnimated = true
+                VisualSummaryTracker.hasInitialAnimated = true
             } else {
                 alphaAnim.snapTo(1f)
+                hasAnimated = true
+                VisualSummaryTracker.hasInitialAnimated = true
+            }
+
+            if (currentSignature != null) {
+                VisualSummaryTracker.lastDataSignature = currentSignature
             }
         }
     }
@@ -148,6 +200,7 @@ fun VisualSummaryHeader(
                 // Giant Net Balance Center text
                 com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
                     amount = netBalance,
+                    animateOnInitialMount = shouldAnimateAmounts,
                     textStyle = LocalTextStyle.current.copy(
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold
@@ -210,6 +263,7 @@ fun VisualSummaryHeader(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
                                     amount = uiState.totalIncome,
+                                    animateOnInitialMount = shouldAnimateAmounts,
                                     textStyle = LocalTextStyle.current.copy(
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
@@ -267,6 +321,7 @@ fun VisualSummaryHeader(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 com.abhik.paisatrack.ui.components.commonUi.AnimatedAmountCounter(
                                     amount = uiState.totalExpense,
+                                    animateOnInitialMount = shouldAnimateAmounts,
                                     textStyle = LocalTextStyle.current.copy(
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
