@@ -75,6 +75,15 @@ class FinanceRepository(
                 collectionDao.insertCollection(col)
             }
         }
+        val defaultsMap = defaults.associateBy { it.name.trim().lowercase() }
+        for (col in collections) {
+            val def = defaultsMap[col.name.trim().lowercase()]
+            if (def != null && col.isPrebuilt) {
+                if (col.hexColor != def.hexColor) {
+                    collectionDao.insertCollection(col.copy(hexColor = def.hexColor))
+                }
+            }
+        }
     }
 
     // ─── Backend Sync Logic ──────────────────────────────────────────
@@ -256,12 +265,15 @@ class FinanceRepository(
                         return@forEach
                     }
 
-                    if (com.abhik.paisatrack.data.sync.ConflictResolver.resolveCollectionConflict(localCol, rc)) {
+                    val colorToSet = rc.color ?: "#5C6BC0"
+                    val shouldUpdate = com.abhik.paisatrack.data.sync.ConflictResolver.resolveCollectionConflict(localCol, rc) ||
+                        (rc.isPrebuilt == true && localCol != null && localCol.hexColor != colorToSet)
+                    if (shouldUpdate) {
                         collectionDao.insertCollection(
                             CollectionEntity(
                                 id = rc.id,
                                 name = rc.title,
-                                hexColor = rc.color ?: "#3F51B5",
+                                hexColor = colorToSet,
                                 iconName = rc.icon ?: "category",
                                 monthlyBudget = if (rc.amount > 0.0) rc.amount else null,
                                 createdTimestamp = rc.createdAt,
