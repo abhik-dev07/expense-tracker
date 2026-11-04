@@ -13,8 +13,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,8 +23,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -52,13 +49,18 @@ import com.swmansion.pulsar.Pulsar
 @Composable
 fun ProfileScreen(
     onBack: () -> Unit,
-    onLogout: () -> Unit,
+    onLogout: (onCompleted: () -> Unit) -> Unit,
+    onNavigateToSignIn: () -> Unit = {},
+    onNavigateToAboutUs: () -> Unit = {},
+    onNavigateToAccountPrivacy: () -> Unit = {},
+    onNavigateToPrivacyPolicy: () -> Unit = {},
     isActive: Boolean = true
 ) {
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
     val presets = remember(pulsar) { pulsar.getSafePresets() }
     val scrollState = rememberScrollState()
+    val appName = stringResource(id = R.string.app_name)
 
     val userName = remember { AuthManager.getUserName(context) }
     val userEmail = remember { AuthManager.getUserEmail(context) }
@@ -101,8 +103,8 @@ fun ProfileScreen(
                         androidx.compose.ui.graphics.Brush.verticalGradient(
                             colors = listOf(
                                 MaterialTheme.colorScheme.background,
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.9f),
-                                MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
+                                MaterialTheme.colorScheme.background.copy(alpha = 1f),
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.7f),
                                 Color.Transparent
                             )
                         )
@@ -454,8 +456,9 @@ fun ProfileScreen(
                         thumbContent = if (isToggleActive) {
                             {
                                 Icon(
-                                    imageVector = Icons.Filled.Check,
+                                    painter = painterResource(id = R.drawable.ic_tick),
                                     contentDescription = null,
+                                    tint = if (isDark) Color.White else Color(0xFF1FB47B),
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
                                 )
                             }
@@ -468,10 +471,10 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "INFORMATION",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                text = "Information",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
@@ -492,7 +495,7 @@ fun ProfileScreen(
                 icon = { Icon(painterResource(id = R.drawable.ic_info_custom), contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) },
                 onClick = {
                     presets.plunk()
-                    Toast.makeText(context, "About us coming soon", Toast.LENGTH_SHORT).show()
+                    onNavigateToAboutUs()
                 }
             )
 
@@ -501,7 +504,7 @@ fun ProfileScreen(
                 icon = { Icon(painterResource(id = R.drawable.ic_lock_custom), contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp)) },
                 onClick = {
                     presets.plunk()
-                    Toast.makeText(context, "Privacy settings coming soon", Toast.LENGTH_SHORT).show()
+                    onNavigateToAccountPrivacy()
                 }
             )
 
@@ -524,16 +527,17 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = context.getString(R.string.app_name),
+                    text = "$appName • Version $versionName",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "v$versionName",
-                    fontSize = 12.sp,
+                    text = "Made with ❤️ by Abhik",
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }
@@ -542,9 +546,14 @@ fun ProfileScreen(
     if (showLogoutConfirmDialog) {
         LogoutConfirmDialog(
             onDismiss = { showLogoutConfirmDialog = false },
-            onConfirm = {
+            onConfirm = { onDone ->
+                onLogout {
+                    onDone()
+                }
+            },
+            onCompleteLogout = {
                 showLogoutConfirmDialog = false
-                onLogout()
+                onNavigateToSignIn()
             }
         )
     }

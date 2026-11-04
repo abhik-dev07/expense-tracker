@@ -1,7 +1,10 @@
 package com.abhik.paisatrack.data.network
 
+import android.content.Context
+import com.abhik.paisatrack.data.AuthManager
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
@@ -16,12 +19,14 @@ data class SignupRequest(
     val googleId: String,
     val email: String,
     val name: String,
-    val image: String
+    val image: String,
+    val idToken: String? = null
 )
 
 data class SignupResponse(
     val userId: String,
-    val isFirstLogin: Boolean
+    val isFirstLogin: Boolean,
+    val token: String? = null
 )
 
 data class NetworkCollection(
@@ -88,17 +93,6 @@ data class UpdatePushTokenRequest(
     val unregister: Boolean = false
 )
 
-data class InsightsRequest(
-    val totalIncome: Double,
-    val totalExpense: Double,
-    val balance: Double,
-    val breakdownText: String
-)
-
-data class InsightsResponse(
-    val insights: String
-)
-
 // ─── API Endpoints Service ──────────────────────────────────────────
 
 interface PaisaTrackApi {
@@ -160,9 +154,6 @@ interface PaisaTrackApi {
         @Query("since") since: Long? = null
     ): Response<List<NetworkTransaction>>
 
-    @POST("insights")
-    suspend fun getInsights(@Body body: InsightsRequest): Response<InsightsResponse>
-
     @DELETE("users/{userId}")
     suspend fun deleteUser(@Path("userId") userId: String): Response<Map<String, String>>
 }
@@ -170,6 +161,12 @@ interface PaisaTrackApi {
 // ─── API Client Singleton ───────────────────────────────────────────
 
 object ApiClient {
+    private var appContext: Context? = null
+
+    fun init(context: Context) {
+        appContext = context.applicationContext
+    }
+
     // Dynamic URL selector based on build variant (DEBUG vs RELEASE)
     private val BASE_URL = if (com.abhik.paisatrack.BuildConfig.DEBUG) {
         // Use "127.0.0.1" for emulator, or physical device via wireless/USB debugging (requires: adb reverse tcp:8080 tcp:8080)
@@ -179,9 +176,22 @@ object ApiClient {
         "https://paisa-track.redsider.com/api/"
     }
 
+    private val authInterceptor = Interceptor { chain ->
+        val originalRequest = chain.request()
+        val token = appContext?.let { AuthManager.getAuthToken(it) }
+        val authenticatedRequest = if (!token.isNullOrEmpty() && originalRequest.header("Authorization") == null) {
+            originalRequest.newBuilder()
+                .addHeader("Authorization", "Bearer $token")
+                .build()
+        } else {
+            originalRequest
+        }
+        chain.proceed(authenticatedRequest)
+    }
+
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = if (com.abhik.paisatrack.BuildConfig.DEBUG) {
-            HttpLoggingInterceptor.Level.BODY
+            HttpLoggingInterceptor.Level.HEADERS
         } else {
             HttpLoggingInterceptor.Level.NONE
         }
@@ -191,6 +201,7 @@ object ApiClient {
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(authInterceptor)
         .addInterceptor(loggingInterceptor)
         .build()
 

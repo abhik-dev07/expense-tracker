@@ -371,14 +371,14 @@ fun SearchScreen(
 
                                     Text(
                                         text = "Try adjusting your query, clearing filters, or selecting a broader date range.",
-                                        fontSize = 13.5.sp,
+                                        fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
 
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
 
-                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         if (uiState.searchQuery.isNotBlank()) {
                                             OutlinedButton(
                                                 onClick = { viewModel.clearSearchQuery() },

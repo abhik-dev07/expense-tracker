@@ -145,7 +145,7 @@ fun AddCollectionBottomSheet(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(MaterialShapes.Cookie4Sided.toShape())
+                    .clip(RoundedCornerShape(16.dp))
                     .background(selectedColor.copy(alpha = 0.18f))
                     .align(Alignment.CenterHorizontally),
                 contentAlignment = Alignment.Center
@@ -196,9 +196,9 @@ fun AddCollectionBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    LinearWavyProgressIndicator(
+                    LinearProgressIndicator(
                         progress = { progressName },
-                        modifier = Modifier.weight(1f).height(10.dp),
+                        modifier = Modifier.weight(1f).height(4.dp),
                         color = if (isLimitName) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
@@ -281,7 +281,7 @@ fun AddCollectionBottomSheet(
                         modifier = Modifier
                             .size(44.dp)
                             .graphicsLayer { rotationZ = animatedRotation }
-                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .clip(RoundedCornerShape(12.dp))
                             .background(if (selected) iconThemeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .clickable {
                                 presets.plunk()

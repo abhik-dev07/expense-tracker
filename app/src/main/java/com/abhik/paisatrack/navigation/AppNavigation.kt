@@ -46,6 +46,14 @@ import com.abhik.paisatrack.screens.collections.CollectionsScreen
 import com.abhik.paisatrack.screens.LoaderScreen
 import com.abhik.paisatrack.screens.OnboardingScreen
 import com.abhik.paisatrack.screens.profile.ProfileScreen
+import com.abhik.paisatrack.screens.accountprivacy.AccountPrivacyScreen
+import com.abhik.paisatrack.screens.accountprivacy.DeleteAccountScreen
+import com.abhik.paisatrack.screens.accountprivacy.DeleteAccountFeedbackScreen
+import com.abhik.paisatrack.screens.aboutus.AboutUsScreen
+import com.abhik.paisatrack.screens.privacypolicy.PrivacyPolicyScreen
+import com.abhik.paisatrack.screens.termsconditions.TermsConditionsScreen
+import com.abhik.paisatrack.screens.licenses.LicensesScreen
+import com.abhik.paisatrack.screens.disclaimer.DisclaimerScreen
 import com.abhik.paisatrack.screens.signin.SignInScreen
 import com.abhik.paisatrack.screens.search.SearchScreen
 import com.abhik.paisatrack.ui.theme.isAppInDarkTheme
@@ -202,7 +210,11 @@ fun AppNavigation(
                                     onNavigateToCollectionTransactions = { collectionId, _ ->
                                         navigator.navigateToCollectionTransactions(collectionId)
                                     },
-                                    onLogout = { navigator.logout(coroutineScope, context) },
+                                    onLogout = {
+                                        viewModel.signOut(context) {
+                                            navigator.logout(coroutineScope, context)
+                                        }
+                                    },
                                     onProfileClick = { navigator.navigateToProfile() },
                                     onNavigateToSearch = { navigator.navigateToSearch() },
                                     onNavigateToInsights = { navigator.navigateToInsights() },
@@ -263,7 +275,11 @@ fun AppNavigation(
                     SignInScreen(
                         viewModel = viewModel,
                         isOnline = isOnline,
-                        onNavigateToDashboard = { navigator.navigateToDashboard() }
+                        onNavigateToDashboard = { navigator.navigateToDashboard() },
+                        onNavigateToTermsConditions = { navigator.navigateToTermsConditions() },
+                        onNavigateToPrivacyPolicy = { navigator.navigateToPrivacyPolicy() },
+                        onNavigateToAboutUs = { navigator.navigateToAboutUs() },
+                        onNavigateToDisclaimer = { navigator.navigateToDisclaimer() }
                     )
                 }
 
@@ -296,7 +312,85 @@ fun AppNavigation(
                     ProfileScreen(
                         isActive = navigator.currentRoute == AppRoute.Profile,
                         onBack = { navigator.navigateBack() },
-                        onLogout = { navigator.logout(coroutineScope, context) }
+                        onNavigateToAboutUs = { navigator.navigateToAboutUs() },
+                        onNavigateToAccountPrivacy = { navigator.navigateToAccountPrivacy() },
+                        onNavigateToPrivacyPolicy = { navigator.navigateToPrivacyPolicy() },
+                        onLogout = { onCompleted ->
+                            viewModel.signOut(context) {
+                                onCompleted()
+                            }
+                        },
+                        onNavigateToSignIn = {
+                            navigator.logout(coroutineScope, context)
+                        }
+                    )
+                }
+
+                entry<AppRoute.AccountPrivacy> {
+                    AccountPrivacyScreen(
+                        onBack = { navigator.navigateBack() },
+                        onNavigateToPrivacyPolicy = { navigator.navigateToPrivacyPolicy() },
+                        onNavigateToDeleteAccount = { navigator.navigateToDeleteAccount() },
+                        onDeleteAccount = {
+                            viewModel.deleteAccountData {
+                                navigator.logout(coroutineScope, context)
+                            }
+                        }
+                    )
+                }
+
+                entry<AppRoute.DeleteAccount> {
+                    DeleteAccountScreen(
+                        onBack = { navigator.navigateBack() },
+                        onSelectReason = { reason ->
+                            navigator.navigateToDeleteAccountFeedback(reason)
+                        }
+                    )
+                }
+
+                entry<AppRoute.DeleteAccountFeedback> { route ->
+                    DeleteAccountFeedbackScreen(
+                        reason = route.reason,
+                        onBack = { navigator.navigateBack() },
+                        onDeleteAccountConfirmed = {
+                            viewModel.deleteAccountData {
+                                navigator.logout(coroutineScope, context)
+                            }
+                        }
+                    )
+                }
+
+                entry<AppRoute.AboutUs> {
+                    AboutUsScreen(
+                        onBack = { navigator.navigateBack() },
+                        onNavigateToPrivacyPolicy = { navigator.navigateToPrivacyPolicy() },
+                        onNavigateToTermsConditions = { navigator.navigateToTermsConditions() },
+                        onNavigateToDisclaimer = { navigator.navigateToDisclaimer() },
+                        onNavigateToLicenses = { navigator.navigateToLicenses() }
+                    )
+                }
+
+                entry<AppRoute.PrivacyPolicy> {
+                    PrivacyPolicyScreen(
+                        onBack = { navigator.navigateBack() }
+                    )
+                }
+
+                entry<AppRoute.TermsConditions> {
+                    TermsConditionsScreen(
+                        onBack = { navigator.navigateBack() }
+                    )
+                }
+
+                entry<AppRoute.Licenses> {
+                    LicensesScreen(
+                        onBack = { navigator.navigateBack() }
+                    )
+                }
+
+                entry<AppRoute.Disclaimer> {
+                    DisclaimerScreen(
+                        onBack = { navigator.navigateBack() }
                     )
                 }
 

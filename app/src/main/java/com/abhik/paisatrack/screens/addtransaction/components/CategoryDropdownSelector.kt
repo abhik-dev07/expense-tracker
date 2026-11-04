@@ -93,7 +93,7 @@ fun CategoryDropdownSelector(
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .clip(RoundedCornerShape(10.dp))
                             .background(colColor.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -234,7 +234,7 @@ fun CategoryDropdownSelector(
                                             Box(
                                                 modifier = Modifier
                                                     .size(32.dp)
-                                                    .clip(MaterialShapes.Cookie4Sided.toShape())
+                                                    .clip(RoundedCornerShape(8.dp))
                                                     .background(
                                                         if (isSelected) itemColor
                                                         else itemColor.copy(alpha = 0.15f)

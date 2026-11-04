@@ -7,8 +7,10 @@ object AuthManager {
     private const val PREFS_NAME = "paisa_track_prefs"
     private const val KEY_SIGNED_IN = "is_signed_in"
     private const val KEY_USER_ID = "user_id"
+    private const val KEY_LAST_USER_ID = "last_user_id"
     private const val KEY_USER_NAME = "user_name"
     private const val KEY_USER_EMAIL = "user_email"
+    private const val KEY_AUTH_TOKEN = "auth_token"
     private const val KEY_SEEN_ONBOARDING = "has_seen_onboarding"
     private const val KEY_AGREED_TERMS = "paisa_track_terms_agreed"
     private const val KEY_PROFILE_PIC_URL = "profile_pic_url"
@@ -44,7 +46,8 @@ object AuthManager {
         name: String? = null,
         email: String? = null,
         profilePicUrl: String? = null,
-        userId: String? = null
+        userId: String? = null,
+        authToken: String? = null
     ) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().apply {
@@ -62,8 +65,14 @@ object AuthManager {
             }
             if (userId != null) {
                 putString(KEY_USER_ID, userId)
+                putString(KEY_LAST_USER_ID, userId)
             } else if (!signedIn) {
                 remove(KEY_USER_ID)
+            }
+            if (authToken != null) {
+                putString(KEY_AUTH_TOKEN, authToken)
+            } else if (!signedIn) {
+                remove(KEY_AUTH_TOKEN)
             }
             apply()
         }
@@ -74,14 +83,36 @@ object AuthManager {
         return prefs.getString(KEY_USER_ID, null)
     }
 
+    fun getLastUserId(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_LAST_USER_ID, null)
+    }
+
+    fun getAuthToken(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_AUTH_TOKEN, null)
+    }
+
+    fun setAuthToken(context: Context, token: String?) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            if (token != null) {
+                putString(KEY_AUTH_TOKEN, token)
+            } else {
+                remove(KEY_AUTH_TOKEN)
+            }
+            apply()
+        }
+    }
+
     fun getUserName(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_USER_NAME, "David") ?: "David"
+        return prefs.getString(KEY_USER_NAME, "User") ?: "User"
     }
 
     fun getUserEmail(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_USER_EMAIL, "abhikbaidya7@gmail.com") ?: "abhikbaidya7@gmail.com"
+        return prefs.getString(KEY_USER_EMAIL, "") ?: ""
     }
 
     fun getProfilePicUrl(context: Context): String? {
@@ -101,6 +132,19 @@ object AuthManager {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putBoolean(KEY_SIGNED_IN, false)
+            remove(KEY_USER_ID)
+            remove(KEY_USER_NAME)
+            remove(KEY_USER_EMAIL)
+            remove(KEY_PROFILE_PIC_URL)
+            remove(KEY_AUTH_TOKEN)
+            apply()
+        }
+    }
+
+    fun clearAllPreferences(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().clear().apply()
     }

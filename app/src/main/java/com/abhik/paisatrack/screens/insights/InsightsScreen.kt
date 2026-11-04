@@ -78,8 +78,6 @@ fun InsightsScreen(
     BackHandler { onBack() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val aiInsights by viewModel.aiInsights.collectAsStateWithLifecycle()
-    val aiLoading by viewModel.aiLoading.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
@@ -154,9 +152,6 @@ fun InsightsScreen(
                 // Dedicated Insights panel
                 InsightsPanel(
                     uiState = uiState,
-                    aiInsights = aiInsights,
-                    aiLoading = aiLoading,
-                    onRefreshInsights = { viewModel.fetchAiInsights() },
                     dollarFormat = dollarFormat,
                     onScrollProgressChanged = {}
                 )

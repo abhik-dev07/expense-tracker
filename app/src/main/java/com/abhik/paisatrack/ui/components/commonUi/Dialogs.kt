@@ -154,7 +154,7 @@ fun PlusMenuDialog(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clip(MaterialShapes.Flower.toShape())
+                                .clip(CircleShape)
                                 .background(Color(0xFFB7DAAE).copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
@@ -217,7 +217,7 @@ fun PlusMenuDialog(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .clip(MaterialShapes.Cookie4Sided.toShape())
+                                .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFFFFB8A9).copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {

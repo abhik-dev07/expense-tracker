@@ -71,7 +71,7 @@ fun RecentSearchesSection(
 
             Text(
                 text = "Clear",
-                fontSize = 13.5.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = SleekPrimary,
                 modifier = Modifier
@@ -80,7 +80,7 @@ fun RecentSearchesSection(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = false, radius = 18.dp)
                     ) { onClearClick() }
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
 
@@ -108,7 +108,7 @@ fun RecentSearchesSection(
                     border = BorderStroke(1.dp, chipBorder)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -120,11 +120,11 @@ fun RecentSearchesSection(
                             modifier = Modifier.size(16.dp)
                         )
 
-                        Spacer(modifier = Modifier.width(7.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
                         Text(
                             text = query,
-                            fontSize = 13.5.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
                         )

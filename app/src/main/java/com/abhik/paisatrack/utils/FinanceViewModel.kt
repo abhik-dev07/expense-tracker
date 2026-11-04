@@ -12,7 +12,6 @@ import com.abhik.paisatrack.data.model.TransactionEntity
 import com.abhik.paisatrack.data.network.ApiClient
 import com.abhik.paisatrack.data.repository.FinanceRepository
 import com.abhik.paisatrack.data.repository.SyncResult
-import com.abhik.paisatrack.data.network.GeminiInsightService
 import com.abhik.paisatrack.data.network.UpdateCollectionRequest
 import com.abhik.paisatrack.data.sync.SyncManager
 import com.abhik.paisatrack.screens.search.FinancialSearchUtils
@@ -153,13 +152,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
     private val _searchDateEnd = MutableStateFlow<Long?>(null)
     val searchDateEnd: StateFlow<Long?> = _searchDateEnd.asStateFlow()
 
-    // AI Insight state
-    private val _aiInsights = MutableStateFlow("")
-    val aiInsights: StateFlow<String> = _aiInsights.asStateFlow()
-
-    private val _aiLoading = MutableStateFlow(false)
-    val aiLoading: StateFlow<Boolean> = _aiLoading.asStateFlow()
-
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -196,7 +188,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         val database = AppDatabase.getDatabase(application)
         repository = FinanceRepository(database.collectionDao(), database.transactionDao())
 
-        // Ensure seeding is completed in a safe thread
         viewModelScope.launch(Dispatchers.IO) {
             val context = getApplication<Application>().applicationContext
             val userId = AuthManager.getUserId(context)
@@ -215,9 +206,9 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 }
                 syncFcmToken(userId)
             } else {
+                // Seed default prebuilt collections locally only when no signed-in user exists
                 repository.ensureDefaultCollectionsPreseeded()
             }
-            _aiInsights.value = GeminiInsightService.getFallbackInsights(0.0, 0.0)
             _isLoading.value = false
         }
     }
@@ -418,11 +409,21 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         email: String,
         name: String,
         image: String,
+        idToken: String? = null,
         onComplete: (String) -> Unit
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val response = repository.signupUser(googleId, email, name, image)
+            _isLoading.value = true
+            val previousUserId = AuthManager.getLastUserId(getApplication())
+
+            val response = repository.signupUser(googleId, email, name, image, idToken)
             val finalUserId = response?.userId ?: googleId
+            val tokenToStore = response?.token ?: idToken
+
+            // Clear any stale local data if new session or different user to prevent duplicate-key conflicts
+            if (previousUserId == null || previousUserId != finalUserId) {
+                repository.clearAllLocalData()
+            }
 
             AuthManager.setUserSignedIn(
                 getApplication(),
@@ -430,26 +431,27 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                 name = name,
                 email = email,
                 profilePicUrl = image,
-                userId = finalUserId
+                userId = finalUserId,
+                authToken = tokenToStore
             )
 
-            // Clear any stale local data left over from a different user
-            // before attempting migration to prevent duplicate-key conflicts
-            repository.clearAllLocalData()
-
-            // Force clear and download database data for backward compatibility
             val result = repository.syncFromBackend(finalUserId)
             when (result) {
                 SyncResult.NETWORK_ERROR -> {
+                    // Fallback to local default seeding ONLY if network sync was unreachable
+                    repository.ensureDefaultCollectionsPreseeded()
                     _isServerError.value = true
                 }
                 SyncResult.USER_DELETED -> {
                     _userDeletedEvent.tryEmit(Unit)
+                    _isLoading.value = false
                     return@launch
                 }
                 SyncResult.SUCCESS -> { /* data is fresh */ }
             }
             syncFcmToken(finalUserId)
+
+            _isLoading.value = false
 
             viewModelScope.launch(Dispatchers.Main) {
                 onComplete(finalUserId)
@@ -732,29 +734,6 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Triggers local or remote Gemini insights based on current states
-    fun fetchAiInsights() {
-        val state = uiState.value
-        if (_aiLoading.value) return
-        
-        _aiLoading.value = true
-        _aiInsights.value = "Analyzing your spending patterns..."
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val breakdown = state.collectionSummaries.joinToString("\n") { sum ->
-                "- ${sum.collection.name}: Spent $${sum.totalExpense} (Budget: ${sum.collection.monthlyBudget?.let { "$$it" } ?: "No Budget"})"
-            }
-            val result = GeminiInsightService.getFinancialInsights(
-                totalIncome = state.totalIncome,
-                totalExpense = state.totalExpense,
-                balance = state.balance,
-                breakdownText = breakdown
-            )
-            _aiInsights.value = result
-            _aiLoading.value = false
-        }
-    }
-
     // Helper Date utilities
     private fun isSameDay(t1: Long, t2: Long): Boolean {
         val cal1 = Calendar.getInstance().apply { timeInMillis = t1 }
@@ -840,7 +819,7 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
                     e.printStackTrace()
                 }
             }
-            repository.clearAllLocalData()
+            // Normal sign-out revokes session without wiping the user's local Room database
             AuthManager.signOut(context)
             viewModelScope.launch(Dispatchers.Main) {
                 onCompleted()
@@ -857,8 +836,9 @@ class FinanceViewModel(application: Application) : AndroidViewModel(application)
             // Wipe all local Room tables
             val database = AppDatabase.getDatabase(getApplication())
             database.clearAllTables()
-            // Also clear auth state so stale userId doesn't trigger re-sync
+            // Also clear auth state and preferences so stale userId doesn't trigger re-sync
             AuthManager.signOut(getApplication())
+            AuthManager.clearAllPreferences(getApplication())
             viewModelScope.launch(Dispatchers.Main) {
                 onCompleted()
             }

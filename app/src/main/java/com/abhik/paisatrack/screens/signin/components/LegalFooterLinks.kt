@@ -8,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -16,10 +15,10 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun LegalFooterLinks(
     onPlunkHaptic: () -> Unit,
+    onNavigateToAboutUs: () -> Unit = {},
+    onNavigateToDisclaimer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val uriHandler = LocalUriHandler.current
-
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
@@ -32,7 +31,7 @@ fun LegalFooterLinks(
             textDecoration = TextDecoration.Underline,
             modifier = Modifier.clickable {
                 onPlunkHaptic()
-                uriHandler.openUri("https://www.notion.so/About-Us-Paisa-Track-34005815a54c8002926bfee1bf0f8efb")
+                onNavigateToAboutUs()
             }
         )
 
@@ -50,7 +49,7 @@ fun LegalFooterLinks(
             textDecoration = TextDecoration.Underline,
             modifier = Modifier.clickable {
                 onPlunkHaptic()
-                uriHandler.openUri("https://www.notion.so/Disclaimer-for-Paisa-Track-34005815a54c8016827bd3d0374f5dd4")
+                onNavigateToDisclaimer()
             }
         )
     }

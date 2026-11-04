@@ -99,6 +99,38 @@ class AppNavigator(
         navigateTo(AppRoute.Profile)
     }
 
+    fun navigateToAboutUs() {
+        navigateTo(AppRoute.AboutUs)
+    }
+
+    fun navigateToPrivacyPolicy() {
+        navigateTo(AppRoute.PrivacyPolicy)
+    }
+
+    fun navigateToAccountPrivacy() {
+        navigateTo(AppRoute.AccountPrivacy)
+    }
+
+    fun navigateToDeleteAccount() {
+        navigateTo(AppRoute.DeleteAccount)
+    }
+
+    fun navigateToDeleteAccountFeedback(reason: String) {
+        navigateTo(AppRoute.DeleteAccountFeedback(reason = reason))
+    }
+
+    fun navigateToTermsConditions() {
+        navigateTo(AppRoute.TermsConditions)
+    }
+
+    fun navigateToLicenses() {
+        navigateTo(AppRoute.Licenses)
+    }
+
+    fun navigateToDisclaimer() {
+        navigateTo(AppRoute.Disclaimer)
+    }
+
     fun navigateToSearch() {
         navigateTo(AppRoute.Search)
     }

@@ -188,11 +188,11 @@ fun EditTransactionBottomSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    LinearWavyProgressIndicator(
+                    LinearProgressIndicator(
                         progress = { progressDesc },
                         modifier = Modifier
                             .weight(1f)
-                            .height(10.dp),
+                            .height(4.dp),
                         color = if (isLimitDesc) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
@@ -278,11 +278,11 @@ fun EditTransactionBottomSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        LinearWavyProgressIndicator(
+                        LinearProgressIndicator(
                             progress = { progressAmount },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(10.dp),
+                                .height(4.dp),
                             color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
@@ -373,7 +373,7 @@ fun EditTransactionBottomSheet(
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .clip(MaterialShapes.Cookie4Sided.toShape())
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(colColor.copy(alpha = 0.2f)),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -511,7 +511,7 @@ fun EditTransactionBottomSheet(
                                                         Box(
                                                             modifier = Modifier
                                                                 .size(32.dp)
-                                                                .clip(MaterialShapes.Cookie4Sided.toShape())
+                                                                .clip(RoundedCornerShape(8.dp))
                                                                 .background(
                                                                     if (isSelected) itemColor
                                                                     else itemColor.copy(alpha = 0.15f)
