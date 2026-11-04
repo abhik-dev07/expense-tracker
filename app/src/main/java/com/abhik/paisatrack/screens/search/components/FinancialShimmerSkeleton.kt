@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
@@ -144,7 +145,7 @@ fun FinancialShimmerSkeleton(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .clip(CircleShape)
                             .shimmerEffect()
                     )
 

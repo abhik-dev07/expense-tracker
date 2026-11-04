@@ -45,6 +45,38 @@ sealed interface AppRoute : NavKey {
     @Serializable
     data object Profile : AppRoute
 
+    /** About Us screen destination */
+    @Serializable
+    data object AboutUs : AppRoute
+
+    /** Privacy Policy screen destination */
+    @Serializable
+    data object PrivacyPolicy : AppRoute
+
+    /** Account Privacy screen destination */
+    @Serializable
+    data object AccountPrivacy : AppRoute
+
+    /** Delete Account screen destination */
+    @Serializable
+    data object DeleteAccount : AppRoute
+
+    /** Delete Account feedback & final deletion destination */
+    @Serializable
+    data class DeleteAccountFeedback(val reason: String) : AppRoute
+
+    /** Terms & Conditions screen destination */
+    @Serializable
+    data object TermsConditions : AppRoute
+
+    /** Open Source Licenses screen destination */
+    @Serializable
+    data object Licenses : AppRoute
+
+    /** Disclaimer screen destination */
+    @Serializable
+    data object Disclaimer : AppRoute
+
     /** Financial search destination */
     @Serializable
     data object Search : AppRoute

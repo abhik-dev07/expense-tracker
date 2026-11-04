@@ -103,7 +103,7 @@ fun TransactionSkeletonItem(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(MaterialShapes.VerySunny.toShape())
+                    .clip(CircleShape)
                     .shimmerEffect()
             )
             Spacer(modifier = Modifier.width(16.dp))
@@ -308,7 +308,7 @@ fun TransactionListItem(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .clip(MaterialShapes.VerySunny.toShape())
+                            .clip(CircleShape)
                             .background(badgeBg),
                         contentAlignment = Alignment.Center
                     ) {

@@ -74,31 +74,12 @@ fun DashboardHeader(
     val hour = calendar.get(Calendar.HOUR_OF_DAY)
     val greeting = when (hour) {
         in 5..11 -> "Good morning"
-        12 -> "Good noon"
-        in 13..16 -> "Good afternoon"
-        in 17..20 -> "Good evening"
-        else -> "Good night"
+        in 12..16 -> "Good afternoon"
+        in 17..21 -> "Good evening"
+        else -> "Hello"
     }
     
     val fullGreeting = "$greeting $firstName"
-    val searchKeywords = remember { listOf("records...", "groceries...", "rent...", "food...", "gas...", "Netflix...", "salary...") }
-    var keywordIndex by remember { mutableIntStateOf(0) }
-    var displayedKeyword by remember { mutableStateOf("") }
-    
-    LaunchedEffect(keywordIndex) {
-        val target = searchKeywords[keywordIndex]
-        for (i in 0..target.length) {
-            displayedKeyword = target.substring(0, i)
-            delay(70)
-        }
-        delay(2000)
-        for (i in target.length downTo 0) {
-            displayedKeyword = target.substring(0, i)
-            delay(30)
-        }
-        delay(500)
-        keywordIndex = (keywordIndex + 1) % searchKeywords.size
-    }
 
     AnimatedContent(
         targetState = activeTab,
@@ -197,7 +178,7 @@ fun DashboardHeader(
                         Text(
                             text = firstName,
                             fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                             color = headerTextPrimary
                         )
                     }
@@ -284,7 +265,7 @@ fun DashboardHeader(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Search \"$displayedKeyword\"",
+                                text = "Search records",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = searchPlaceholder,
@@ -329,8 +310,8 @@ fun DashboardHeader(
             } else {
                 // Headers for secondary screens
                 val headerText = when (currentTab) {
-                    "Collections" -> "Collections & Vaults"
-                    "Insights" -> "Insights & Analytics"
+                    "Collections" -> "Collections"
+                    "Insights" -> "Insights"
                     else -> ""
                 }
                 Row(
@@ -348,7 +329,7 @@ fun DashboardHeader(
                     )
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(

@@ -73,7 +73,7 @@ fun SearchResultsHeader(
                 )
                 Text(
                     text = "$resultCount ${if (resultCount == 1) "record" else "records"} found",
-                    fontSize = 12.5.sp,
+                    fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

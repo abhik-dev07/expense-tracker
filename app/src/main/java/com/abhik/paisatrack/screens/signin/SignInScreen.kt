@@ -54,7 +54,11 @@ import kotlinx.coroutines.launch
 fun SignInScreen(
     viewModel: FinanceViewModel,
     isOnline: Boolean = true,
-    onNavigateToDashboard: () -> Unit
+    onNavigateToDashboard: () -> Unit,
+    onNavigateToTermsConditions: () -> Unit = {},
+    onNavigateToPrivacyPolicy: () -> Unit = {},
+    onNavigateToAboutUs: () -> Unit = {},
+    onNavigateToDisclaimer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val pulsar = remember(context) { Pulsar(context.findActivity() ?: context) }
@@ -126,14 +130,14 @@ fun SignInScreen(
             Text(
                 text = "Paisa Track",
                 fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             // Subtitle
             Text(
-                text = "Manage your spending efficiently with just a single tap.",
+                text = "Track daily spending and cashflow with clarity",
                 fontSize = 15.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -157,6 +161,7 @@ fun SignInScreen(
                                     email = email,
                                     name = googleUser.displayName ?: "",
                                     image = googleUser.profilePicUrl ?: "",
+                                    idToken = googleUser.idToken,
                                     onComplete = {
                                         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                         Toast.makeText(context, "Signed in successfully!", Toast.LENGTH_SHORT).show()
@@ -194,45 +199,16 @@ fun SignInScreen(
                                 isLoading = true
                                 val triggerSignIn = { this.onClick() }
                                 coroutineScope.launch {
-                                    // Phase 1: Fade out the Google content
-                                    fadeAlpha.animateTo(0f, animationSpec = tween(durationMillis = 200))
-
-                                    // Phase 2: Show "Made with ❤️ by Abhik" and slide in
-                                    buttonState = SignInButtonState.MadeWith
-                                    slideOffset.snapTo(10f)
-
-                                    launch {
-                                        fadeAlpha.animateTo(1f, animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing))
-                                    }
-                                    launch {
-                                        slideOffset.animateTo(0f, animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing))
-                                    }
-
-                                    // Wait for 1 second
-                                    delay(1000)
-
-                                    // Phase 3: Fade out "Made with ❤️ by Abhik" and slide up/out
-                                    launch {
-                                        fadeAlpha.animateTo(0f, animationSpec = tween(durationMillis = 350, easing = FastOutLinearInEasing))
-                                    }
-                                    launch {
-                                        slideOffset.animateTo(-10f, animationSpec = tween(durationMillis = 350, easing = FastOutLinearInEasing))
-                                    }
-
-                                    delay(350)
-
-                                    // Phase 4: Show "Signing in" (ActivityIndicator)
+                                    fadeAlpha.animateTo(0f, animationSpec = tween(durationMillis = 150))
                                     buttonState = SignInButtonState.SigningIn
-                                    slideOffset.snapTo(10f)
-
+                                    slideOffset.snapTo(4f)
                                     launch {
-                                        fadeAlpha.animateTo(1f, animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing))
+                                        fadeAlpha.animateTo(1f, animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing))
                                     }
                                     launch {
-                                        slideOffset.animateTo(0f, animationSpec = tween(durationMillis = 300, easing = LinearOutSlowInEasing))
+                                        slideOffset.animateTo(0f, animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing))
                                     }
-
-                                    delay(300)
+                                    delay(100)
                                     triggerSignIn()
                                 }
                             }
@@ -360,14 +336,18 @@ fun SignInScreen(
                     isAgreed = newVal
                     AuthManager.setAgreedToTerms(context, newVal)
                 },
-                onPlunkHaptic = { presets.plunk() }
+                onPlunkHaptic = { presets.plunk() },
+                onNavigateToTermsConditions = onNavigateToTermsConditions,
+                onNavigateToPrivacyPolicy = onNavigateToPrivacyPolicy
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // Legal documents links (About Us & Disclaimer)
             LegalFooterLinks(
-                onPlunkHaptic = { presets.plunk() }
+                onPlunkHaptic = { presets.plunk() },
+                onNavigateToAboutUs = onNavigateToAboutUs,
+                onNavigateToDisclaimer = onNavigateToDisclaimer
             )
         }
     }

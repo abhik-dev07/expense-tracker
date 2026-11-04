@@ -164,14 +164,14 @@ fun TransactionDetailBottomSheet(
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
-                                .clip(MaterialShapes.VerySunny.toShape())
+                                .clip(CircleShape)
                                 .shimmerEffect()
                         )
                     } else {
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
-                                .clip(MaterialShapes.VerySunny.toShape())
+                                .clip(CircleShape)
                                 .background(collectionColor.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {

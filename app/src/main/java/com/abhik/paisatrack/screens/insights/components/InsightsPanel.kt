@@ -35,9 +35,6 @@ import java.text.DecimalFormat
 @Composable
 fun InsightsPanel(
     uiState: FinanceUiState,
-    aiInsights: String,
-    aiLoading: Boolean,
-    onRefreshInsights: () -> Unit,
     dollarFormat: DecimalFormat,
     onScrollProgressChanged: (Boolean) -> Unit = {}
 ) {

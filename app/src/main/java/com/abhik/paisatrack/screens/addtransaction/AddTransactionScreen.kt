@@ -121,7 +121,7 @@ fun AddTransactionScreen(
                             androidx.compose.ui.graphics.Brush.verticalGradient(
                                 colors = listOf(
                                     MaterialTheme.colorScheme.background,
-                                    MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+                                    MaterialTheme.colorScheme.background.copy(alpha = 1f),
                                     MaterialTheme.colorScheme.background.copy(alpha = 0.7f),
                                     Color.Transparent
                                 )
@@ -217,7 +217,7 @@ fun AddTransactionScreen(
                             }
                         },
                         label = { Text("Description") },
-                        placeholder = { Text("e.g. Starbucks Coffee, Office Rent") },
+                        placeholder = { Text("e.g. Groceries, Rent") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
@@ -234,9 +234,9 @@ fun AddTransactionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        LinearWavyProgressIndicator(
+                        LinearProgressIndicator(
                             progress = { progressDesc },
-                            modifier = Modifier.weight(1f).height(10.dp),
+                            modifier = Modifier.weight(1f).height(4.dp),
                             color = if (isLimitDesc) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
@@ -302,9 +302,9 @@ fun AddTransactionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        LinearWavyProgressIndicator(
+                        LinearProgressIndicator(
                             progress = { progressAmount },
-                            modifier = Modifier.weight(1f).height(10.dp),
+                            modifier = Modifier.weight(1f).height(4.dp),
                             color = if (isLimitAmount) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
@@ -316,7 +316,7 @@ fun AddTransactionScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     AmountQuickAddChips(
                         onAddAmount = { amountToAdd ->
                             presets.ping()

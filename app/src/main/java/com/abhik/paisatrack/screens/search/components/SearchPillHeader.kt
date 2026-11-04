@@ -124,7 +124,7 @@ fun SearchPillHeader(
             .fillMaxWidth()
             .background(headerGradient)
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Surface(
             modifier = Modifier
@@ -182,9 +182,9 @@ fun SearchPillHeader(
                 ) {
                     if (query.isEmpty()) {
                         Text(
-                            text = "Search records, collections, names...",
+                            text = "Search records, collections, or names",
                             style = TextStyle(
-                                fontSize = 14.5.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Normal,
                                 color = searchPlaceholder
                             ),

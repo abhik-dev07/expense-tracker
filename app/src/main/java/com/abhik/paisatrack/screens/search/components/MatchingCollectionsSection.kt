@@ -132,7 +132,7 @@ fun MatchingCollectionsSection(
                             Box(
                                 modifier = Modifier
                                     .size(40.dp)
-                                    .clip(MaterialShapes.Cookie4Sided.toShape())
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(colColor.copy(alpha = 0.15f)),
                                 contentAlignment = Alignment.Center
                             ) {

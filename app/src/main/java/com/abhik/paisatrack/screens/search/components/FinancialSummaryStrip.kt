@@ -22,6 +22,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.abhik.paisatrack.utils.SearchSummary
 import com.abhik.paisatrack.screens.search.FinancialSearchUtils
+import com.abhik.paisatrack.ui.theme.SleekExpenseDark
+import com.abhik.paisatrack.ui.theme.SleekExpenseLight
+import com.abhik.paisatrack.ui.theme.SleekIncomeDark
+import com.abhik.paisatrack.ui.theme.SleekIncomeLight
 import com.abhik.paisatrack.ui.theme.isAppInDarkTheme
 import java.text.DecimalFormat
 
@@ -42,6 +46,8 @@ fun FinancialSummaryStrip(
     }
 
     val netBalance = summary.totalReceived - summary.totalSent
+    val incomeColor = if (isDark) SleekIncomeDark else SleekIncomeLight
+    val expenseColor = if (isDark) SleekExpenseDark else SleekExpenseLight
 
     Surface(
         modifier = modifier
@@ -62,7 +68,7 @@ fun FinancialSummaryStrip(
             ) {
                 Text(
                     text = "${summary.matchCount} ${if (summary.matchCount == 1) "record" else "records"} found",
-                    fontSize = 13.5.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -87,14 +93,14 @@ fun FinancialSummaryStrip(
                 Column {
                     Text(
                         text = "Total spent",
-                        fontSize = 11.5.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "-${dollarFormat.format(summary.totalSent)}",
-                        fontSize = 14.5.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFEF4444)
+                        color = expenseColor
                     )
                 }
 
@@ -102,14 +108,14 @@ fun FinancialSummaryStrip(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Total income",
-                        fontSize = 11.5.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "+${dollarFormat.format(summary.totalReceived)}",
-                        fontSize = 14.5.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF10B981)
+                        color = incomeColor
                     )
                 }
 
@@ -117,14 +123,14 @@ fun FinancialSummaryStrip(
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "Net cash flow",
-                        fontSize = 11.5.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "${if (netBalance >= 0) "+" else ""}${dollarFormat.format(netBalance)}",
-                        fontSize = 14.5.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (netBalance >= 0) Color(0xFF10B981) else Color(0xFFEF4444)
+                        color = if (netBalance >= 0) incomeColor else expenseColor
                     )
                 }
             }

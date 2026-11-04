@@ -61,16 +61,17 @@ class FinanceRepository(
 
     suspend fun ensureDefaultCollectionsPreseeded() {
         val collections = collectionDao.getAllCollections().first()
-        if (collections.isEmpty()) {
-            val defaults = listOf(
-                CollectionEntity(name = "General", hexColor = "#3F51B5", iconName = "category", monthlyBudget = null, isPrebuilt = true),
-                CollectionEntity(name = "Food & Dining", hexColor = "#FF9800", iconName = "restaurant", monthlyBudget = 400.0, isPrebuilt = true),
-                CollectionEntity(name = "Transport & Logistics", hexColor = "#03A9F4", iconName = "directions_car", monthlyBudget = 150.0, isPrebuilt = true),
-                CollectionEntity(name = "Entertainment & Leisure", hexColor = "#9C27B0", iconName = "movie", monthlyBudget = 200.0, isPrebuilt = true),
-                CollectionEntity(name = "Salary & Income", hexColor = "#4CAF50", iconName = "account_balance_wallet", monthlyBudget = null, isPrebuilt = true),
-                CollectionEntity(name = "Heaths & Care", hexColor = "#E91E63", iconName = "local_hospital", monthlyBudget = 100.0, isPrebuilt = true)
-            )
-            for (col in defaults) {
+        val existingTitles = collections.map { it.name.trim().lowercase() }.toSet()
+        val defaults = listOf(
+            CollectionEntity(name = "General", hexColor = "#5C6BC0", iconName = "category", monthlyBudget = null, isPrebuilt = true),
+            CollectionEntity(name = "Food & Dining", hexColor = "#FFB74D", iconName = "restaurant", monthlyBudget = 400.0, isPrebuilt = true),
+            CollectionEntity(name = "Transport & Logistics", hexColor = "#4DD0E1", iconName = "directions_car", monthlyBudget = 150.0, isPrebuilt = true),
+            CollectionEntity(name = "Entertainment & Leisure", hexColor = "#AB7BC6", iconName = "movie", monthlyBudget = 200.0, isPrebuilt = true),
+            CollectionEntity(name = "Salary & Income", hexColor = "#66BB6A", iconName = "account_balance_wallet", monthlyBudget = null, isPrebuilt = true),
+            CollectionEntity(name = "Heaths & Care", hexColor = "#F06292", iconName = "local_hospital", monthlyBudget = 100.0, isPrebuilt = true)
+        )
+        for (col in defaults) {
+            if (!existingTitles.contains(col.name.trim().lowercase())) {
                 collectionDao.insertCollection(col)
             }
         }
@@ -78,9 +79,9 @@ class FinanceRepository(
 
     // ─── Backend Sync Logic ──────────────────────────────────────────
 
-    suspend fun signupUser(googleId: String, email: String, name: String, image: String): SignupResponse? {
+    suspend fun signupUser(googleId: String, email: String, name: String, image: String, idToken: String? = null): SignupResponse? {
         return try {
-            val response = ApiClient.api.signupUser(SignupRequest(googleId, email, name, image))
+            val response = ApiClient.api.signupUser(SignupRequest(googleId, email, name, image, idToken))
             if (response.isSuccessful) {
                 response.body()
             } else {
@@ -221,8 +222,31 @@ class FinanceRepository(
                 val remoteTransactions = transactionsResponse.body() ?: emptyList()
 
                 val now = System.currentTimeMillis()
-                val localCols = collectionDao.getAllCollections().first().associateBy { it.id }
+                val localColsList = collectionDao.getAllCollections().first()
+                val localCols = localColsList.associateBy { it.id }
                 val localTxns = transactionDao.getAllTransactions().first().associateBy { it.id }
+
+                val localPrebuiltsByTitle = localColsList
+                    .filter { it.isPrebuilt }
+                    .groupBy { it.name.trim().lowercase() }
+
+                // Deduplicate local prebuilt collections:
+                // If a local prebuilt collection matches the title of a remote prebuilt collection
+                // but has a different ID, re-point any local transactions and delete the duplicate.
+                remoteCollections.forEach { rc ->
+                    if (rc.isPrebuilt == true) {
+                        val matchingLocals = localPrebuiltsByTitle[rc.title.trim().lowercase()] ?: emptyList()
+                        for (localPrebuilt in matchingLocals) {
+                            if (localPrebuilt.id != rc.id) {
+                                val txnsToRemap = transactionDao.getTransactionsByCollection(localPrebuilt.id).first()
+                                for (tx in txnsToRemap) {
+                                    transactionDao.insertTransaction(tx.copy(collectionId = rc.id))
+                                }
+                                collectionDao.deleteCollectionById(localPrebuilt.id)
+                            }
+                        }
+                    }
+                }
 
                 // Merge remote collections using ConflictResolver (Server wins / timestamp merge)
                 remoteCollections.forEach { rc ->
@@ -280,9 +304,10 @@ class FinanceRepository(
                     val remoteColIds = remoteCollections.map { it.id }.toSet()
                     val remoteTxIds = remoteTransactions.map { it.id }.toSet()
 
-                    // Delete local collections that were deleted server-side (and are SYNCED locally, excluding prebuilt defaults)
-                    localCols.values.forEach { localCol ->
-                        if (!localCol.isPrebuilt && localCol.syncStatus == com.abhik.paisatrack.data.model.SyncStatus.SYNCED.name && !remoteColIds.contains(localCol.id)) {
+                    // Delete local collections that were deleted server-side or are orphaned duplicates (and are SYNCED locally)
+                    val currentCols = collectionDao.getAllCollections().first()
+                    currentCols.forEach { localCol ->
+                        if (localCol.syncStatus == com.abhik.paisatrack.data.model.SyncStatus.SYNCED.name && !remoteColIds.contains(localCol.id)) {
                             collectionDao.deleteCollectionById(localCol.id)
                         }
                     }

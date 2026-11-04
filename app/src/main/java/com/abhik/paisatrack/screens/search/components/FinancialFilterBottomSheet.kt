@@ -254,7 +254,7 @@ fun FinancialFilterBottomSheet(
                                     Box(
                                         modifier = Modifier
                                             .size(20.dp)
-                                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                                            .clip(RoundedCornerShape(6.dp))
                                             .background(colColor.copy(alpha = 0.2f)),
                                         contentAlignment = Alignment.Center
                                     ) {

@@ -1,14 +1,11 @@
 package com.abhik.paisatrack.screens.signin.components
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -17,25 +14,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.abhik.paisatrack.R
 
 @Composable
 fun TermsAgreementRow(
     isAgreed: Boolean,
     onAgreementChanged: (Boolean) -> Unit,
     onPlunkHaptic: () -> Unit,
+    onNavigateToTermsConditions: () -> Unit = {},
+    onNavigateToPrivacyPolicy: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val uriHandler = LocalUriHandler.current
-    val view = LocalView.current
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -62,10 +58,10 @@ fun TermsAgreementRow(
         ) {
             if (isAgreed) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    painter = painterResource(id = R.drawable.ic_tick),
                     contentDescription = "Checked Icon",
                     tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
             }
         }
@@ -75,7 +71,7 @@ fun TermsAgreementRow(
             append("By continuing, you agree to our ")
             pushStringAnnotation(
                 tag = "terms",
-                annotation = "https://www.notion.so/Terms-Conditions-for-Paisa-Track-34005815a54c800680a4d955016f7a3f"
+                annotation = "terms"
             )
             pushStyle(
                 SpanStyle(
@@ -92,7 +88,7 @@ fun TermsAgreementRow(
 
             pushStringAnnotation(
                 tag = "privacy",
-                annotation = "https://www.notion.so/Privacy-Policy-for-Paisa-Track-34005815a54c803aae7bdc7f040cc59f"
+                annotation = "privacy"
             )
             pushStyle(
                 SpanStyle(
@@ -119,14 +115,14 @@ fun TermsAgreementRow(
                 ),
                 onClick = { offset ->
                     annotatedText.getStringAnnotations(tag = "terms", start = offset, end = offset)
-                        .firstOrNull()?.let { annotation ->
+                        .firstOrNull()?.let {
                             onPlunkHaptic()
-                            uriHandler.openUri(annotation.item)
+                            onNavigateToTermsConditions()
                         }
                     annotatedText.getStringAnnotations(tag = "privacy", start = offset, end = offset)
-                        .firstOrNull()?.let { annotation ->
-                            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                            uriHandler.openUri(annotation.item)
+                        .firstOrNull()?.let {
+                            onPlunkHaptic()
+                            onNavigateToPrivacyPolicy()
                         }
                 }
             )

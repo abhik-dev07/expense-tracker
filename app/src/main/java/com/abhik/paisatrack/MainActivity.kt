@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     installSplashScreen()
     com.abhik.paisatrack.ui.theme.ThemeManager.init(this)
     com.abhik.paisatrack.utils.HapticManager.init(this)
+    com.abhik.paisatrack.data.network.ApiClient.init(this.applicationContext)
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     if (savedInstanceState == null) {   // fresh launch only, see below
