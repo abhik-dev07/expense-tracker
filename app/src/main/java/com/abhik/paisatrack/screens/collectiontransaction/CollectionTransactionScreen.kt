@@ -260,7 +260,7 @@ fun CollectionTransactionsScreen(
     
 
     val colColor = remember(collection?.hexColor) {
-        safeParseColor(collection?.hexColor, fallback = Color(0xFF3F51B5))
+        safeParseColor(collection?.hexColor, fallback = Color(0xFF5C6BC0))
     }
 
     val view = LocalView.current

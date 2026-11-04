@@ -30,15 +30,15 @@ object CollectionTransactionUtils {
     }
 
     val LocalCollectionColors = listOf(
-        "#3F51B5" to "Indigo",
-        "#009688" to "Teal",
-        "#4CAF50" to "Green",
-        "#FF9800" to "Orange",
-        "#E91E63" to "Pink",
-        "#9C27B0" to "Purple",
-        "#FFEB3B" to "Yellow",
-        "#00BCD4" to "Cyan",
-        "#F44336" to "Red"
+        "#5C6BC0" to "Indigo",
+        "#4DB6AC" to "Teal",
+        "#66BB6A" to "Green",
+        "#FFB74D" to "Orange",
+        "#F06292" to "Pink",
+        "#AB7BC6" to "Purple",
+        "#D9C84A" to "Yellow",
+        "#4DD0E1" to "Cyan",
+        "#E57373" to "Red"
     )
 
     val LocalCollectionIcons = listOf(
